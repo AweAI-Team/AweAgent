@@ -1,0 +1,10 @@
+# SGLang configuration (for RL training)
+backend: sglang
+base_url: http://${SGLANG_ROUTER_IP:-localhost}:${SGLANG_ROUTER_PORT:-30000}
+model: SGLANG_ENGINE
+params:
+  temperature: 0.7
+  max_tokens: 4096
+  top_p: 0.95
+return_tokens: true
+return_logprobs: true

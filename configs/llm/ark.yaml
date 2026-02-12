@@ -1,0 +1,12 @@
+# Volcengine Ark LLM configuration (with extended thinking)
+backend: ark
+base_url: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+api_key: ${ARK_API_KEY}
+model: ${ARK_MODEL_ID}
+params:
+  temperature: 1.0
+  max_tokens: 16384
+thinking: true
+thinking_budget: 10000
+stop:
+  - "<DONE>"

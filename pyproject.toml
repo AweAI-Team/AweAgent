@@ -1,0 +1,70 @@
+[project]
+name = "awe-agent"
+version = "0.1.0"
+description = "A high-quality, extensible agent scaffold for code and search tasks"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0,<3.0",
+    "openai>=1.10.0,<2.0.0",
+    "aiohttp>=3.9",
+    "pyyaml>=6.0",
+    "tenacity>=8.2,<10",
+    "tiktoken>=0.7.0",
+    "structlog>=24.0",
+    "docker>=7.0",
+]
+
+[project.optional-dependencies]
+ark = ["volcengine-python-sdk[ark]"]
+k8s = ["kubernetes>=28.0"]
+all = ["awe-agent[ark,k8s]"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+awe-agent = "awe_agent.cli:main"
+
+[project.entry-points."awe_agent.llm_backend"]
+openai = "awe_agent.core.llm.backends.openai:OpenAIBackend"
+azure = "awe_agent.core.llm.backends.azure:AzureOpenAIBackend"
+ark = "awe_agent.core.llm.backends.ark:ArkBackend"
+sglang = "awe_agent.core.llm.backends.sglang:SGLangBackend"
+
+[project.entry-points."awe_agent.runtime"]
+docker = "awe_agent.core.runtime.docker:DockerRuntime"
+
+[project.entry-points."awe_agent.evaluator"]
+swe_bench = "awe_agent.tasks.swe_bench.evaluator:SWEBenchEvaluator"
+beyond_swe = "awe_agent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"
+
+[project.entry-points."awe_agent.tool"]
+bash = "awe_agent.core.tool.builtin.bash:BashTool"
+editor = "awe_agent.core.tool.builtin.editor:FileEditorTool"
+think = "awe_agent.core.tool.builtin.think:ThinkTool"
+search = "awe_agent.core.tool.builtin.search:SearchTool"
+link_summary = "awe_agent.core.tool.builtin.search:LinkSummaryTool"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

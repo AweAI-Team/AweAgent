@@ -1,0 +1,58 @@
+# AweAgent Default Configuration
+# Override with environment variables: AWE_AGENT__SECTION__KEY=value
+
+llm:
+  backend: openai
+  base_url: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  api_key: ${OPENAI_API_KEY}
+  model: gpt-4o
+  params:
+    temperature: 0.0
+    max_tokens: 4096
+  thinking: false
+  stop: null
+  retry:
+    max_attempts: 5
+    backoff: exponential
+
+runtime:
+  backend: docker
+  image: "python:3.11-slim"
+  timeout: 7200
+  workdir: /testbed
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+agent:
+  type: search_swe
+  max_steps: 100
+  enable_search: false
+  tools:
+    - bash
+    - editor
+    - think
+  bash_timeout: 120
+
+task:
+  type: swe_bench
+  dataset_id: swe_bench_verified
+  task_type: issue_resolving
+
+eval:
+  enabled: true
+  isolated: true
+  timeout: 3600
+
+execution:
+  max_concurrent: 50
+  max_retries: 3
+  output_path: ./results
+  output_format: jsonl
+
+security:
+  bash_blacklist:
+    - ".*git clone.*"
+    - ".*git fetch.*"
+    - ".*git pull.*"
+    - ".*curl.*github\\.com.*"
