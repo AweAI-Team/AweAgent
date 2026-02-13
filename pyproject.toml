@@ -39,6 +39,9 @@ sglang = "awe_agent.core.llm.backends.sglang:SGLangBackend"
 [project.entry-points."awe_agent.runtime"]
 docker = "awe_agent.core.runtime.docker:DockerRuntime"
 
+[project.entry-points."awe_agent.agent"]
+search_swe = "awe_agent.scaffold.search_swe.agent:SearchSWEAgent"
+
 [project.entry-points."awe_agent.evaluator"]
 swe_bench = "awe_agent.tasks.swe_bench.evaluator:SWEBenchEvaluator"
 beyond_swe = "awe_agent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"

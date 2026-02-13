@@ -85,6 +85,7 @@ def _cmd_info() -> None:
     from awe_agent.core.llm.client import llm_registry
     from awe_agent.core.task.runner import runtime_registry
     from awe_agent.core.tool.registry import tool_registry
+    from awe_agent.scaffold.registry import agent_registry
 
     print(f"AweAgent v{__version__}\n")
 
@@ -96,12 +97,15 @@ def _cmd_info() -> None:
     for name in runtime_registry.list_available():
         print(f"  - {name}")
 
+    print("\nAgent Scaffolds:")
+    for name in agent_registry.list_available():
+        print(f"  - {name}")
+
     print("\nTools:")
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nScaffolds: search_swe")
-    print("Tasks: swe_bench, beyond_swe")
+    print("\nTasks: swe_bench, beyond_swe")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
@@ -193,14 +197,10 @@ def _build_task(config: Any):
 
 def _build_agent_factory(config: Any):
     """Build an agent factory function from config."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from awe_agent.scaffold.registry import agent_registry
 
-    return lambda: SearchSWEAgent(
-        enable_search=config.agent.enable_search,
-        bash_timeout=config.agent.bash_timeout,
-        max_output_length=config.agent.max_output_length,
-        bash_blacklist=config.security.bash_blacklist or None,
-    )
+    agent_cls = agent_registry.get(config.agent.type)
+    return lambda: agent_cls.from_config(config)
 
 
 def _build_evaluator(config: Any):

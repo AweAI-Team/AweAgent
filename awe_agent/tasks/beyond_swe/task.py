@@ -35,6 +35,31 @@ from awe_agent.scaffold.search_swe.prompts.user import get_user_prompt
 
 logger = logging.getLogger(__name__)
 
+# Normalize dataset task type names to the canonical keys used in the
+# prompt route table (search_swe/prompts/config.py).  The mapping is
+# case-insensitive — see _normalize_task_type().
+_TASK_TYPE_ALIASES: dict[str, str] = {
+    "crossrepo": "cross-repo",
+    "cross-repo": "cross-repo",
+    "domainfix": "domain",
+    "domain": "domain",
+    "depmigrate": "refactor",
+    "refactor": "refactor",
+    "doc2repo": "doc2repo",
+}
+
+
+def _normalize_task_type(raw_type: str) -> str:
+    """Map a dataset task type string to its canonical route-table key."""
+    key = raw_type.lower().replace("_", "").replace("-", "").replace(" ", "")
+    canonical = _TASK_TYPE_ALIASES.get(key)
+    if canonical is None:
+        logger.warning(
+            "Unknown BeyondSWE task type %r, falling back to 'domain'", raw_type,
+        )
+        return "domain"
+    return canonical
+
 
 class BeyondSWETask(Task):
     """Task implementation for the BeyondSWE benchmark.
@@ -90,11 +115,12 @@ class BeyondSWETask(Task):
 
     def _to_instance(self, raw: dict[str, Any]) -> Instance:
         instance_id = raw.get("instance_id", "")
-        task_type = raw.get("task", "domain")
+        task_type = _normalize_task_type(raw.get("task", "domain"))
 
         base_commit = (
             raw.get("base_commit")
             or raw.get("pre_agent_commit_id")
+            or raw.get("parent_commit")
             or (raw.get("base", {}) or {}).get("sha", "")
         )
         workdir = raw.get("workdir", "/workspace")

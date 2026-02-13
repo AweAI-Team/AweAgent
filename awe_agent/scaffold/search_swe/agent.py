@@ -14,7 +14,7 @@ Supports two modes of operation:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from awe_agent.core.agent.context import AgentContext
 from awe_agent.core.agent.protocol import Agent
@@ -26,6 +26,9 @@ from awe_agent.core.tool.builtin.think import ThinkTool
 from awe_agent.core.tool.protocol import Tool
 from awe_agent.scaffold.search_swe.prompts.config import resolve_from_task_info
 from awe_agent.scaffold.search_swe.prompts.system import get_system_prompt
+
+if TYPE_CHECKING:
+    from awe_agent.core.config.schema import AweAgentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +69,16 @@ class SearchSWEAgent(Agent):
         agent = SearchSWEAgent(enable_search=True)
         # System prompt is resolved automatically from task_info
     """
+
+    @classmethod
+    def from_config(cls, config: AweAgentConfig) -> SearchSWEAgent:
+        """Create a SearchSWEAgent from the global config."""
+        return cls(
+            enable_search=config.agent.enable_search,
+            bash_timeout=config.agent.bash_timeout,
+            max_output_length=config.agent.max_output_length,
+            bash_blacklist=config.security.bash_blacklist or None,
+        )
 
     def __init__(
         self,
