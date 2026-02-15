@@ -28,7 +28,7 @@ class SearchTool(Tool):
 
     def __init__(
         self,
-        max_results: int = 5,
+        max_results: int = 10,
         blocked_domains: list[str] | None = None,
     ) -> None:
         self._max_results = max_results

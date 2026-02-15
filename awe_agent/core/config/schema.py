@@ -18,7 +18,7 @@ class AgentConfig(BaseModel):
     enable_search: bool = False
     tools: list[str] = Field(default_factory=lambda: ["bash", "editor", "think"])
     bash_timeout: int = 120
-    max_output_length: int = 16000
+    max_output_length: int = 32000
     bash_blacklist: list[str] = Field(default_factory=list)
 
 

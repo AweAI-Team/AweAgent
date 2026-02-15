@@ -144,7 +144,7 @@ class BeyondSWETask(Task):
         setup_commands = []
         pre_commands = raw.get("pre_commands", "")
         if isinstance(pre_commands, str) and pre_commands.strip():
-            setup_commands = [pre_commands]
+            setup_commands = [pre_commands.strip().removesuffix("\\n")]
         elif isinstance(pre_commands, dict):
             exec_cmd = pre_commands.get("execute_command", {})
             if isinstance(exec_cmd, dict):

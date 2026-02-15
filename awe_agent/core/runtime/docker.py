@@ -158,7 +158,9 @@ class DockerRuntime(Runtime):
         if not img:
             raise ValueError("No image specified for Docker runtime")
 
-        container_name = f"awe-agent-{img}-{uuid.uuid4().hex[:12]}"
+        # Container names only allow [a-zA-Z0-9_.-]
+        safe_img = img.rsplit("/", 1)[-1].replace(":", "-")
+        container_name = f"awe-agent-{safe_img}-{uuid.uuid4().hex[:12]}"
 
         def _create() -> Any:
             # Pull if needed

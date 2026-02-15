@@ -12,7 +12,7 @@ from awe_agent.core.tool.protocol import Tool
 logger = logging.getLogger(__name__)
 
 # Default max output length to avoid overwhelming the context
-_MAX_OUTPUT_LENGTH = 16000
+_MAX_OUTPUT_LENGTH = 32000
 
 
 class BashTool(Tool):

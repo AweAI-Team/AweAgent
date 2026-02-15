@@ -84,10 +84,10 @@ class SearchSWEAgent(Agent):
         self,
         enable_search: bool = False,
         bash_timeout: int = 180,
-        max_output_length: int = 16000,
+        max_output_length: int = 32000,
         bash_blacklist: list[str] | None = None,
-        enable_think: bool = True,
-        search_max_results: int = 5,
+        enable_think: bool = False,
+        search_max_results: int = 10,
         blocked_search_domains: list[str] | None = None,
     ) -> None:
         self._enable_search = enable_search
