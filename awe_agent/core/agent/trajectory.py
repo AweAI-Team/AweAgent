@@ -74,7 +74,7 @@ class Trajectory:
         return messages
 
     def to_training_format(self) -> dict[str, Any]:
-        """Export for RL training (Slime/AlphaSeed compatible).
+        """Export for RL training (Slime compatible).
 
         Returns dict with:
             prompt_token_ids: all prompt tokens

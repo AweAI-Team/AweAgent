@@ -43,20 +43,19 @@ class ArkBackend:
             "messages": [m.to_dict() for m in messages],
         }
 
-        merged = {**self.config.params, **kwargs}
-        for key in ("temperature", "max_tokens", "top_p", "seed"):
-            if key in merged:
-                params[key] = merged.pop(key)
+        # Merge config params with runtime overrides — pass everything through.
+        # If the YAML config has invalid params, let the API error out directly.
+        params.update({**self.config.params, **kwargs})
 
-        stop = merged.pop("stop", None) or self.config.stop
+        stop = params.pop("stop", None) or self.config.stop
         if stop:
             params["stop"] = stop
 
         if tools:
             params["tools"] = tools
 
-        # Extended thinking support
-        thinking_config = merged.pop("thinking", None)
+        # Extended thinking support (special handling: convert to Ark format)
+        thinking_config = params.pop("thinking", None)
         if thinking_config or self.config.thinking:
             budget = (
                 thinking_config.get("budget_tokens", self.config.thinking_budget)

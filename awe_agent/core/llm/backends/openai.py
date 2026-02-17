@@ -46,26 +46,18 @@ class OpenAIBackend:
             "messages": [m.to_dict() for m in messages],
         }
 
-        # Merge config params with runtime overrides
-        merged = {**self.config.params, **kwargs}
+        # Merge config params with runtime overrides — pass everything through.
+        # If the YAML config has invalid params, let the API error out directly.
+        params.update({**self.config.params, **kwargs})
 
-        # Standard params
-        for key in ("temperature", "max_tokens", "top_p", "frequency_penalty",
-                     "presence_penalty", "seed"):
-            if key in merged:
-                params[key] = merged.pop(key)
-
-        # Stop strings
-        stop = merged.pop("stop", None) or self.config.stop
+        stop = params.pop("stop", None) or self.config.stop
         if stop:
             params["stop"] = stop
 
-        # Response format
-        response_format = merged.pop("response_format", None) or self.config.response_format
+        response_format = params.pop("response_format", None) or self.config.response_format
         if response_format:
             params["response_format"] = response_format
 
-        # Tools
         if tools:
             params["tools"] = tools
 

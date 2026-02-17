@@ -77,7 +77,7 @@ class SearchSWEAgent(Agent):
         if config.security.blocked_search_patterns:
             search_constraints = SearchConstraints(
                 blocked_patterns=config.security.blocked_search_patterns,
-            )
+            ) # TODO: 这里的from_config，似乎不能写死，因为不同任务的blocked_search_patterns可能不一样
 
         return cls(
             enable_search=config.agent.enable_search,

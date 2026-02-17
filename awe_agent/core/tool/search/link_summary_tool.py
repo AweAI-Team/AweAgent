@@ -7,7 +7,7 @@ Three ways to configure the LLM backend (can be combined):
 
 1. **YAML config only** (recommended for production)::
 
-       export LINK_SUMMARY_CONFIG_PATH=configs/llm/link_summary/azure.yaml
+       export LINK_SUMMARY_CONFIG_PATH=/path/to/configs/llm/link_summary/azure.yaml
 
    The YAML file provides all settings: backend, api_key, model, params, etc.
 
@@ -22,7 +22,7 @@ Three ways to configure the LLM backend (can be combined):
 
 3. **Both** (YAML config + model override)::
 
-       export LINK_SUMMARY_CONFIG_PATH=configs/llm/link_summary/azure.yaml
+       export LINK_SUMMARY_CONFIG_PATH=/path/to/configs/llm/link_summary/azure.yaml
        export LINK_SUMMARY_MODEL=gpt-5.2-2025-12-11
 
    Backend, api_key, and params come from YAML; ``LINK_SUMMARY_MODEL``
@@ -117,7 +117,7 @@ class LinkSummaryTool(Tool):
         self._llm_model: str | None = llm_model
         # When client is injected, resolve params immediately
         if llm_client is not None:
-            self._llm_params: dict[str, Any] = {"max_tokens": 4096}
+            self._llm_params: dict[str, Any] = {"max_completion_tokens": 32768}
             if llm_params:
                 self._llm_params.update(llm_params)
         else:
