@@ -15,7 +15,7 @@ class RetryConfig(BaseModel):
     base_delay: float = 1.0
     max_delay: float = 60.0
     retry_on: list[str] = Field(
-        default_factory=lambda: ["RateLimitError", "APIConnectionError", "Timeout"]
+        default_factory=lambda: ["RateLimitError", "APIConnectionError", "Timeout", "BadRequestError"]
     )
 
 

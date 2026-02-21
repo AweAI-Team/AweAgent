@@ -19,6 +19,9 @@ class Action:
     token_ids: list[int] | None = None
     logprobs: list[float] | None = None
 
+    # Token usage from LLM response (for stats tracking)
+    usage: Any = None
+
 
 @dataclass
 class TrajectoryStep:

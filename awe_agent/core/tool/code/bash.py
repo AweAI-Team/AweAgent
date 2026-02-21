@@ -35,10 +35,12 @@ class ExecuteBashTool(Tool):
         timeout: int = 180,
         max_output_length: int = _MAX_OUTPUT_LENGTH,
         blocklist: list[str] | None = None,
+        max_timeout: int = 600,
     ) -> None:
         self._timeout = timeout
         self._max_output_length = max_output_length
         self._blocklist = [re.compile(p) for p in (blocklist or [])]
+        self._max_timeout = max_timeout
 
     @property
     def name(self) -> str:
@@ -115,6 +117,7 @@ truncated before being returned.""")
                 timeout = int(timeout)
             except ValueError:
                 timeout = self._timeout
+        timeout = min(timeout, self._max_timeout)
 
         start_time = time.monotonic()
         try:

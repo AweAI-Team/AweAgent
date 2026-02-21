@@ -7,6 +7,7 @@ from typing import Any
 
 from awe_agent.core.runtime.protocol import Runtime
 from awe_agent.core.task.types import EvalResult, Instance
+from awe_agent.core.tool.search.constraints import SearchConstraints
 
 
 class Task(ABC):
@@ -51,6 +52,16 @@ class Task(ABC):
             "workdir": instance.workdir,
             "language": instance.language,
         }
+
+    def get_search_constraints(self, instance: Instance) -> SearchConstraints | None:
+        """Build search constraints for this instance.
+
+        By default, generates constraints from the repo name (if available).
+        Override in subclasses for custom constraint logic.
+        """
+        if instance.repo:
+            return SearchConstraints.from_repo(instance.repo)
+        return None
 
     def default_evaluator(self) -> Evaluator | None:
         """Return the default evaluator for this task type.

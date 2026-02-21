@@ -352,6 +352,25 @@ persistent Linux environment.
 """
 
 
+# ── No-tool-call reminder ─────────────────────────────────────────────────────
+# Sent by AgentLoop when the LLM returns a response without invoking any tool.
+# Mirrors swalm's REALSWE_NO_FNCALL_PROMPT.
+
+NO_TOOL_CALL_PROMPT = """\
+Please continue working on the task using the most suitable approach.
+
+CRITICAL:
+If you believe the task is solved, you MUST call the "finish" tool to formally \
+complete the interaction. Simply outputting the answer in text is NOT sufficient. \
+The interaction will not end until the "finish" tool is invoked.
+
+Remember:
+1. Provide your final answer clearly.
+2. IMMEDIATELY invoke the "finish" tool.
+3. Do NOT ask for human help.
+"""
+
+
 # ── Registry ─────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPTS: dict[str, str] = {

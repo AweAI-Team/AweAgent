@@ -49,7 +49,7 @@ class AweAgentRollout:
 
     def __init__(
         self,
-        agent_factory: Callable[[], Agent],
+        agent_factory: Callable[..., Agent],
         task: Task,
         runtime_config: RuntimeConfig,
         evaluator: Evaluator | None = None,
@@ -143,8 +143,12 @@ class AweAgentRollout:
                 for cmd in self.task.get_setup_commands(instance):
                     await session.execute(cmd)
 
-                # Run agent
-                agent = self.agent_factory()
+                # Run agent — pass search constraints if factory accepts them
+                search_constraints = self.task.get_search_constraints(instance)
+                try:
+                    agent = self.agent_factory(search_constraints=search_constraints)
+                except TypeError:
+                    agent = self.agent_factory()
                 llm = LLMClient(llm_config)
                 context = AgentContext(
                     llm=llm,
@@ -152,6 +156,7 @@ class AweAgentRollout:
                     tools=agent.get_tools(),
                     task_info=self.task.get_task_info(instance),
                     max_steps=self._agent_max_steps,
+                    condenser=None,
                 )
                 loop = AgentLoop(agent, context)
                 agent_result = await loop.run(self.task.get_prompt(instance))

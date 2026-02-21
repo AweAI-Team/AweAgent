@@ -94,6 +94,7 @@ class LLMClient:
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
         self._backend = self._create_backend(config)
+        logger.info("LLMClient: backend=%s, model=%s", config.backend, config.model)
 
     def _create_backend(self, config: LLMConfig) -> LLMBackend:
         backend_cls = llm_registry.get(config.backend)

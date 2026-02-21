@@ -149,6 +149,10 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     # Build evaluator (optional)
     evaluator = _build_evaluator(config)
 
+    # Build condenser (optional)
+    from awe_agent.core.condenser import build_condenser
+    condenser = build_condenser(config.agent.condenser)
+
     # Run
     runner = TaskRunner(
         task=task,
@@ -159,6 +163,7 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         max_concurrent=config.execution.max_concurrent,
         max_retries=config.execution.max_retries,
         output_path=config.execution.output_path,
+        condenser=condenser,
     )
 
     results = await runner.run_all(args.instance_ids)
@@ -196,11 +201,21 @@ def _build_task(config: Any):
 
 
 def _build_agent_factory(config: Any):
-    """Build an agent factory function from config."""
+    """Build an agent factory function from config.
+
+    Returns a callable that accepts optional ``search_constraints`` kwarg
+    for per-instance constraint injection.
+    """
     from awe_agent.scaffold.registry import agent_registry
 
     agent_cls = agent_registry.get(config.agent.type)
-    return lambda: agent_cls.from_config(config)
+
+    def factory(search_constraints=None):
+        if search_constraints and hasattr(agent_cls, "from_config_with_constraints"):
+            return agent_cls.from_config_with_constraints(config, search_constraints)
+        return agent_cls.from_config(config)
+
+    return factory
 
 
 def _build_evaluator(config: Any):

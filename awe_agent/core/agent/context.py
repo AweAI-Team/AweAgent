@@ -53,6 +53,12 @@ class AgentContext:
     # Security
     bash_constraints: BashConstraints | None = None
 
+    # Context condensing (None = no condensing)
+    condenser: Any = None
+
+    # Tool call format (None = default OpenAI function calling)
+    tool_call_format: Any = None
+
     def get_tool_schemas(self) -> list[dict[str, Any]]:
         """Get OpenAI function calling schemas for all tools."""
         return [tool.schema for tool in self.tools]

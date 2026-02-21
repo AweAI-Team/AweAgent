@@ -55,3 +55,19 @@ class Agent(ABC):
     def get_tools(self) -> list[Tool]:
         """Return the tools this agent uses."""
         ...
+
+    def get_no_tool_call_prompt(self) -> str | None:
+        """Return a reminder prompt for when the LLM returns no tool calls.
+
+        When the LLM responds with text but does not invoke any tool, the
+        :class:`AgentLoop` will check this value:
+
+        * **Non-None** — the prompt is appended as a ``user`` message and
+          the loop continues (gives the LLM another chance to call tools
+          or explicitly finish).
+        * **None** (default) — no-tool-call is treated as a terminal state
+          and the loop breaks immediately.
+
+        Override in subclasses that require explicit ``finish`` tool usage.
+        """
+        return None

@@ -143,6 +143,7 @@ class SGLangBackend:
                 completion_tokens=usage_data.get("completion_tokens", 0),
                 total_tokens=usage_data.get("total_tokens", 0),
             ),
+            finish_reason=choice.get("finish_reason"),
             raw=data,
         )
 

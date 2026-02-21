@@ -159,19 +159,28 @@ async def main() -> None:
             return
 
         # ── 5. Run agent ─────────────────────────────────────────
+        from awe_agent.core.condenser import build_condenser
+
+        # Build search constraints from task instance
+        search_constraints = task.get_search_constraints(inst)
+
         agent = SearchSWEAgent(
             enable_search=config.agent.enable_search,
             bash_timeout=config.agent.bash_timeout,
+            bash_max_timeout=config.agent.bash_max_timeout,
             max_output_length=config.agent.max_output_length,
             bash_blocklist=config.security.bash_blocklist or None,
+            search_constraints=search_constraints,
         )
         llm = LLMClient(config.llm)
+        condenser = build_condenser(config.agent.condenser)
         ctx = AgentContext(
             llm=llm,
             session=session,
             tools=agent.get_tools(),
             task_info=task_info,
             max_steps=config.agent.max_steps,
+            condenser=condenser,
         )
         loop = AgentLoop(agent, ctx)
 

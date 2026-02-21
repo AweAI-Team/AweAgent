@@ -84,6 +84,7 @@ class LLMResponse:
     tool_calls: list[ToolCall] = field(default_factory=list)
     thinking: str | None = None  # Extended thinking content
     usage: TokenUsage | None = None
+    finish_reason: str | None = None  # "stop" | "length" | "tool_calls" | etc.
     raw: Any = None  # Raw response for debugging
 
     # RL-related fields (populated when return_tokens/return_logprobs enabled)

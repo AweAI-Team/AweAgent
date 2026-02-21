@@ -49,7 +49,7 @@ class TaskRunner:
     def __init__(
         self,
         task: Task,
-        agent_factory: Callable[[], Agent],
+        agent_factory: Callable[..., Agent],
         llm_config: LLMConfig,
         runtime_config: RuntimeConfig,
         evaluator: Evaluator | None = None,
@@ -57,6 +57,7 @@ class TaskRunner:
         max_concurrent: int = 50,
         max_retries: int = 3,
         output_path: str | Path = "./results",
+        condenser: Any = None,
     ) -> None:
         self.task = task
         self.agent_factory = agent_factory
@@ -68,6 +69,7 @@ class TaskRunner:
         self.max_retries = max_retries
         self.output_path = Path(output_path)
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._condenser = condenser
 
     async def run_all(
         self,
@@ -155,13 +157,15 @@ class TaskRunner:
                     logger.warning("Setup command failed: %s -> %s", cmd, result.stderr[:200])
 
             # Create agent
-            agent = self.agent_factory()
+            constraints = self.task.get_search_constraints(instance)
+            agent = self.agent_factory(search_constraints=constraints)
             llm = LLMClient(self.llm_config)
             context = AgentContext(
                 llm=llm,
                 session=session,
                 tools=agent.get_tools(),
                 task_info=self.task.get_task_info(instance),
+                condenser=self._condenser,
             )
             loop = AgentLoop(agent, context)
 

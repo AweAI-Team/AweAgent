@@ -75,5 +75,6 @@ class AzureOpenAIBackend:
             content=msg.content,
             tool_calls=tool_calls,
             usage=usage,
+            finish_reason=getattr(choice, "finish_reason", None),
             raw=response,
         )

@@ -98,5 +98,6 @@ class ArkBackend:
             tool_calls=tool_calls,
             thinking=thinking,
             usage=usage,
+            finish_reason=getattr(choice, "finish_reason", None),
             raw=response,
         )

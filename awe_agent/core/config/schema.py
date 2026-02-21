@@ -10,6 +10,14 @@ from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.runtime.config import RuntimeConfig
 
 
+class CondenserConfig(BaseModel):
+    """Context condensing configuration."""
+
+    type: str = "none"  # "none" | "truncation"
+    max_messages: int = 50
+    keep_first: int = 2
+
+
 class AgentConfig(BaseModel):
     """Agent-specific configuration."""
 
@@ -18,8 +26,11 @@ class AgentConfig(BaseModel):
     enable_search: bool = False
     tools: list[str] = Field(default_factory=lambda: ["execute_bash", "str_replace_editor", "think"])
     bash_timeout: int = 180
+    bash_max_timeout: int = 600
     max_output_length: int = 32000
     bash_blocklist: list[str] = Field(default_factory=list)
+    condenser: CondenserConfig = Field(default_factory=CondenserConfig)
+    tool_call_format: str = "openai_function"
 
 
 class TaskConfig(BaseModel):
