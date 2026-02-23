@@ -1,8 +1,4 @@
-"""ThinkTool — allows agent to reason without taking external action.
-
-Migrated from swalm's CodeAct agent with detailed use-case descriptions
-and thought history tracking.
-"""
+"""ThinkTool — allows agent to reason without taking external action."""
 
 from __future__ import annotations
 

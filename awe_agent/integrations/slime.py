@@ -1,7 +1,7 @@
 """Slime RL framework integration.
 
-Provides a clean rollout interface for RL training. Replaces the complex
-global-state + dual-event-loop design in swalm_fully_async_rollout.py.
+Provides a clean rollout interface for RL training. Uses an instance-based
+lifecycle with a single event loop, replacing prior global-state designs.
 
 Key design:
 - No global state — instance-based lifecycle via context manager

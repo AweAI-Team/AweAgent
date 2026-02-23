@@ -1,8 +1,4 @@
-"""Code tools for AweAgent — bash, editor, think, and finish tools.
-
-Migrated from swalm's CodeAct agent implementation with high-quality
-descriptions and robust error handling.
-"""
+"""Code tools for AweAgent — bash, editor, think, and finish tools."""
 
 from awe_agent.core.tool.code.bash import ExecuteBashTool
 from awe_agent.core.tool.code.editor import StrReplaceEditorTool

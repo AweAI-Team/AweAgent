@@ -354,7 +354,6 @@ persistent Linux environment.
 
 # ── No-tool-call reminder ─────────────────────────────────────────────────────
 # Sent by AgentLoop when the LLM returns a response without invoking any tool.
-# Mirrors swalm's REALSWE_NO_FNCALL_PROMPT.
 
 NO_TOOL_CALL_PROMPT = """\
 Please continue working on the task using the most suitable approach.

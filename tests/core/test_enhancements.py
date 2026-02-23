@@ -29,7 +29,7 @@ from awe_agent.core.llm.format.openai import OpenAIFunctionFormat
 from awe_agent.core.llm.format.xml import CodeActXMLFormat
 from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
 from awe_agent.core.runtime.types import ExecutionResult
-from awe_agent.core.task.types import Instance
+from awe_agent.core.task.types import EvalResult, Instance
 from awe_agent.core.tool.code.bash import ExecuteBashTool
 from awe_agent.core.tool.search.constraints import SearchConstraints
 from tests.conftest import MockRuntimeSession
@@ -514,3 +514,441 @@ def test_agent_config_has_bash_max_timeout():
     """AgentConfig includes bash_max_timeout field."""
     config = AgentConfig()
     assert config.bash_max_timeout == 600
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# BeyondSWE Evaluator Fixes
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_6_strategies():
+    """apply_patch tries 6 strategies in order; reject partial success normalised to 0."""
+    from awe_agent.core.runtime.types import ExecutionResult
+
+    session = MockRuntimeSession()
+    call_count = 0
+    commands_seen: list[str] = []
+
+    async def mock_execute(command, cwd=None, timeout=None, env=None):
+        nonlocal call_count
+        commands_seen.append(command)
+        call_count += 1
+        # Fail all non-reject strategies, succeed on 4th (first --reject) with exit_code=1
+        if call_count == 4:
+            return ExecutionResult(stdout="partial", stderr="rejected hunks", exit_code=1)
+        return ExecutionResult(stdout="", stderr="error", exit_code=128)
+
+    session.execute = mock_execute
+
+    result = await session.apply_patch("/workspace", "diff --git a/foo")
+
+    # Should have tried 4 strategies before the reject partial success
+    assert len(commands_seen) == 4
+    assert result.exit_code == 0  # normalized from 1
+    assert "partial" in result.stdout
+
+    # Verify strategy order
+    assert "git apply --verbose /tmp/_awe_agent.patch" in commands_seen[0]
+    assert "--ignore-space-change" in commands_seen[1]
+    assert "patch --batch" in commands_seen[2]
+    assert "--reject" in commands_seen[3]
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_succeeds_on_first():
+    """apply_patch returns immediately when first strategy works."""
+    session = MockRuntimeSession()
+
+    async def mock_execute(command, cwd=None, timeout=None, env=None):
+        return ExecutionResult(stdout="ok", exit_code=0)
+
+    session.execute = mock_execute
+
+    result = await session.apply_patch("/workspace", "some patch")
+    assert result.success
+    assert result.stdout == "ok"
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_all_fail():
+    """apply_patch returns last failure when all 6 strategies fail."""
+    session = MockRuntimeSession()
+
+    async def mock_execute(command, cwd=None, timeout=None, env=None):
+        # Return exit_code=128 for all (not 1, so reject partial doesn't trigger)
+        return ExecutionResult(stdout="", stderr="fatal error", exit_code=128)
+
+    session.execute = mock_execute
+
+    result = await session.apply_patch("/workspace", "bad patch")
+    assert not result.success
+    assert result.exit_code == 128
+
+
+def test_restore_test_files_recursive_glob():
+    """restore_test_files uses **/ prefix for recursive glob."""
+    import inspect
+    from awe_agent.core.eval.utils import restore_test_files
+
+    source = inspect.getsource(restore_test_files)
+    assert "**/test_*.py" in source
+    assert "**/*_test.py" in source
+    assert "**/conftest.py" in source
+
+
+def test_parse_junit_xml_exact_match():
+    """parse_junit_xml matches tests via exact file::name strategy."""
+    from awe_agent.core.eval.utils import parse_junit_xml
+
+    xml = '''<?xml version="1.0" ?>
+    <testsuite tests="2">
+        <testcase name="test_one" classname="tests.test_foo" file="tests/test_foo.py"/>
+        <testcase name="test_two" classname="tests.test_foo" file="tests/test_foo.py"/>
+    </testsuite>'''
+
+    expected = ["tests/test_foo.py::test_one", "tests/test_foo.py::test_two"]
+    all_passed, details = parse_junit_xml(xml, expected)
+    assert all_passed
+    assert details["total_matched"] == 2
+    assert len(details["unmatched_expected"]) == 0
+
+
+def test_parse_junit_xml_normalized_match():
+    """parse_junit_xml matches via normalized classname.name strategy."""
+    from awe_agent.core.eval.utils import parse_junit_xml
+
+    xml = '''<?xml version="1.0" ?>
+    <testsuite tests="1">
+        <testcase name="test_thing" classname="tests.test_bar"/>
+    </testsuite>'''
+
+    expected = ["tests/test_bar.py::test_thing"]
+    all_passed, details = parse_junit_xml(xml, expected)
+    assert all_passed
+    assert details["total_matched"] == 1
+
+
+def test_parse_junit_xml_with_failure():
+    """parse_junit_xml returns False when a test fails."""
+    from awe_agent.core.eval.utils import parse_junit_xml
+
+    xml = '''<?xml version="1.0" ?>
+    <testsuite tests="2">
+        <testcase name="test_pass" classname="tests.test_foo" file="tests/test_foo.py"/>
+        <testcase name="test_fail" classname="tests.test_foo" file="tests/test_foo.py">
+            <failure message="assert False"/>
+        </testcase>
+    </testsuite>'''
+
+    expected = ["tests/test_foo.py::test_pass", "tests/test_foo.py::test_fail"]
+    all_passed, details = parse_junit_xml(xml, expected)
+    assert not all_passed
+    assert details["matched"]["tests/test_foo.py::test_fail"] == "failed"
+
+
+def test_parse_junit_xml_skips_skipped():
+    """parse_junit_xml ignores skipped tests."""
+    from awe_agent.core.eval.utils import parse_junit_xml
+
+    xml = '''<?xml version="1.0" ?>
+    <testsuite tests="2">
+        <testcase name="test_pass" classname="tests.test_foo" file="tests/test_foo.py"/>
+        <testcase name="test_skip" classname="tests.test_foo" file="tests/test_foo.py">
+            <skipped message="reason"/>
+        </testcase>
+    </testsuite>'''
+
+    expected = ["tests/test_foo.py::test_pass"]
+    all_passed, details = parse_junit_xml(xml, expected)
+    assert all_passed
+
+
+def test_parse_junit_xml_invalid_xml():
+    """parse_junit_xml returns False on invalid XML."""
+    from awe_agent.core.eval.utils import parse_junit_xml
+
+    all_passed, details = parse_junit_xml("not xml at all", ["test_a"])
+    assert not all_passed
+    assert len(details["xml_errors"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_run_tests_with_runner_uploads_and_executes():
+    """run_tests_with_runner uploads runner script + config and executes."""
+    from awe_agent.core.eval.utils import run_tests_with_runner
+
+    session = MockRuntimeSession()
+    session._default_result = ExecutionResult(
+        stdout="<pytest>true</pytest>", exit_code=0,
+    )
+
+    all_passed, output, details = await run_tests_with_runner(
+        session, "/workspace", ["tests/test_a.py::test_1"], timeout=60,
+    )
+
+    assert all_passed
+    assert "/tmp/_awe_pytest_runner.py" in session.files
+    assert "/tmp/_awe_test_config.json" in session.files
+
+    # Verify config content
+    import json
+    config = json.loads(session.files["/tmp/_awe_test_config.json"])
+    assert config["test_ids"] == ["tests/test_a.py::test_1"]
+
+
+@pytest.mark.asyncio
+async def test_run_tests_with_runner_empty_ids():
+    """run_tests_with_runner returns failure for empty test IDs."""
+    from awe_agent.core.eval.utils import run_tests_with_runner
+
+    session = MockRuntimeSession()
+    all_passed, output, details = await run_tests_with_runner(session, "/workspace", [])
+    assert not all_passed
+    assert details["error"] == "no_test_ids"
+
+
+@pytest.mark.asyncio
+async def test_eval_func_level_f2p_patch_fail_returns_false():
+    """_eval_func_level returns accepted=False immediately when f2p_patch fails."""
+    from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+
+    session = MockRuntimeSession()
+
+    # Make apply_patch fail
+    async def mock_apply_patch(cwd, patch):
+        return ExecutionResult(stderr="patch failed", exit_code=1)
+
+    session.apply_patch = mock_apply_patch
+
+    evaluator = BeyondSWEEvaluator(timeout=60)
+    instance = Instance(
+        id="test_001",
+        dataset_id="beyond_swe",
+        workdir="/workspace",
+        metadata={
+            "task_type": "cross-repo",
+            "f2p_patch": "some bad patch",
+            "FAIL_TO_PASS": '["test_a.py::test_1"]',
+            "PASS_TO_PASS": "",
+        },
+    )
+
+    result = await evaluator._eval_func_level(instance, session)
+    assert not result.accepted
+    assert result.details.get("error") == "f2p_patch_failed"
+
+
+@pytest.mark.asyncio
+async def test_eval_func_level_f2p_script_uploaded_as_test_file():
+    """_eval_func_level uploads f2p_script to workdir/test_fail_to_pass.py."""
+    from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+
+    session = MockRuntimeSession()
+    session._default_result = ExecutionResult(
+        stdout="<pytest>true</pytest>", exit_code=0,
+    )
+
+    evaluator = BeyondSWEEvaluator(timeout=60)
+    instance = Instance(
+        id="test_002",
+        dataset_id="beyond_swe",
+        workdir="/workspace",
+        metadata={
+            "task_type": "domain",
+            "f2p_patch": "",
+            "f2p_script": "import pytest\ndef test_x(): pass",
+            "FAIL_TO_PASS": '["test_fail_to_pass.py::test_x"]',
+            "PASS_TO_PASS": "",
+        },
+    )
+
+    result = await evaluator._eval_func_level(instance, session)
+    # Verify f2p_script was uploaded as a test file, not executed
+    assert "/workspace/test_fail_to_pass.py" in session.files
+    assert b"def test_x" in session.files["/workspace/test_fail_to_pass.py"]
+
+
+@pytest.mark.asyncio
+async def test_eval_repo_level_zip_flow():
+    """_eval_repo_level reads ZIP, uploads, unzips, runs eval script."""
+    import tempfile, os, zipfile
+    from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+
+    # Create a temp ZIP file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = os.path.join(tmpdir, "test_suite.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("realswe_eval_script.py", "print('<pytest>true</pytest>')")
+
+        session = MockRuntimeSession()
+        session._default_result = ExecutionResult(
+            stdout="<pytest>true</pytest>", exit_code=0,
+        )
+
+        evaluator = BeyondSWEEvaluator(timeout=60)
+        instance = Instance(
+            id="doc2repo_001",
+            dataset_id="beyond_swe",
+            workdir="/workspace",
+            metadata={
+                "task_type": "doc2repo",
+                "test_suite": "test_suite.zip",
+                "test_suite_path": tmpdir,
+                "test_suite_num": 5,
+            },
+        )
+
+        result = await evaluator._eval_repo_level(instance, session)
+        assert result.accepted
+        # Verify ZIP was uploaded
+        assert "/tmp/_awe_test_suite.zip" in session.files
+        # Verify unzip command was issued
+        assert any("unzip" in cmd for cmd in session.commands)
+        # Verify eval script was executed
+        assert any("realswe_eval_script.py" in cmd for cmd in session.commands)
+
+
+def test_parse_pytest_output():
+    """parse_pytest_output checks passed >= num and no failures."""
+    from awe_agent.core.eval.utils import parse_pytest_output
+
+    output_pass = "===== 5 passed in 1.23s ====="
+    assert parse_pytest_output(output_pass, 5) is True
+    assert parse_pytest_output(output_pass, 6) is False
+
+    output_fail = "===== 3 passed, 1 failed in 2.00s ====="
+    assert parse_pytest_output(output_fail, 3) is False
+
+    output_empty = "no tests ran"
+    assert parse_pytest_output(output_empty, 1) is False
+
+
+def test_task_metadata_has_test_suite_num():
+    """BeyondSWETask includes test_suite_num in instance metadata."""
+    from awe_agent.tasks.beyond_swe.task import BeyondSWETask
+
+    task = BeyondSWETask(instances=[{
+        "instance_id": "test_001",
+        "task": "doc2repo",
+        "test_suite_num": 42,
+    }])
+    instances = task.get_instances()
+    assert len(instances) == 1
+    assert instances[0].metadata["test_suite_num"] == 42
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PreAgentSetup
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_pre_agent_setup_prepare():
+    """PreAgentSetup.prepare() executes setup_commands then remove_future_commits."""
+    from awe_agent.core.eval.setup import PreAgentSetup
+
+    session = MockRuntimeSession()
+    session._default_result = ExecutionResult(stdout="", exit_code=0)
+
+    instance = Instance(
+        id="setup_test",
+        dataset_id="test",
+        workdir="/testbed",
+        setup_commands=["pip install foo", "echo hello"],
+    )
+
+    setup = PreAgentSetup(session, instance.workdir)
+    await setup.prepare(instance)
+
+    # Two setup commands + one remove_future_commits command
+    assert len(session.commands) == 3
+    assert session.commands[0] == "pip install foo"
+    assert session.commands[1] == "echo hello"
+    # Third command should be the remove_future_commits script
+    assert "git for-each-ref" in session.commands[2]
+    assert "git stash clear" in session.commands[2]
+    assert session.commands[2].startswith("cd /testbed && ")
+
+
+@pytest.mark.asyncio
+async def test_pre_agent_setup_remove_future_commits():
+    """PreAgentSetup.remove_future_commits() runs the correct git commands."""
+    from awe_agent.core.eval.setup import PreAgentSetup
+
+    session = MockRuntimeSession()
+    session._default_result = ExecutionResult(stdout="", exit_code=0)
+
+    setup = PreAgentSetup(session, "/workspace")
+    await setup.remove_future_commits()
+
+    assert len(session.commands) == 1
+    cmd = session.commands[0]
+    assert cmd.startswith("cd /workspace && ")
+    assert "git rev-parse --abbrev-ref HEAD" in cmd
+    assert "git for-each-ref" in cmd
+    assert "git branch -f" in cmd
+    assert "git stash clear" in cmd
+
+
+@pytest.mark.asyncio
+async def test_pre_agent_setup_empty_commands():
+    """PreAgentSetup.prepare() with no setup_commands only runs remove_future_commits."""
+    from awe_agent.core.eval.setup import PreAgentSetup
+
+    session = MockRuntimeSession()
+    session._default_result = ExecutionResult(stdout="", exit_code=0)
+
+    instance = Instance(
+        id="empty_setup",
+        dataset_id="test",
+        workdir="/testbed",
+    )
+
+    setup = PreAgentSetup(session, instance.workdir)
+    await setup.prepare(instance)
+
+    # Only remove_future_commits should have run
+    assert len(session.commands) == 1
+    assert "git for-each-ref" in session.commands[0]
+
+
+@pytest.mark.asyncio
+async def test_pre_patch_setup_hook_called_before_patch():
+    """PatchTestEvaluator calls pre_patch_setup between checkout and patch apply."""
+    from awe_agent.core.eval.base import PatchTestEvaluator
+    from awe_agent.core.runtime.protocol import Runtime
+
+    call_order: list[str] = []
+
+    class TrackingEvaluator(PatchTestEvaluator):
+        async def pre_patch_setup(self, instance, session):
+            call_order.append("pre_patch_setup")
+
+        async def run_tests(self, instance, session):
+            call_order.append("run_tests")
+            return EvalResult(accepted=True, score=1.0)
+
+    session = MockRuntimeSession()
+    session._default_result = ExecutionResult(stdout="", exit_code=0)
+
+    # Mock runtime context manager
+    from contextlib import asynccontextmanager
+
+    class MockRuntime:
+        @asynccontextmanager
+        async def session(self, image):
+            yield session
+
+    evaluator = TrackingEvaluator(timeout=60)
+    instance = Instance(
+        id="hook_test",
+        dataset_id="test",
+        workdir="/testbed",
+        base_commit="abc123",
+        image="test:latest",
+    )
+
+    result = await evaluator.evaluate(instance, "some patch", MockRuntime())
+    assert result.accepted
+    assert call_order == ["pre_patch_setup", "run_tests"]

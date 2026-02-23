@@ -38,6 +38,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from awe_agent.core.agent import AgentContext, AgentLoop
 from awe_agent.core.config.loader import load_config
+from awe_agent.core.eval.setup import PreAgentSetup
 from awe_agent.core.llm import LLMClient
 from awe_agent.core.runtime import RuntimeConfig
 from awe_agent.core.runtime.docker import DockerRuntime
@@ -63,6 +64,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--model", default=None, help="Override LLM model from config")
     p.add_argument("--max-steps", type=int, default=None, help="Override max agent steps from config")
     p.add_argument("--enable-search", action="store_true", default=None, help="Enable search tools")
+    p.add_argument("--skip-eval", action="store_true", help="Skip evaluation after agent run")
     p.add_argument("--verbose", action="store_true", help="DEBUG level logging")
     return p.parse_args()
 
@@ -144,13 +146,9 @@ async def main() -> None:
     runtime = DockerRuntime(runtime_config)
 
     async with runtime.session(image) as session:
-        # Run setup commands
-        for cmd in task.get_setup_commands(inst):
-            r = await session.execute(cmd)
-            status = "OK" if r.success else "FAIL"
-            print(f"  [{status}] {cmd[:120]}")
-            if not r.success:
-                print(f"         stderr: {r.stderr[:300]}")
+        # Pre-agent setup (setup_commands + remove future commits)
+        setup = PreAgentSetup(session, inst.workdir)
+        await setup.prepare(inst)
 
         if args.mode == "dry-run":
             r = await session.execute(f"ls {inst.workdir}")
@@ -217,6 +215,26 @@ async def main() -> None:
 
         if result.patch:
             print_section("PATCH", result.patch)
+
+    # ── 8. Evaluate (outside agent session — container released) ──
+    if args.mode == "run" and not args.skip_eval:
+        # if result.patch:
+        if True:
+            from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+
+            eval_runtime = DockerRuntime(RuntimeConfig(
+                backend="docker", image=image, workdir=inst.workdir,
+            ))
+            evaluator = BeyondSWEEvaluator(timeout=3600)
+            eval_result = await evaluator.evaluate(inst, result.patch, eval_runtime)
+            print_section("EVAL RESULT", json.dumps({
+                "accepted": eval_result.accepted,
+                "score": eval_result.score,
+                "duration": eval_result.duration,
+                "details": eval_result.details,
+            }, indent=2, default=str))
+        else:
+            print("\n[eval] No patch produced — skipping evaluation.")
 
 
 if __name__ == "__main__":

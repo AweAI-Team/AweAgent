@@ -170,6 +170,7 @@ class BeyondSWETask(Task):
                 "f2p_script": raw.get("f2p_script", ""),
                 "test_suite": raw.get("test_suite", ""),
                 "test_suite_path": raw.get("test_suite_path", ""),
+                "test_suite_num": raw.get("test_suite_num", 0),
                 "parent_commit": raw.get("parent_commit", ""),
                 "raw": raw,
             },

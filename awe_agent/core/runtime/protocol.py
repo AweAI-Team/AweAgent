@@ -56,28 +56,29 @@ class RuntimeSession(ABC):
         return result.stdout
 
     async def apply_patch(self, cwd: str, patch: str) -> ExecutionResult:
-        """Apply a patch. Tries multiple strategies for robustness."""
-        # Upload patch
+        """Apply a patch. Tries 6 strategies for robustness."""
         await self.upload_file("/tmp/_awe_agent.patch", patch.encode())
 
-        # Try git apply first
-        result = await self.execute(
-            "git apply --verbose /tmp/_awe_agent.patch", cwd=cwd
-        )
-        if result.success:
-            return result
+        strategies = [
+            ("git apply --verbose /tmp/_awe_agent.patch", False),
+            ("git apply --verbose --ignore-space-change --ignore-whitespace /tmp/_awe_agent.patch", False),
+            ("patch --batch --fuzz=5 -p1 -i /tmp/_awe_agent.patch", False),
+            ("git apply --verbose --reject /tmp/_awe_agent.patch", True),
+            ("git apply --verbose --reject --ignore-space-change --ignore-whitespace /tmp/_awe_agent.patch", True),
+            ("git apply --verbose --reject --ignore-space-change --ignore-whitespace --allow-empty /tmp/_awe_agent.patch", True),
+        ]
 
-        # Fallback: git apply with reject
-        result = await self.execute(
-            "git apply --verbose --reject /tmp/_awe_agent.patch", cwd=cwd
-        )
-        if result.success:
-            return result
+        last_result = None
+        for cmd, is_reject in strategies:
+            result = await self.execute(cmd, cwd=cwd)
+            if result.success:
+                return result
+            if is_reject and result.exit_code == 1:
+                # --reject partial success (rejected hunks written to .rej)
+                return ExecutionResult(stdout=result.stdout, stderr=result.stderr, exit_code=0)
+            last_result = result
 
-        # Final fallback: patch command
-        return await self.execute(
-            "patch --batch --fuzz=5 -p1 < /tmp/_awe_agent.patch", cwd=cwd
-        )
+        return last_result or ExecutionResult(stderr="All patch strategies failed", exit_code=1)
 
     @abstractmethod
     async def close(self) -> None:

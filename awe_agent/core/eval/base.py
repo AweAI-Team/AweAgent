@@ -43,7 +43,9 @@ class PatchTestEvaluator(Evaluator):
 
     Subclasses **may** override:
 
-    - :meth:`get_setup_commands` — extra shell commands to run after patch
+    - :meth:`pre_patch_setup` — setup that must happen *before* the agent's
+      patch is applied (e.g., pre_commands, removing future commits).
+    - :meth:`get_setup_commands` — extra shell commands to run *after* patch
       application (e.g., apply ``f2p_patch``, install dependencies).
 
     Example::
@@ -83,6 +85,9 @@ class PatchTestEvaluator(Evaluator):
                         f"cd {instance.workdir} && "
                         f"git checkout {instance.base_commit}",
                     )
+
+                # 1.5 ── Pre-patch setup (hook for subclasses)
+                await self.pre_patch_setup(instance, session)
 
                 # 2 ── Apply the agent's patch
                 if patch and patch.strip():
@@ -147,6 +152,21 @@ class PatchTestEvaluator(Evaluator):
             ``EvalResult`` with ``accepted``, ``score``, and ``details``.
         """
         ...
+
+    async def pre_patch_setup(
+        self,
+        instance: Instance,
+        session: RuntimeSession,
+    ) -> None:
+        """Hook for subclasses to run setup BEFORE patch application.
+
+        Use this for operations that must happen before the agent's patch:
+
+        - Pre-commands (environment setup, dependency installation)
+        - Removing future commits (data leakage prevention)
+
+        Default: no-op (backward compatible).
+        """
 
     def get_setup_commands(self, instance: Instance) -> list[str]:
         """Optional shell commands to run after patch application.

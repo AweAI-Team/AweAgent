@@ -1,8 +1,4 @@
-"""StrReplaceEditorTool — view, create, and edit files via str_replace.
-
-Migrated from swalm's CodeAct agent with enhanced descriptions,
-directory listing support, file existence checks, and robust error handling.
-"""
+"""StrReplaceEditorTool — view, create, and edit files via str_replace."""
 
 from __future__ import annotations
 

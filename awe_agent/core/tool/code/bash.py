@@ -1,8 +1,4 @@
-"""ExecuteBashTool — execute shell commands in the runtime environment.
-
-Migrated from swalm's CodeAct agent with enhanced descriptions,
-timeout support, blocklist checking, and output truncation.
-"""
+"""ExecuteBashTool — execute shell commands in the runtime environment."""
 
 from __future__ import annotations
 

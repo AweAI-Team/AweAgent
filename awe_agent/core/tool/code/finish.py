@@ -1,6 +1,6 @@
 """FinishTool family — signal task completion with optional structured answers.
 
-Migrated from swalm's CodeAct agent. Provides multiple finish tool variants
+Provides multiple finish tool variants
 for different task types (default, integer answer, fault localization, file submission).
 
 Usage:
