@@ -42,6 +42,7 @@ class AgentContext:
 
     # Execution config
     max_steps: int = 100
+    max_context_length: int | None = None  # None = no limit
     current_step: int = 0
 
     # Task info

@@ -29,7 +29,7 @@ class AgentResult:
     trajectory: Trajectory
     patch: str = ""
     messages: list[Message] = field(default_factory=list)
-    finish_reason: str = ""  # "finish" | "max_steps" | "error"
+    finish_reason: str = ""  # "finish" | "max_steps" | "context_length" | "error"
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -65,17 +65,20 @@ class AgentLoop:
 
         Termination conditions (in priority order):
 
-        1. **Explicit finish** — ``action.type == "finish"`` (agent called the
+        1. **Context length exceeded** — the previous LLM call's
+           ``prompt_tokens`` exceeded ``max_context_length``.  Checked
+           *before* the next LLM call to avoid wasting an API request.
+        2. **Explicit finish** — ``action.type == "finish"`` (agent called the
            *finish* tool).  Any associated tool calls are executed first so that
            their responses appear in the conversation history.
-        2. **No tool call with reminder** — ``action.type == "message"`` (LLM
+        3. **No tool call with reminder** — ``action.type == "message"`` (LLM
            returned text without tool calls) *and* the agent provides a
            ``get_no_tool_call_prompt()``.  The reminder is appended as a
            ``user`` message and the loop **continues**.
-        3. **No tool call without reminder** — same as (2) but agent returns
+        4. **No tool call without reminder** — same as (3) but agent returns
            ``None`` → treated as implicit finish.
-        4. **Max steps** — loop counter exhausted.
-        5. **Error** — any exception during a step.
+        5. **Max steps** — loop counter exhausted.
+        6. **Error** — any exception during a step.
         """
         # Read no-tool-call prompt from agent (may be None).
         no_tool_call_prompt: str | None = None
@@ -98,9 +101,24 @@ class AgentLoop:
         stats.start()
 
         finish_reason = "max_steps"
+        # Estimated token count for the next LLM call's input.
+        # Updated after each step as: prompt_tokens + completion_tokens,
+        # which is a lower bound (tool observations add more).
+        estimated_next_context = 0
 
         for step in range(self.ctx.max_steps):
             self.ctx.current_step = step
+
+            # ── 0. Context length guard ───────────────────────────────
+            if (self.ctx.max_context_length is not None
+                    and estimated_next_context > self.ctx.max_context_length):
+                logger.info(
+                    "Estimated context %d exceeds limit %d at step %d, stopping",
+                    estimated_next_context, self.ctx.max_context_length, step,
+                )
+                finish_reason = "context_length"
+                break
+
             logger.debug("Step %d/%d", step + 1, self.ctx.max_steps)
 
             try:
@@ -115,6 +133,7 @@ class AgentLoop:
                 if action.usage is not None:
                     prompt_tokens = getattr(action.usage, "prompt_tokens", 0)
                     completion_tokens = getattr(action.usage, "completion_tokens", 0)
+                estimated_next_context = prompt_tokens + completion_tokens
                 stats.record_llm_call(llm_elapsed, prompt_tokens, completion_tokens)
 
                 # Record in trajectory

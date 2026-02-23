@@ -23,6 +23,7 @@ class AgentConfig(BaseModel):
 
     type: str = "search_swe"
     max_steps: int = 100
+    max_context_length: int | None = None
     enable_search: bool = False
     tools: list[str] = Field(default_factory=lambda: ["execute_bash", "str_replace_editor", "think"])
     bash_timeout: int = 180

@@ -174,6 +174,7 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         save_trajectories=config.execution.save_trajectories and not args.no_trajectories,
         config_snapshot=config_snapshot,
         max_steps=config.agent.max_steps,
+        max_context_length=config.agent.max_context_length,
     )
 
     results = await runner.run_all(args.instance_ids)

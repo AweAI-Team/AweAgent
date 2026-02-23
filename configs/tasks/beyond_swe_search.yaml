@@ -15,6 +15,7 @@ runtime:
 agent:
   type: search_swe
   max_steps: 200
+  # max_context_length: 128000  # Max input tokens per LLM call; null = no limit
   enable_search: true
   bash_timeout: 1200
 

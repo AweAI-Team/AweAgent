@@ -230,6 +230,7 @@ async def _mode_debug(config, task, instance_id: str, skip_eval: bool) -> None:
             tools=agent.get_tools(),
             task_info=task_info,
             max_steps=config.agent.max_steps,
+            max_context_length=config.agent.max_context_length,
             condenser=condenser,
         )
         loop = AgentLoop(agent, ctx)
@@ -323,6 +324,7 @@ async def _mode_batch(
         save_trajectories=save_trajectories,
         config_snapshot=config_snapshot,
         max_steps=config.agent.max_steps,
+        max_context_length=config.agent.max_context_length,
     )
 
     results = await runner.run_all(instance_ids)

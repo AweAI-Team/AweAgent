@@ -158,6 +158,7 @@ class TaskRunner:
         save_trajectories: bool = True,
         config_snapshot: dict[str, Any] | None = None,
         max_steps: int = 100,
+        max_context_length: int | None = None,
     ) -> None:
         self.task = task
         self.agent_factory = agent_factory
@@ -168,6 +169,7 @@ class TaskRunner:
         self.max_concurrent = max_concurrent
         self.max_retries = max_retries
         self.max_steps = max_steps
+        self.max_context_length = max_context_length
         self.output_path = Path(output_path)
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._condenser = condenser
@@ -297,6 +299,7 @@ class TaskRunner:
                 tools=agent.get_tools(),
                 task_info=self.task.get_task_info(instance),
                 max_steps=self.max_steps,
+                max_context_length=self.max_context_length,
                 condenser=self._condenser,
             )
             loop = AgentLoop(agent, context)
