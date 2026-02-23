@@ -18,8 +18,6 @@ from typing import TYPE_CHECKING
 from awe_agent.core.eval.base import PatchTestEvaluator
 from awe_agent.core.eval.setup import PreAgentSetup
 from awe_agent.core.eval.utils import (
-    parse_pytest_output,
-    parse_pytest_summary,
     parse_test_ids,
     run_tests_with_runner,
 )
@@ -153,27 +151,22 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
         test_suite_num = instance.metadata.get("test_suite_num", 0)
 
         # ── 1. pip install -e . ─────────────────────────────────────────
-        await session.execute(
+        install_result = await session.execute(
             f"cd {workdir} && pip install -e .", timeout=300,
         )
+        if not install_result.success:
+            return EvalResult(
+                accepted=False,
+                score=0.0,
+                details={
+                    "error": "pip_install_failed",
+                    "stderr": install_result.stderr[-2000:],
+                },
+            )
 
         if not test_suite_name or not test_suite_path:
-            # Fallback: discover and run all tests in workspace
-            result = await session.execute(
-                f"cd {workdir} && python -m pytest --tb=short --no-header -q",
-                timeout=self._timeout,
-            )
-            summary = parse_pytest_summary(result.output)
-            return EvalResult(
-                accepted=summary.all_passed,
-                score=1.0 if summary.all_passed else 0.0,
-                details={
-                    "passed": summary.passed,
-                    "failed": summary.failed,
-                    "errors": summary.errors,
-                    "exit_code": result.exit_code,
-                    "output": result.output[-2000:],
-                },
+            raise ValueError(
+                f"doc2repo instance {instance.id} missing test_suite or test_suite_path"
             )
 
         # ── 2. Read local ZIP file ──────────────────────────────────────
@@ -213,13 +206,12 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
                 },
             )
 
-        # ── 6. Fallback: parse_pytest_output with test_suite_num ───────
-        accepted = parse_pytest_output(result.output, test_suite_num) if test_suite_num > 0 else False
+        # ── 6. Marker not found → fail (align with swalm) ────────────
         return EvalResult(
-            accepted=accepted,
-            score=1.0 if accepted else 0.0,
+            accepted=False,
+            score=0.0,
             details={
-                "source": "pytest_summary_fallback",
+                "source": "pytest_marker_not_found",
                 "test_suite_num": test_suite_num,
                 "exit_code": result.exit_code,
                 "output": result.output[-2000:],
