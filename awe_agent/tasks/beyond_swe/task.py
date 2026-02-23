@@ -243,8 +243,11 @@ class BeyondSWETask(Task):
             "task_type": instance.metadata.get("task_type", "domain"),
         }
 
-    def default_evaluator(self) -> Evaluator:
+    def default_evaluator(self, timeout: int | None = None) -> Evaluator:
         """Return a BeyondSWEEvaluator for this task."""
         from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
 
-        return BeyondSWEEvaluator()
+        kwargs = {}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        return BeyondSWEEvaluator(**kwargs)

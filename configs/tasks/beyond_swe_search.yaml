@@ -1,12 +1,13 @@
 # BeyondSWE Search Mode Configuration
-# Usage: awe-agent run -c configs/tasks/beyond_swe_search.yaml
+# Usage:
+#   awe-agent run -c configs/tasks/beyond_swe_search.yaml
+#   python recipes/beyond_swe/run.py -c configs/tasks/beyond_swe_search.yaml --data-file ...
 
 llm: "!include ../llm/azure.yaml"
 
 runtime:
   backend: docker
   timeout: 14400
-  workdir: /testbed
   resource_limits:
     cpu: "4"
     memory: "8Gi"
@@ -15,11 +16,6 @@ agent:
   type: search_swe
   max_steps: 200
   enable_search: true
-  tools:
-    - bash
-    - editor
-    - search
-    - link_summary
   bash_timeout: 1200
 
 task:
@@ -29,14 +25,12 @@ task:
 
 eval:
   enabled: true
-  isolated: true
   timeout: 3600
 
 execution:
   max_concurrent: 50
   max_retries: 3
   output_path: ./results/beyond_swe_search
-  output_format: jsonl
 
 security:
   bash_blocklist:

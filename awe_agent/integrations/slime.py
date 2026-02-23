@@ -12,7 +12,7 @@ Key design:
 Usage:
     rollout = AweAgentRollout(
         agent_factory=lambda: SearchSWEAgent(enable_search=True),
-        task=SWEBenchTask("scaleswe"),
+        task=BeyondSWETask(data_file="data.jsonl"),
         runtime_config=RuntimeConfig(backend="portal"),
         max_concurrent=50,
     )

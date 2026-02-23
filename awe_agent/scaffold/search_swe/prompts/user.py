@@ -15,60 +15,6 @@ Template variables:
 
 from __future__ import annotations
 
-# ── SWE-Bench ────────────────────────────────────────────────────────────────
-# Re-exported from the task module for centralized access.
-# The actual templates live in tasks/swe_bench/prompts.py — we reference a
-# simplified version here so the prompt system is self-contained.
-
-SWE_BENCH_PROMPT = """\
-<uploaded_files>
-{workspace_dir}
-</uploaded_files>
-
-I've uploaded a code repository in `{workspace_dir}`. Consider the following issue:
-
-<issue>
-{problem_statement}
-</issue>
-
-Please implement the necessary changes to resolve this issue.
-
-**Important notes:**
-- I've already taken care of all changes to any test files. You do NOT need to \
-modify any tests.
-- The development environment is already set up.
-- Make minimal changes to non-test files in `{workspace_dir}`.
-
-Follow this workflow to solve the issue:
-
-1. **READING**: Carefully read the issue. Identify the core problem, key error \
-messages, and affected components. Reword it in your own terms.
-
-2. **RUNNING**: Explore the repo structure. Check README or setup docs. Verify \
-the environment works by running existing tests or simple commands.
-
-3. **EXPLORATION**: Use grep/find to locate relevant source files. Identify the \
-root cause and the minimal set of files that need to change.
-
-4. **REPRODUCTION**: Write a minimal script that reproduces the bug. Confirm \
-the issue exists before attempting a fix.
-
-5. **ANALYSIS**: Before coding, explicitly state:
-   - What the problem is
-   - Where in the code it occurs
-   - What the correct behavior should be
-   - Your proposed fix
-
-6. **IMPLEMENTATION**: Make focused, minimal changes. Do not refactor unrelated \
-code or change coding style.
-
-7. **VERIFICATION**: Run the reproduction script again. Run related test suites. \
-Use `git diff` to review your changes are correct and complete.
-
-Important: Your task is complete when you have made the code changes. You do not \
-need to create a pull request or commit."""
-
-
 # ── BeyondSWE: Non-search prompts ───────────────────────────────────────────
 
 DOC2REPO_PROMPT = """\
@@ -873,9 +819,6 @@ than brevity."""
 # ── Registry ─────────────────────────────────────────────────────────────────
 
 USER_PROMPTS: dict[str, str] = {
-    # SWE-Bench
-    "swe_bench":           SWE_BENCH_PROMPT,
-
     # BeyondSWE — non-search
     "doc2repo":            DOC2REPO_PROMPT,
     "cross_repo":          CROSS_REPO_PROMPT,

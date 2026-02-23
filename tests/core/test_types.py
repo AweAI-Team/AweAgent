@@ -104,7 +104,7 @@ def test_execution_result_combined_output():
 
 
 def test_instance_defaults():
-    inst = Instance(id="test-1", dataset_id="swe_bench")
+    inst = Instance(id="test-1", dataset_id="beyond_swe")
     assert inst.workdir == "/testbed"
     assert inst.language == "python"
     assert inst.setup_commands == []

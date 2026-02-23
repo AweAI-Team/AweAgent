@@ -63,12 +63,17 @@ class Task(ABC):
             return SearchConstraints.from_repo(instance.repo)
         return None
 
-    def default_evaluator(self) -> Evaluator | None:
+    def default_evaluator(self, timeout: int | None = None) -> Evaluator | None:
         """Return the default evaluator for this task type.
 
         Subclasses should override this to provide a task-specific evaluator.
         The ``TaskRunner`` uses this as a fallback when no evaluator is
         explicitly configured.
+
+        Args:
+            timeout: Evaluation timeout in seconds.  Passed through to the
+                evaluator constructor so that ``config.eval.timeout`` is
+                respected.
 
         Returns ``None`` to indicate no default evaluator is available.
         """

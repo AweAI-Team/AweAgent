@@ -30,7 +30,7 @@ def test_default_config():
     assert config.runtime.backend == "docker"
     assert config.agent.type == "search_swe"
     assert config.agent.max_steps == 100
-    assert config.task.type == "swe_bench"
+    assert config.task.type == "beyond_swe"
 
 
 def test_llm_config_fields():

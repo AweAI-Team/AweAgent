@@ -41,7 +41,11 @@ def main() -> None:
         "--instance-ids", nargs="*", help="Specific instance IDs to run"
     )
     run_parser.add_argument(
-        "-o", "--output", default="./results", help="Output directory (default: ./results)"
+        "-o", "--output", default=None, help="Output directory (default: from config)"
+    )
+    run_parser.add_argument(
+        "--no-trajectories", action="store_true",
+        help="Disable saving per-instance trajectory files",
     )
     run_parser.add_argument(
         "--max-concurrent", type=int, help="Override max concurrent instances"
@@ -105,7 +109,7 @@ def _cmd_info() -> None:
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nTasks: swe_bench, beyond_swe")
+    print("\nTasks: beyond_swe")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
@@ -121,7 +125,7 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         overrides.setdefault("execution", {})["max_concurrent"] = args.max_concurrent
     if args.max_steps is not None:
         overrides.setdefault("agent", {})["max_steps"] = args.max_steps
-    if args.output:
+    if args.output is not None:
         overrides.setdefault("execution", {})["output_path"] = args.output
 
     # Load config
@@ -147,11 +151,14 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     agent_factory = _build_agent_factory(config)
 
     # Build evaluator (optional)
-    evaluator = _build_evaluator(config)
+    evaluator = _build_evaluator(config, task)
 
     # Build condenser (optional)
     from awe_agent.core.condenser import build_condenser
     condenser = build_condenser(config.agent.condenser)
+
+    # Build config snapshot for saving
+    config_snapshot = json.loads(config.model_dump_json())
 
     # Run
     runner = TaskRunner(
@@ -164,6 +171,9 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         max_retries=config.execution.max_retries,
         output_path=config.execution.output_path,
         condenser=condenser,
+        save_trajectories=config.execution.save_trajectories and not args.no_trajectories,
+        config_snapshot=config_snapshot,
+        max_steps=config.agent.max_steps,
     )
 
     results = await runner.run_all(args.instance_ids)
@@ -172,32 +182,24 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     successes = sum(1 for r in results if r.success)
     errors = sum(1 for r in results if r.error)
     print(f"\nResults: {successes}/{len(results)} accepted, {errors} errors")
-    print(f"Output: {config.execution.output_path}/results.jsonl")
+    print(f"Output: {runner.run_dir}")
 
 
 def _build_task(config: Any):
     """Build a Task instance from config."""
     from awe_agent.tasks.beyond_swe.task import BeyondSWETask
-    from awe_agent.tasks.swe_bench.task import SWEBenchTask
 
     task_type = config.task.type
     search_mode = config.agent.enable_search
 
-    if task_type == "swe_bench":
-        return SWEBenchTask(
-            dataset_id=config.task.dataset_id,
-            data_file=config.task.data_file,
-            task_type=config.task.task_type,
-            search_mode=search_mode,
-        )
-    elif task_type == "beyond_swe":
+    if task_type == "beyond_swe":
         return BeyondSWETask(
             dataset_id=config.task.dataset_id,
             data_file=config.task.data_file,
             search_mode=search_mode,
         )
     else:
-        raise ValueError(f"Unknown task type: {task_type}. Use swe_bench or beyond_swe.")
+        raise ValueError(f"Unknown task type: {task_type}. Available: beyond_swe.")
 
 
 def _build_agent_factory(config: Any):
@@ -218,11 +220,22 @@ def _build_agent_factory(config: Any):
     return factory
 
 
-def _build_evaluator(config: Any):
-    """Build an evaluator from config, or None if eval is disabled."""
+def _build_evaluator(config: Any, task: Any):
+    """Build an evaluator from config, or None if eval is disabled.
+
+    Prefers the task's own evaluator (e.g. BeyondSWEEvaluator) over the
+    generic IsolatedEvaluator so that task-specific evaluation logic is used.
+    """
     if not config.eval.enabled:
         return None
 
+    # Prefer task-specific evaluator
+    if hasattr(task, "default_evaluator"):
+        task_eval = task.default_evaluator(timeout=config.eval.timeout)
+        if task_eval is not None:
+            return task_eval
+
+    # Fallback to generic isolated evaluator
     if config.eval.isolated:
         from awe_agent.core.eval.isolation import IsolatedEvaluator
         return IsolatedEvaluator(eval_script=config.eval.eval_script)

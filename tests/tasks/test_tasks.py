@@ -1,4 +1,4 @@
-"""Tests for task implementations (SWE-Bench and BeyondSWE)."""
+"""Tests for task implementations (BeyondSWE)."""
 
 from __future__ import annotations
 
@@ -11,113 +11,12 @@ import pytest
 from awe_agent.core.task.types import Instance
 from awe_agent.tasks.beyond_swe.prompts import get_beyond_swe_prompt
 from awe_agent.tasks.beyond_swe.task import BeyondSWETask
-from awe_agent.tasks.swe_bench.prompts import get_swe_bench_prompt
-from awe_agent.tasks.swe_bench.task import SWEBenchTask
-
-
-# ── SWE-Bench ────────────────────────────────────────────────────────────────
-
-_SWE_INSTANCES = [
-    {
-        "instance_id": "django__django-12345",
-        "repo": "django/django",
-        "base_commit": "abc123",
-        "problem_statement": "ValueError when calling QuerySet.filter() with None",
-        "patch": "diff --git a/django/db/models/query.py ...",
-        "FAIL_TO_PASS": '["test_filter_none"]',
-        "PASS_TO_PASS": '["test_filter_basic"]',
-        "version": "4.2",
-        "language": "python",
-    },
-    {
-        "instance_id": "requests__requests-6789",
-        "repo": "psf/requests",
-        "base_commit": "def456",
-        "problem_statement": "Timeout not respected for streaming responses",
-        "patch": "diff --git a/requests/adapters.py ...",
-        "language": "python",
-    },
-]
 
 
 def _write_jsonl(data: list[dict], path: str) -> None:
     with open(path, "w") as f:
         for item in data:
             f.write(json.dumps(item) + "\n")
-
-
-def test_swe_bench_task_from_instances():
-    task = SWEBenchTask(instances=_SWE_INSTANCES)
-    instances = task.get_instances()
-    assert len(instances) == 2
-    assert instances[0].id == "django__django-12345"
-    assert instances[0].repo == "django/django"
-    assert instances[0].base_commit == "abc123"
-
-
-def test_swe_bench_task_from_jsonl():
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
-        for item in _SWE_INSTANCES:
-            f.write(json.dumps(item) + "\n")
-        f.flush()
-        task = SWEBenchTask(data_file=f.name)
-        instances = task.get_instances()
-        assert len(instances) == 2
-
-
-def test_swe_bench_task_filter_by_id():
-    task = SWEBenchTask(instances=_SWE_INSTANCES)
-    instances = task.get_instances(instance_ids=["django__django-12345"])
-    assert len(instances) == 1
-    assert instances[0].id == "django__django-12345"
-
-
-def test_swe_bench_task_prompt():
-    task = SWEBenchTask(instances=_SWE_INSTANCES)
-    instances = task.get_instances()
-    prompt = task.get_prompt(instances[0])
-    assert "ValueError" in prompt
-    assert "QuerySet.filter()" in prompt
-    assert "/testbed" in prompt
-
-
-def test_swe_bench_task_setup_commands():
-    task = SWEBenchTask(instances=_SWE_INSTANCES)
-    instances = task.get_instances()
-    commands = task.get_setup_commands(instances[0])
-    assert any("git checkout abc123" in cmd for cmd in commands)
-
-
-def test_swe_bench_task_info():
-    task = SWEBenchTask(instances=_SWE_INSTANCES, task_type="issue_resolving")
-    instances = task.get_instances()
-    info = task.get_task_info(instances[0])
-    assert info["instance_id"] == "django__django-12345"
-    assert info["task_type"] == "issue_resolving"
-
-
-def test_swe_bench_prompt():
-    """SWE-bench prompt includes problem statement and workspace dir."""
-    prompt = get_swe_bench_prompt(
-        problem_statement="Bug in parser",
-        workspace_dir="/testbed",
-        language="python",
-    )
-    assert "Bug in parser" in prompt
-    assert "/testbed" in prompt
-    assert "READING" in prompt  # Workflow phase
-
-
-def test_swe_bench_no_data_source():
-    task = SWEBenchTask()
-    with pytest.raises(ValueError, match="No data source"):
-        task.get_instances()
-
-
-def test_swe_bench_missing_jsonl():
-    task = SWEBenchTask(data_file="/nonexistent/file.jsonl")
-    with pytest.raises(FileNotFoundError):
-        task.get_instances()
 
 
 # ── BeyondSWE ────────────────────────────────────────────────────────────────
@@ -238,19 +137,6 @@ def test_beyond_swe_from_jsonl():
 
 # ── Prompt routing ────────────────────────────────────────────────────────────
 
-def test_prompt_routing_swe_bench():
-    """SWE-bench routes resolve correctly for both search modes."""
-    from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
-
-    sys_key, usr_key = resolve_prompt_keys("swe_bench", None, False)
-    assert sys_key == "base"
-    assert usr_key == "swe_bench"
-
-    sys_key, usr_key = resolve_prompt_keys("swe_bench", None, True)
-    assert sys_key == "search"
-    assert usr_key == "swe_bench"
-
-
 def test_prompt_routing_beyond_swe():
     """BeyondSWE routes resolve correctly for all task types."""
     from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
@@ -270,7 +156,7 @@ def test_prompt_routing_fallback():
 
     sys_key, usr_key = resolve_prompt_keys("unknown_dataset", None, False)
     assert sys_key == "base"
-    assert usr_key == "swe_bench"
+    assert usr_key == "domain"
 
 
 def test_search_mode_beyond_swe_task():
@@ -281,11 +167,3 @@ def test_search_mode_beyond_swe_task():
     # Search variant includes search-specific phases
     assert "Search Tool" in prompt or "search" in prompt.lower()
     assert "Import fails" in prompt
-
-
-def test_search_mode_swe_bench_task():
-    """SWEBenchTask with search_mode still resolves correctly."""
-    task = SWEBenchTask(instances=_SWE_INSTANCES, search_mode=True)
-    instances = task.get_instances()
-    prompt = task.get_prompt(instances[0])
-    assert "ValueError" in prompt

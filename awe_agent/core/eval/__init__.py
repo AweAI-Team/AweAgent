@@ -6,11 +6,11 @@ Provides:
 - :class:`PatchTestEvaluator` — template base for patch-and-test evaluators.
 - :data:`evaluator_registry` — auto-discovering registry for evaluator backends.
 
-Task-specific evaluators (``SWEBenchEvaluator``, ``BeyondSWEEvaluator``) are
-registered via ``pyproject.toml`` entry-points and discovered lazily on first
-registry access.  They can also be imported directly::
+Task-specific evaluators (``BeyondSWEEvaluator``) are registered via
+``pyproject.toml`` entry-points and discovered lazily on first registry access.
+They can also be imported directly::
 
-    from awe_agent.tasks.swe_bench import SWEBenchEvaluator
+    from awe_agent.tasks.beyond_swe import BeyondSWEEvaluator
 """
 
 from awe_agent.core.eval.base import PatchTestEvaluator

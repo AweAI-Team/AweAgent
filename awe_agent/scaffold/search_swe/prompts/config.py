@@ -21,16 +21,6 @@ from typing import Any
 # More specific routes take priority over wildcard routes.
 
 PROMPT_ROUTES: dict[tuple[str, str | None, bool], tuple[str, str]] = {
-    # ── SWE-Bench family ─────────────────────────────────────────────
-    ("swe_bench", None, False):            ("base",          "swe_bench"),
-    ("swe_bench", None, True):             ("search",        "swe_bench"),
-    ("swe_bench_verified", None, False):   ("base",          "swe_bench"),
-    ("swe_bench_verified", None, True):    ("search",        "swe_bench"),
-    ("multi_swe_bench", None, False):      ("base",          "swe_bench"),
-    ("multi_swe_bench", None, True):       ("search",        "swe_bench"),
-    ("scale_swe", None, False):            ("base",          "swe_bench"),
-    ("scale_swe", None, True):             ("search",        "swe_bench"),
-
     # ── BeyondSWE ────────────────────────────────────────────────────
     ("beyond_swe", "doc2repo", False):     ("base",          "doc2repo"),
     ("beyond_swe", "doc2repo", True):      ("search",        "search_doc2repo"),
@@ -43,7 +33,7 @@ PROMPT_ROUTES: dict[tuple[str, str | None, bool], tuple[str, str]] = {
 }
 
 # Default fallback when no exact route matches
-_DEFAULT_ROUTE: tuple[str, str] = ("base", "swe_bench")
+_DEFAULT_ROUTE: tuple[str, str] = ("base", "domain")
 
 
 def resolve_prompt_keys(

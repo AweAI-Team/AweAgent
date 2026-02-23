@@ -36,9 +36,9 @@ class AgentConfig(BaseModel):
 class TaskConfig(BaseModel):
     """Task-specific configuration."""
 
-    type: str = "swe_bench"
-    dataset_id: str = "swe_bench_verified"
-    task_type: str = "issue_resolving"
+    type: str = "beyond_swe"
+    dataset_id: str = "beyond_swe"
+    task_type: str = ""
     data_file: str | None = None
     instance_ids: list[str] | None = None
 
@@ -60,6 +60,7 @@ class ExecutionConfig(BaseModel):
     max_retries: int = 3
     output_path: str = "./results"
     output_format: str = "jsonl"
+    save_trajectories: bool = True
 
 
 class SecurityConfig(BaseModel):

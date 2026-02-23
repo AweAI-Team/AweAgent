@@ -38,7 +38,7 @@ class RuntimeConfig(BaseModel):
     Example YAML:
         runtime:
           backend: docker
-          image: "ghcr.io/awe-agent/swe-bench:latest"
+          image: "python:3.11-slim"
           timeout: 14400
           resource_limits:
             cpu: "4"

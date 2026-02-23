@@ -2,14 +2,14 @@
 # Run BeyondSWE benchmark in search mode with SearchSWE agent.
 #
 # Usage:
-#   bash scripts/run_beyond_swe_search.sh --data-file /path/to/data.jsonl
-#   bash scripts/run_beyond_swe_search.sh --data-file data.jsonl --model gpt-4o --dry-run
-#   bash scripts/run_beyond_swe_search.sh --data-file data.jsonl --instance-ids inst_001 inst_002
+#   bash recipes/beyond_swe/run_beyond_swe_search.sh --data-file /path/to/data.jsonl
+#   bash recipes/beyond_swe/run_beyond_swe_search.sh --data-file data.jsonl --model gpt-4o --dry-run
+#   bash recipes/beyond_swe/run_beyond_swe_search.sh --data-file data.jsonl --instance-ids inst_001 inst_002
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CONFIG="${PROJECT_ROOT}/configs/tasks/beyond_swe_search.yaml"
 
 # ── Defaults ──────────────────────────────────────────────────────────

@@ -19,7 +19,6 @@ runtime:
   backend: docker
   image: "python:3.11-slim"
   timeout: 14400
-  workdir: /testbed
   resource_limits:
     cpu: "4"
     memory: "8Gi"
@@ -35,20 +34,17 @@ agent:
   bash_timeout: 120
 
 task:
-  type: swe_bench
-  dataset_id: swe_bench_verified
-  task_type: issue_resolving
+  type: beyond_swe
+  dataset_id: beyond_swe
 
 eval:
   enabled: true
-  isolated: true
   timeout: 3600
 
 execution:
   max_concurrent: 50
   max_retries: 3
   output_path: ./results
-  output_format: jsonl
 
 security:
   bash_blocklist:
