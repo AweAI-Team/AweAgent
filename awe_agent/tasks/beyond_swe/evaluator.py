@@ -206,7 +206,7 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
                 },
             )
 
-        # ── 6. Marker not found → fail (align with swalm) ────────────
+        # ── 6. Marker not found → fail ────────────────────────────────
         return EvalResult(
             accepted=False,
             score=0.0,

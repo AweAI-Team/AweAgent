@@ -19,7 +19,8 @@ dependencies = [
 [project.optional-dependencies]
 ark = ["volcengine-python-sdk[ark]"]
 k8s = ["kubernetes>=28.0"]
-all = ["awe-agent[ark,k8s]"]
+search = ["trafilatura>=1.0"]  # optional, for link reader content extraction
+all = ["awe-agent[ark,k8s,search]"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -44,6 +45,12 @@ search_swe = "awe_agent.scaffold.search_swe.agent:SearchSWEAgent"
 
 [project.entry-points."awe_agent.evaluator"]
 beyond_swe = "awe_agent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"
+
+[project.entry-points."awe_agent.search_backend"]
+serpapi = "awe_agent.core.tool.search.backends.search.serpapi:SerpAPIBackend"
+
+[project.entry-points."awe_agent.reader_backend"]
+jina = "awe_agent.core.tool.search.backends.reader.jina:JinaReaderBackend"
 
 [project.entry-points."awe_agent.tool"]
 execute_bash = "awe_agent.core.tool.code.bash:ExecuteBashTool"

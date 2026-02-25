@@ -1,4 +1,4 @@
-"""Search tools — web search, link reading, and summarization with anti-hack constraints."""
+"""Search tools — web search, link reading, and summarization with pluggable backends."""
 
 from awe_agent.core.tool.search.constraints import SearchConstraints
 from awe_agent.core.tool.search.link_reader_tool import LinkReaderTool

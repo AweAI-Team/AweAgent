@@ -1,8 +1,7 @@
-"""SearchTool — web search with anti-hack constraint filtering."""
+"""SearchTool — web search with pluggable backends and anti-hack constraint filtering."""
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from typing import Any, Callable
@@ -20,17 +19,25 @@ _DEFAULT_RESULT_SCHEME = ["position", "title", "description", "snippets", "url"]
 class SearchTool(Tool):
     """Web search with anti-hack constraint filtering.
 
-    Uses ``bytedance.bandai_mcp_host`` Search service. Falls back to a stub when
-    unavailable.
+    Supports pluggable search backends discovered through entry-points
+    (``awe_agent.search_backend`` group) or injected directly.
+
+    Backend resolution order:
+        1. Explicit ``backend`` argument (instance or registry name).
+        2. Explicit ``search_fn`` callable (legacy / testing).
+        3. Auto-discover from ``SEARCH_BACKEND`` env var or registry.
 
     Args:
-        engine: Search engine name. Defaults to env ``ENGINE`` or ``"google"``.
+        engine: Search engine name passed to the backend. Defaults to
+            env ``ENGINE`` or ``"google"``.
         constraints: Optional constraints for result filtering.
         max_attempts: Number of retry attempts for search calls.
         result_scheme: Fields to include in formatted output.
-        search_fn: Optional callable to use instead of bandai_mcp_host.
-            Useful for testing or custom backends. Signature:
-            ``async (query, num, start, engine) -> str | dict | list``.
+        backend: A search backend instance (must have an async ``search`` method),
+            or a registered backend name (e.g. ``"serpapi"``).
+            Auto-discovered if not provided.
+        search_fn: Optional raw callable for search (legacy / testing).
+            Signature: ``async (query, num, start, engine) -> list[dict]``.
     """
 
     def __init__(
@@ -39,6 +46,7 @@ class SearchTool(Tool):
         constraints: SearchConstraints | None = None,
         max_attempts: int = 1,
         result_scheme: list[str] | None = None,
+        backend: str | Any | None = None,
         search_fn: Callable[..., Any] | None = None,
     ) -> None:
         self._engine = engine or os.environ.get("ENGINE", "google")
@@ -46,8 +54,19 @@ class SearchTool(Tool):
         self._max_attempts = max_attempts
         self._result_scheme = result_scheme or list(_DEFAULT_RESULT_SCHEME)
 
-        # Injected or lazy-loaded search function
-        self._search_fn: Any = search_fn
+        # Resolve backend
+        if isinstance(backend, str):
+            from awe_agent.core.tool.search.backends.search import search_backend_registry
+
+            backend_cls = search_backend_registry.get(backend)
+            self._backend: Any | None = backend_cls()
+        elif backend is not None:
+            self._backend = backend
+        else:
+            self._backend = None  # lazy-discovered on first use
+
+        # Legacy: direct callable injection (takes priority when set)
+        self._search_fn: Callable[..., Any] | None = search_fn
 
     @property
     def name(self) -> str:
@@ -119,61 +138,30 @@ class SearchTool(Tool):
 
         return "\n\n".join(parts)
 
+    # ── Internal ─────────────────────────────────────────────────────
+
     async def _search_single(
-        self, query: str, num: int, start: int,
+        self,
+        query: str,
+        num: int,
+        start: int,
     ) -> list[dict]:
-        """Execute single search query via bandai_mcp_host.
+        """Execute a single search query with retries."""
+        # Priority 1: explicit search_fn (legacy / testing)
+        if self._search_fn is not None:
+            return await self._call_search_fn(query, num, start)
 
-        Lazy-loads the search function via ``bytedance.bandai_mcp_host.map_tools``.
-        Retries up to ``max_attempts``.
-        Falls back to empty results if ``bytedance.bandai_mcp_host`` is unavailable.
-        """
-        if self._search_fn is None:
-            try:
-                from bytedance.bandai_mcp_host import map_tools  # type: ignore[import-untyped]
-                self._search_fn = map_tools("Search")
-            except ImportError:
-                logger.warning(
-                    "bytedance.bandai_mcp_host not installed — search will return "
-                    "empty results. Install it to enable web search."
-                )
-                self._search_fn = None
-                return []
-
-        if self._search_fn is None:
+        # Priority 2: backend (explicit or auto-discovered)
+        backend = self._ensure_backend()
+        if backend is None:
             return []
 
         last_error: Exception | None = None
         for attempt in range(self._max_attempts):
             try:
-                response = await self._search_fn(
-                    query=query,
-                    num=num,
-                    start=start,
-                    engine=self._engine,
+                return await backend.search(
+                    query, num=num, start=start, engine=self._engine,
                 )
-
-                # Handle BandaiToolResponse (has .status and .result)
-                if hasattr(response, "status") and hasattr(response, "result"):
-                    if not response.status.is_succeeded():
-                        error_msg = response.result or "Unknown error"
-                        raise RuntimeError(f"Search failed: {error_msg}")
-                    raw: Any = response.result
-                else:
-                    raw = response
-
-                # Parse result — may be JSON string or dict/list
-                if isinstance(raw, str):
-                    try:
-                        raw = json.loads(raw)
-                    except json.JSONDecodeError:
-                        return [{"description": raw}]
-
-                if isinstance(raw, dict):
-                    return raw.get("results", raw.get("organic", [raw]))
-                if isinstance(raw, list):
-                    return raw
-                return []
             except Exception as exc:
                 last_error = exc
                 logger.warning(
@@ -183,6 +171,53 @@ class SearchTool(Tool):
 
         logger.error("All search attempts failed for query %r: %s", query, last_error)
         return []
+
+    async def _call_search_fn(
+        self, query: str, num: int, start: int,
+    ) -> list[dict]:
+        """Call a raw search_fn callable (legacy path)."""
+        import json
+
+        last_error: Exception | None = None
+        for attempt in range(self._max_attempts):
+            try:
+                result = await self._search_fn(
+                    query=query, num=num, start=start, engine=self._engine,
+                )
+                # Parse JSON string if returned
+                if isinstance(result, str):
+                    try:
+                        result = json.loads(result)
+                    except json.JSONDecodeError:
+                        return [{"description": result}]
+                if isinstance(result, list):
+                    return result
+                if isinstance(result, dict):
+                    return result.get("results", result.get("organic", [result]))
+                return []
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "search_fn attempt %d/%d failed for query %r: %s",
+                    attempt + 1, self._max_attempts, query, exc,
+                )
+        logger.error("All search_fn attempts failed for query %r: %s", query, last_error)
+        return []
+
+    def _ensure_backend(self) -> Any:
+        """Lazy-discover a search backend if not yet resolved."""
+        if self._backend is not None:
+            return self._backend
+
+        from awe_agent.core.tool.search.backends.search import get_search_backend
+
+        self._backend = get_search_backend()
+        if self._backend is None:
+            logger.warning(
+                "No search backend available. Set SEARCH_BACKEND env var or "
+                "install a search backend plugin (e.g. pip install awe-agent[search])."
+            )
+        return self._backend
 
     def _format_results(
         self, query: str, results: list[dict], filtered_count: int,
