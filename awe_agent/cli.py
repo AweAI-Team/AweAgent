@@ -198,6 +198,7 @@ def _build_task(config: Any):
             dataset_id=config.task.dataset_id,
             data_file=config.task.data_file,
             search_mode=search_mode,
+            test_suite_dir=config.task.test_suite_dir,
         )
     else:
         raise ValueError(f"Unknown task type: {task_type}. Available: beyond_swe.")

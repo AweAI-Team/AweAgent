@@ -19,6 +19,16 @@ Key CLI overrides (all optional, default from YAML config):
   --skip-eval         Skip evaluation after agent run
   --verbose           DEBUG level logging
 
+Environment variables:
+
+  BEYONDSWE_TEST_SUITE_DIR    Directory containing doc2repo test suite zips
+  SERPAPI_API_KEY              API key for SerpAPI search backend
+  JINA_API_KEY                 API key for Jina reader backend
+  SEARCH_BACKEND               Search backend name (default: auto-discover)
+  READER_BACKEND               Reader backend name (default: auto-discover)
+  LINK_SUMMARY_CONFIG_PATH     Path to LLM config YAML for link summary
+  LINK_SUMMARY_MODEL           LLM model for link summary (default: gpt-4o-mini)
+
 Usage examples:
 
     # Inspect prompt (no Docker needed)
@@ -124,6 +134,7 @@ def _build_task(config, data_file: str):
         dataset_id=config.task.dataset_id,
         data_file=data_file,
         search_mode=config.agent.enable_search,
+        test_suite_dir=config.task.test_suite_dir,
     )
 
 

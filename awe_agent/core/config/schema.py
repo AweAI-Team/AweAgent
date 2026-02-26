@@ -42,6 +42,7 @@ class TaskConfig(BaseModel):
     task_type: str = ""
     data_file: str | None = None
     instance_ids: list[str] | None = None
+    test_suite_dir: str | None = None
 
 
 class EvalConfig(BaseModel):

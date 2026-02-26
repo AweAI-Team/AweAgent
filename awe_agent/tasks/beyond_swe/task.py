@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,9 @@ class BeyondSWETask(Task):
         instances: Raw instance dicts for programmatic use.
         search_mode: Whether search tools are enabled. Affects prompt
             selection via the route table.
+        test_suite_dir: Directory containing test-suite zip files for
+            doc2repo evaluation.  Falls back to the
+            ``BEYONDSWE_TEST_SUITE_DIR`` environment variable.
     """
 
     def __init__(
@@ -71,11 +75,13 @@ class BeyondSWETask(Task):
         data_file: str | None = None,
         instances: list[dict[str, Any]] | None = None,
         search_mode: bool = False,
+        test_suite_dir: str | None = None,
     ) -> None:
         self.dataset_id = dataset_id
         self.data_file = data_file
         self._raw_instances = instances
         self._search_mode = search_mode
+        self._test_suite_dir = test_suite_dir or os.environ.get("BEYONDSWE_TEST_SUITE_DIR", "")
         self._loaded: list[dict[str, Any]] | None = None
 
     def _load_raw(self) -> list[dict[str, Any]]:
@@ -158,7 +164,7 @@ class BeyondSWETask(Task):
                 "f2p_patch": raw.get("f2p_patch", ""),
                 "f2p_script": raw.get("f2p_script", ""),
                 "test_suite": raw.get("test_suite", ""),
-                "test_suite_path": raw.get("test_suite_path", ""),
+                "test_suite_path": self._test_suite_dir,
                 "test_suite_num": raw.get("test_suite_num", 0),
                 "parent_commit": raw.get("parent_commit", ""),
                 "raw": raw,

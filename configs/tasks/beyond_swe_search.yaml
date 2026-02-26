@@ -23,6 +23,7 @@ task:
   type: beyond_swe
   dataset_id: beyond_swe
   data_file: ${DATA_FILE}
+  # test_suite_dir: /path/to/doc2repo_test_suite  # or set BEYONDSWE_TEST_SUITE_DIR env var
 
 eval:
   enabled: true

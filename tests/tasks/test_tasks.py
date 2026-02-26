@@ -167,3 +167,34 @@ def test_search_mode_beyond_swe_task():
     # Search variant includes search-specific phases
     assert "Search Tool" in prompt or "search" in prompt.lower()
     assert "Import fails" in prompt
+
+
+# ── test_suite_dir support ────────────────────────────────────────────────────
+
+def test_test_suite_dir_from_constructor():
+    """test_suite_dir passed to constructor populates metadata."""
+    task = BeyondSWETask(
+        instances=_BEYOND_SWE_INSTANCES,
+        test_suite_dir="/data/test_suites",
+    )
+    inst = task.get_instances(instance_ids=["mylib_doc2repo_001"])[0]
+    assert inst.metadata["test_suite_path"] == "/data/test_suites"
+
+
+def test_test_suite_dir_from_env(monkeypatch):
+    """BEYONDSWE_TEST_SUITE_DIR env var is used as fallback."""
+    monkeypatch.setenv("BEYONDSWE_TEST_SUITE_DIR", "/env/test_suites")
+    task = BeyondSWETask(instances=_BEYOND_SWE_INSTANCES)
+    inst = task.get_instances(instance_ids=["mylib_doc2repo_001"])[0]
+    assert inst.metadata["test_suite_path"] == "/env/test_suites"
+
+
+def test_test_suite_dir_constructor_overrides_env(monkeypatch):
+    """Constructor argument takes priority over env var."""
+    monkeypatch.setenv("BEYONDSWE_TEST_SUITE_DIR", "/env/path")
+    task = BeyondSWETask(
+        instances=_BEYOND_SWE_INSTANCES,
+        test_suite_dir="/constructor/path",
+    )
+    inst = task.get_instances(instance_ids=["mylib_doc2repo_001"])[0]
+    assert inst.metadata["test_suite_path"] == "/constructor/path"

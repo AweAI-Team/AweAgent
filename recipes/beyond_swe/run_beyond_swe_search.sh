@@ -31,6 +31,15 @@ Run BeyondSWE benchmark in search mode.
 Required:
   --data-file PATH       Path to BeyondSWE JSONL data file
 
+Environment variables:
+  BEYONDSWE_TEST_SUITE_DIR   Directory containing doc2repo test suite zip files
+  SERPAPI_API_KEY             API key for SerpAPI search backend
+  JINA_API_KEY               API key for Jina reader backend (optional, higher rate limit)
+  SEARCH_BACKEND             Search backend name (default: auto-discover)
+  READER_BACKEND             Reader backend name (default: auto-discover)
+  LINK_SUMMARY_CONFIG_PATH   Path to LLM config YAML for link summary
+  LINK_SUMMARY_MODEL         LLM model for link summary (default: gpt-4o-mini)
+
 Options:
   --model MODEL          LLM model name (default: gpt-4o, env: MODEL)
   --max-steps N          Max agent steps per instance (default: 100, env: MAX_STEPS)
@@ -129,6 +138,15 @@ fi
 # ── Export env vars for config resolution ─────────────────────────────
 export DATA_FILE
 export AWE_AGENT__LLM__MODEL="${MODEL}"
+# test_suite_dir: pass through if set (needed for doc2repo evaluation)
+export BEYONDSWE_TEST_SUITE_DIR="${BEYONDSWE_TEST_SUITE_DIR:-}"
+# Search & link summary: pass through if set
+export SERPAPI_API_KEY="${SERPAPI_API_KEY:-}"
+export JINA_API_KEY="${JINA_API_KEY:-}"
+export SEARCH_BACKEND="${SEARCH_BACKEND:-}"
+export READER_BACKEND="${READER_BACKEND:-}"
+export LINK_SUMMARY_CONFIG_PATH="${LINK_SUMMARY_CONFIG_PATH:-}"
+export LINK_SUMMARY_MODEL="${LINK_SUMMARY_MODEL:-}"
 
 # ── Run ───────────────────────────────────────────────────────────────
 echo "=== BeyondSWE Search Mode ==="
@@ -138,6 +156,9 @@ echo "Model:          ${MODEL}"
 echo "Max steps:      ${MAX_STEPS}"
 echo "Max concurrent: ${MAX_CONCURRENT}"
 echo "Output dir:     ${OUTPUT_DIR}"
+if [[ -n "${BEYONDSWE_TEST_SUITE_DIR}" ]]; then
+    echo "Test suite dir: ${BEYONDSWE_TEST_SUITE_DIR}"
+fi
 if [[ ${#INSTANCE_IDS[@]} -gt 0 ]]; then
     echo "Instance IDs:   ${INSTANCE_IDS[*]}"
 fi
