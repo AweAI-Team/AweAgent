@@ -3,9 +3,16 @@
 Maps (dataset_id, task_type, search_mode) to (system_prompt_key, user_prompt_key).
 This is the single source of truth for all prompt selection logic.
 
-The mapping is derived from empirical prompt tuning — each combination has been
-validated on its respective benchmark. When adding new datasets or task types,
-add a new entry here rather than hard-coding prompt selection elsewhere.
+    | Task       | Search | System Key       | User Key           |
+    |------------|--------|------------------|--------------------|
+    | Doc2Repo   | 0      | beyondswe        | doc2repo           |
+    | Doc2Repo   | 1      | search_beyondswe | search_doc2repo    |
+    | CrossRepo  | 0      | beyondswe        | crossrepo          |
+    | CrossRepo  | 1      | search_beyondswe | search_crossrepo   |
+    | DepMigrate | 0      | beyondswe        | depmigrate         |
+    | DepMigrate | 1      | search_beyondswe | search_depmigrate  |
+    | DomainFix  | 0      | beyondswe        | domainfix          |
+    | DomainFix  | 1      | search_domainfix | search_domainfix   |
 """
 
 from __future__ import annotations
@@ -22,18 +29,18 @@ from typing import Any
 
 PROMPT_ROUTES: dict[tuple[str, str | None, bool], tuple[str, str]] = {
     # ── BeyondSWE ────────────────────────────────────────────────────
-    ("beyond_swe", "doc2repo", False):     ("base",          "doc2repo"),
-    ("beyond_swe", "doc2repo", True):      ("search",        "search_doc2repo"),
-    ("beyond_swe", "cross-repo", False):   ("base",          "cross_repo"),
-    ("beyond_swe", "cross-repo", True):    ("search",        "search_cross_repo"),
-    ("beyond_swe", "refactor", False):     ("base",          "refactor"),
-    ("beyond_swe", "refactor", True):      ("search",        "search_refactor"),
-    ("beyond_swe", "domain", False):       ("base",          "domain"),
-    ("beyond_swe", "domain", True):        ("search_domain", "search_domain"),
+    ("beyond_swe", "doc2repo", False):     ("beyondswe",        "doc2repo"),
+    ("beyond_swe", "doc2repo", True):      ("search_beyondswe", "search_doc2repo"),
+    ("beyond_swe", "crossrepo", False):    ("beyondswe",        "crossrepo"),
+    ("beyond_swe", "crossrepo", True):     ("search_beyondswe", "search_crossrepo"),
+    ("beyond_swe", "depmigrate", False):   ("beyondswe",        "depmigrate"),
+    ("beyond_swe", "depmigrate", True):    ("search_beyondswe", "search_depmigrate"),
+    ("beyond_swe", "domainfix", False):    ("beyondswe",        "domainfix"),
+    ("beyond_swe", "domainfix", True):     ("search_domainfix", "search_domainfix"),
 }
 
 # Default fallback when no exact route matches
-_DEFAULT_ROUTE: tuple[str, str] = ("base", "domain")
+_DEFAULT_ROUTE: tuple[str, str] = ("beyondswe", "domainfix")
 
 
 def resolve_prompt_keys(

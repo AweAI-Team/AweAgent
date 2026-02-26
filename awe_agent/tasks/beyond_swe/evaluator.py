@@ -55,7 +55,7 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
         session: RuntimeSession,
     ) -> EvalResult:
         """Dispatch to the appropriate evaluation strategy."""
-        task_type = instance.metadata.get("task_type", "domain")
+        task_type = instance.metadata.get("task_type", "domainfix")
 
         if task_type == "doc2repo":
             return await self._eval_repo_level(instance, session)

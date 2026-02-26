@@ -24,7 +24,7 @@ def _write_jsonl(data: list[dict], path: str) -> None:
 _BEYOND_SWE_INSTANCES = [
     {
         "instance_id": "mylib_doc2repo_001",
-        "task": "doc2repo",
+        "task": "Doc2Repo",
         "workdir": "/workspace",
         "image_url": "ubuntu:22.04",
         "REPO_DOCUMENT_CONTENT": "# MyLib\n\nA library for data processing...",
@@ -33,7 +33,7 @@ _BEYOND_SWE_INSTANCES = [
     },
     {
         "instance_id": "django_crossrepo_002",
-        "task": "cross-repo",
+        "task": "CrossRepo",
         "workdir": "/workspace",
         "image_url": "python:3.11",
         "problem_statement": "Import fails across modules after rename",
@@ -43,8 +43,8 @@ _BEYOND_SWE_INSTANCES = [
         "language": "python",
     },
     {
-        "instance_id": "flask_refactor_003",
-        "task": "refactor",
+        "instance_id": "flask_depmigrate_003",
+        "task": "DepMigrate",
         "workdir": "/workspace",
         "image_url": "python:3.11",
         "problem_statement": "Refactor request handling to use async",
@@ -53,8 +53,8 @@ _BEYOND_SWE_INSTANCES = [
         "language": "python",
     },
     {
-        "instance_id": "scipy_domain_004",
-        "task": "domain",
+        "instance_id": "scipy_domainfix_004",
+        "task": "DomainFix",
         "workdir": "/workspace",
         "image_url": "python:3.11",
         "problem_statement": "Numerical instability in SVD for near-singular matrices",
@@ -75,9 +75,9 @@ def test_beyond_swe_task_types():
     instances = task.get_instances()
     types = [i.metadata["task_type"] for i in instances]
     assert "doc2repo" in types
-    assert "cross-repo" in types
-    assert "refactor" in types
-    assert "domain" in types
+    assert "crossrepo" in types
+    assert "depmigrate" in types
+    assert "domainfix" in types
 
 
 def test_beyond_swe_doc2repo_prompt():
@@ -98,17 +98,17 @@ def test_beyond_swe_crossrepo_prompt():
     assert "bbb222" in prompt
 
 
-def test_beyond_swe_refactor_prompt():
+def test_beyond_swe_depmigrate_prompt():
     task = BeyondSWETask(instances=_BEYOND_SWE_INSTANCES)
-    instances = task.get_instances(instance_ids=["flask_refactor_003"])
+    instances = task.get_instances(instance_ids=["flask_depmigrate_003"])
     prompt = task.get_prompt(instances[0])
     assert "Refactor" in prompt
     assert "async" in prompt.lower()
 
 
-def test_beyond_swe_domain_prompt():
+def test_beyond_swe_domainfix_prompt():
     task = BeyondSWETask(instances=_BEYOND_SWE_INSTANCES)
-    instances = task.get_instances(instance_ids=["scipy_domain_004"])
+    instances = task.get_instances(instance_ids=["scipy_domainfix_004"])
     prompt = task.get_prompt(instances[0])
     assert "Numerical instability" in prompt
 
@@ -142,12 +142,12 @@ def test_prompt_routing_beyond_swe():
     from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
 
     sys_key, usr_key = resolve_prompt_keys("beyond_swe", "doc2repo", False)
-    assert sys_key == "base"
+    assert sys_key == "beyondswe"
     assert usr_key == "doc2repo"
 
-    sys_key, usr_key = resolve_prompt_keys("beyond_swe", "domain", True)
-    assert sys_key == "search_domain"
-    assert usr_key == "search_domain"
+    sys_key, usr_key = resolve_prompt_keys("beyond_swe", "domainfix", True)
+    assert sys_key == "search_domainfix"
+    assert usr_key == "search_domainfix"
 
 
 def test_prompt_routing_fallback():
@@ -155,8 +155,8 @@ def test_prompt_routing_fallback():
     from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
 
     sys_key, usr_key = resolve_prompt_keys("unknown_dataset", None, False)
-    assert sys_key == "base"
-    assert usr_key == "domain"
+    assert sys_key == "beyondswe"
+    assert usr_key == "domainfix"
 
 
 def test_search_mode_beyond_swe_task():

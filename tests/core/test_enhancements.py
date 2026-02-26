@@ -727,7 +727,7 @@ async def test_eval_func_level_f2p_patch_fail_returns_false():
         dataset_id="beyond_swe",
         workdir="/workspace",
         metadata={
-            "task_type": "cross-repo",
+            "task_type": "crossrepo",
             "f2p_patch": "some bad patch",
             "FAIL_TO_PASS": '["test_a.py::test_1"]',
             "PASS_TO_PASS": "",
@@ -755,7 +755,7 @@ async def test_eval_func_level_f2p_script_uploaded_as_test_file():
         dataset_id="beyond_swe",
         workdir="/workspace",
         metadata={
-            "task_type": "domain",
+            "task_type": "domainfix",
             "f2p_patch": "",
             "f2p_script": "import pytest\ndef test_x(): pass",
             "FAIL_TO_PASS": '["test_fail_to_pass.py::test_x"]',

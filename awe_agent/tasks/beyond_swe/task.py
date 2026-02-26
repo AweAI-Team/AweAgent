@@ -35,30 +35,19 @@ from awe_agent.scaffold.search_swe.prompts.user import get_user_prompt
 
 logger = logging.getLogger(__name__)
 
-# Normalize dataset task type names to the canonical keys used in the
-# prompt route table (search_swe/prompts/config.py).  The mapping is
-# case-insensitive — see _normalize_task_type().
-_TASK_TYPE_ALIASES: dict[str, str] = {
-    "crossrepo": "cross-repo",
-    "cross-repo": "cross-repo",
-    "domainfix": "domain",
-    "domain": "domain",
-    "depmigrate": "refactor",
-    "refactor": "refactor",
-    "doc2repo": "doc2repo",
-}
+# Known BeyondSWE task types (lowercase, no separators).
+_KNOWN_TASK_TYPES = {"doc2repo", "crossrepo", "depmigrate", "domainfix"}
 
 
 def _normalize_task_type(raw_type: str) -> str:
-    """Map a dataset task type string to its canonical route-table key."""
+    """Normalize a dataset task type string to lowercase without separators."""
     key = raw_type.lower().replace("_", "").replace("-", "").replace(" ", "")
-    canonical = _TASK_TYPE_ALIASES.get(key)
-    if canonical is None:
+    if key not in _KNOWN_TASK_TYPES:
         logger.warning(
-            "Unknown BeyondSWE task type %r, falling back to 'domain'", raw_type,
+            "Unknown BeyondSWE task type %r, falling back to 'domainfix'", raw_type,
         )
-        return "domain"
-    return canonical
+        return "domainfix"
+    return key
 
 
 class BeyondSWETask(Task):
@@ -115,7 +104,7 @@ class BeyondSWETask(Task):
 
     def _to_instance(self, raw: dict[str, Any]) -> Instance:
         instance_id = raw.get("instance_id", "")
-        task_type = _normalize_task_type(raw.get("task", "domain"))
+        task_type = _normalize_task_type(raw.get("task", "domainfix"))
 
         base_commit = (
             raw.get("base_commit")
@@ -189,7 +178,7 @@ class BeyondSWETask(Task):
         return instances
 
     def get_prompt(self, instance: Instance) -> str:
-        task_type = instance.metadata.get("task_type", "domain")
+        task_type = instance.metadata.get("task_type", "domainfix")
 
         # Resolve the user prompt key via the route table
         _, user_key = resolve_prompt_keys(
@@ -213,7 +202,7 @@ class BeyondSWETask(Task):
         return instance.image
 
     def get_setup_commands(self, instance: Instance) -> list[str]:
-        task_type = instance.metadata.get("task_type", "domain")
+        task_type = instance.metadata.get("task_type", "domainfix")
         commands = []
 
         if instance.base_commit:
@@ -221,9 +210,9 @@ class BeyondSWETask(Task):
                 f"cd {instance.workdir} && git checkout {instance.base_commit}"
             )
 
-        # For cross-repo and domain, verify parent commit checkout
+        # For crossrepo and domainfix, verify parent commit checkout
         parent_commit = instance.metadata.get("parent_commit", "")
-        if parent_commit and task_type in ("cross-repo", "domain"):
+        if parent_commit and task_type in ("crossrepo", "domainfix"):
             commands.append(
                 f"cd {instance.workdir} && "
                 f"git log --oneline -1 | grep -q {parent_commit[:8]} || true"
@@ -240,7 +229,7 @@ class BeyondSWETask(Task):
             "base_commit": instance.base_commit,
             "workdir": instance.workdir,
             "language": instance.language,
-            "task_type": instance.metadata.get("task_type", "domain"),
+            "task_type": instance.metadata.get("task_type", "domainfix"),
         }
 
     def default_evaluator(self, timeout: int | None = None) -> Evaluator:
