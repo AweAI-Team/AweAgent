@@ -216,8 +216,11 @@ class AgentLoop:
         patch = ""
         try:
             workdir = self.ctx.task_info.get("workdir", "/testbed")
-            base_commit = self.ctx.task_info.get("base_commit")
-            patch = await self.ctx.session.get_patch(workdir, base_commit)
+            commit = (
+                self.ctx.task_info.get("pre_agent_commit_id")
+                or self.ctx.task_info.get("base_commit")
+            )
+            patch = await self.ctx.session.get_patch(workdir, commit)
         except Exception as e:
             logger.warning("Failed to extract patch: %s", e)
 

@@ -221,7 +221,7 @@ async def _mode_debug(config, task, instance_id: str, skip_eval: bool) -> None:
     async with runtime.session(image) as session:
         # Pre-agent setup
         setup = PreAgentSetup(session, inst.workdir)
-        await setup.prepare(inst)
+        pre_agent_commit_id = await setup.prepare(inst)
 
         # Build agent
         search_constraints = task.get_search_constraints(inst)
@@ -235,6 +235,8 @@ async def _mode_debug(config, task, instance_id: str, skip_eval: bool) -> None:
         )
         llm = LLMClient(config.llm)
         condenser = build_condenser(config.agent.condenser)
+        if pre_agent_commit_id:
+            task_info["pre_agent_commit_id"] = pre_agent_commit_id
         ctx = AgentContext(
             llm=llm,
             session=session,

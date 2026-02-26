@@ -35,6 +35,7 @@ from awe_agent.core.llm.client import LLMClient
 from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.runtime.config import RuntimeConfig
 from awe_agent.core.task.protocol import Evaluator, Task
+from awe_agent.core.eval.setup import PreAgentSetup
 from awe_agent.core.task.runner import runtime_registry
 
 logger = logging.getLogger(__name__)
@@ -139,9 +140,11 @@ class AweAgentRollout:
             image = self.task.get_image(instance)
 
             async with runtime.session(image) as session:
-                # Setup
-                for cmd in self.task.get_setup_commands(instance):
-                    await session.execute(cmd)
+                # Pre-agent setup: run commands, commit snapshot, remove future commits
+                setup = PreAgentSetup(session, instance.workdir)
+                await setup.run_setup_commands(self.task.get_setup_commands(instance))
+                pre_agent_commit_id = await setup.commit_and_get_id()
+                await setup.remove_future_commits()
 
                 # Run agent — pass search constraints if factory accepts them
                 search_constraints = self.task.get_search_constraints(instance)
@@ -150,11 +153,14 @@ class AweAgentRollout:
                 except TypeError:
                     agent = self.agent_factory()
                 llm = LLMClient(llm_config)
+                task_info = self.task.get_task_info(instance)
+                if pre_agent_commit_id:
+                    task_info["pre_agent_commit_id"] = pre_agent_commit_id
                 context = AgentContext(
                     llm=llm,
                     session=session,
                     tools=agent.get_tools(),
-                    task_info=self.task.get_task_info(instance),
+                    task_info=task_info,
                     max_steps=self._agent_max_steps,
                     condenser=None,
                 )

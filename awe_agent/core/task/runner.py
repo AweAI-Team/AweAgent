@@ -23,6 +23,7 @@ from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.runtime.config import RuntimeConfig
 from awe_agent.core.runtime.protocol import Runtime
 from awe_agent.core.task.protocol import Evaluator, Task
+from awe_agent.core.eval.setup import PreAgentSetup
 from awe_agent.core.task.types import EvalResult, Instance, TaskResult
 from awe_agent.plugins.registry import Registry
 
@@ -283,21 +284,24 @@ class TaskRunner:
         image = self.task.get_image(instance)
 
         async with runtime.session(image) as session:
-            # Setup environment
-            for cmd in self.task.get_setup_commands(instance):
-                result = await session.execute(cmd)
-                if not result.success:
-                    logger.warning("Setup command failed: %s -> %s", cmd, result.stderr[:200])
+            # Pre-agent setup: run commands, commit snapshot, remove future commits
+            setup = PreAgentSetup(session, instance.workdir)
+            await setup.run_setup_commands(self.task.get_setup_commands(instance))
+            pre_agent_commit_id = await setup.commit_and_get_id()
+            await setup.remove_future_commits()
 
             # Create agent
             constraints = self.task.get_search_constraints(instance)
             agent = self.agent_factory(search_constraints=constraints)
             llm = LLMClient(self.llm_config)
+            task_info = self.task.get_task_info(instance)
+            if pre_agent_commit_id:
+                task_info["pre_agent_commit_id"] = pre_agent_commit_id
             context = AgentContext(
                 llm=llm,
                 session=session,
                 tools=agent.get_tools(),
-                task_info=self.task.get_task_info(instance),
+                task_info=task_info,
                 max_steps=self.max_steps,
                 max_context_length=self.max_context_length,
                 condenser=self._condenser,

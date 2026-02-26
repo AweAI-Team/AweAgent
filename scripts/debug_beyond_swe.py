@@ -146,9 +146,9 @@ async def main() -> None:
     runtime = DockerRuntime(runtime_config)
 
     async with runtime.session(image) as session:
-        # Pre-agent setup (setup_commands + remove future commits)
+        # Pre-agent setup (setup_commands + commit snapshot + remove future commits)
         setup = PreAgentSetup(session, inst.workdir)
-        await setup.prepare(inst)
+        pre_agent_commit_id = await setup.prepare(inst)
 
         if args.mode == "dry-run":
             r = await session.execute(f"ls {inst.workdir}")
@@ -172,6 +172,8 @@ async def main() -> None:
         )
         llm = LLMClient(config.llm)
         condenser = build_condenser(config.agent.condenser)
+        if pre_agent_commit_id:
+            task_info["pre_agent_commit_id"] = pre_agent_commit_id
         ctx = AgentContext(
             llm=llm,
             session=session,

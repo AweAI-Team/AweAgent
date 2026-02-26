@@ -48,11 +48,19 @@ class RuntimeSession(ABC):
         ...
 
     async def get_patch(self, cwd: str, base_commit: str | None = None) -> str:
-        """Get git diff as patch. Default implementation uses shell commands."""
+        """Get git diff as patch, including untracked new files.
+
+        Uses ``git add -A && git diff --cached`` to capture both modified
+        tracked files and newly created files.
+        """
         if base_commit:
-            result = await self.execute(f"git diff {base_commit}", cwd=cwd)
+            result = await self.execute(
+                f"git add -A && git diff --cached {base_commit}", cwd=cwd,
+            )
         else:
-            result = await self.execute("git diff", cwd=cwd)
+            result = await self.execute(
+                "git add -A && git diff --cached", cwd=cwd,
+            )
         return result.stdout
 
     async def apply_patch(self, cwd: str, patch: str) -> ExecutionResult:

@@ -845,11 +845,11 @@ def test_task_metadata_has_test_suite_num():
 
 @pytest.mark.asyncio
 async def test_pre_agent_setup_prepare():
-    """PreAgentSetup.prepare() executes setup_commands then remove_future_commits."""
+    """PreAgentSetup.prepare() executes setup_commands, commit, rev-parse, then remove_future_commits."""
     from awe_agent.core.eval.setup import PreAgentSetup
 
     session = MockRuntimeSession()
-    session._default_result = ExecutionResult(stdout="", exit_code=0)
+    session._default_result = ExecutionResult(stdout="abc123\n", exit_code=0)
 
     instance = Instance(
         id="setup_test",
@@ -859,16 +859,23 @@ async def test_pre_agent_setup_prepare():
     )
 
     setup = PreAgentSetup(session, instance.workdir)
-    await setup.prepare(instance)
+    commit_id = await setup.prepare(instance)
 
-    # Two setup commands + one remove_future_commits command
-    assert len(session.commands) == 3
+    # Two setup commands + commit + rev-parse + remove_future_commits = 5
+    assert len(session.commands) == 5
     assert session.commands[0] == "pip install foo"
     assert session.commands[1] == "echo hello"
-    # Third command should be the remove_future_commits script
-    assert "git for-each-ref" in session.commands[2]
-    assert "git stash clear" in session.commands[2]
-    assert session.commands[2].startswith("cd /testbed && ")
+    # Third command: git commit pre-agent
+    assert "git add -A" in session.commands[2]
+    assert 'git commit -m "pre-agent commit"' in session.commands[2]
+    # Fourth command: git rev-parse HEAD
+    assert "git rev-parse HEAD" in session.commands[3]
+    # Fifth command: remove_future_commits
+    assert "git for-each-ref" in session.commands[4]
+    assert "git stash clear" in session.commands[4]
+    assert session.commands[4].startswith("cd /testbed && ")
+    # Returns the commit SHA
+    assert commit_id == "abc123"
 
 
 @pytest.mark.asyncio
@@ -893,11 +900,11 @@ async def test_pre_agent_setup_remove_future_commits():
 
 @pytest.mark.asyncio
 async def test_pre_agent_setup_empty_commands():
-    """PreAgentSetup.prepare() with no setup_commands only runs remove_future_commits."""
+    """PreAgentSetup.prepare() with no setup_commands runs commit + rev-parse + remove_future_commits."""
     from awe_agent.core.eval.setup import PreAgentSetup
 
     session = MockRuntimeSession()
-    session._default_result = ExecutionResult(stdout="", exit_code=0)
+    session._default_result = ExecutionResult(stdout="def456\n", exit_code=0)
 
     instance = Instance(
         id="empty_setup",
@@ -906,11 +913,55 @@ async def test_pre_agent_setup_empty_commands():
     )
 
     setup = PreAgentSetup(session, instance.workdir)
-    await setup.prepare(instance)
+    commit_id = await setup.prepare(instance)
 
-    # Only remove_future_commits should have run
-    assert len(session.commands) == 1
-    assert "git for-each-ref" in session.commands[0]
+    # commit + rev-parse + remove_future_commits = 3
+    assert len(session.commands) == 3
+    assert "git add -A" in session.commands[0]
+    assert "git rev-parse HEAD" in session.commands[1]
+    assert "git for-each-ref" in session.commands[2]
+    assert commit_id == "def456"
+
+
+@pytest.mark.asyncio
+async def test_commit_and_get_id():
+    """commit_and_get_id() commits current state and returns HEAD SHA."""
+    from awe_agent.core.eval.setup import PreAgentSetup
+
+    session = MockRuntimeSession()
+    session._default_result = ExecutionResult(stdout="abc123def456\n", exit_code=0)
+
+    setup = PreAgentSetup(session, "/testbed")
+    sha = await setup.commit_and_get_id()
+
+    assert sha == "abc123def456"
+    assert len(session.commands) == 2
+    assert "git add -A" in session.commands[0]
+    assert "git rev-parse HEAD" in session.commands[1]
+
+
+@pytest.mark.asyncio
+async def test_commit_and_get_id_failure():
+    """commit_and_get_id() returns None when rev-parse fails."""
+    from awe_agent.core.eval.setup import PreAgentSetup
+
+    session = MockRuntimeSession()
+    # Simulate: commit succeeds but rev-parse returns empty stdout with failure
+    call_count = 0
+
+    async def mock_execute(command, cwd=None, timeout=None, env=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:  # rev-parse call
+            return ExecutionResult(stdout="", stderr="error", exit_code=1)
+        return ExecutionResult(stdout="", exit_code=0)
+
+    session.execute = mock_execute
+
+    setup = PreAgentSetup(session, "/testbed")
+    sha = await setup.commit_and_get_id()
+
+    assert sha is None
 
 
 @pytest.mark.asyncio
