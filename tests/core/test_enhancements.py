@@ -709,8 +709,8 @@ async def test_run_tests_with_runner_empty_ids():
 
 
 @pytest.mark.asyncio
-async def test_eval_func_level_f2p_patch_fail_returns_false():
-    """_eval_func_level returns accepted=False immediately when f2p_patch fails."""
+async def test_eval_beyondswe_f2p_patch_fail_returns_false():
+    """_eval_beyondswe returns accepted=False immediately when f2p_patch fails."""
     from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
 
     session = MockRuntimeSession()
@@ -734,14 +734,14 @@ async def test_eval_func_level_f2p_patch_fail_returns_false():
         },
     )
 
-    result = await evaluator._eval_func_level(instance, session)
+    result = await evaluator._eval_beyondswe(instance, session)
     assert not result.accepted
     assert result.details.get("error") == "f2p_patch_failed"
 
 
 @pytest.mark.asyncio
-async def test_eval_func_level_f2p_script_uploaded_as_test_file():
-    """_eval_func_level uploads f2p_script to workdir/test_fail_to_pass.py."""
+async def test_eval_beyondswe_f2p_script_uploaded_as_test_file():
+    """_eval_beyondswe uploads f2p_script to workdir/test_fail_to_pass.py."""
     from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
 
     session = MockRuntimeSession()
@@ -763,15 +763,15 @@ async def test_eval_func_level_f2p_script_uploaded_as_test_file():
         },
     )
 
-    result = await evaluator._eval_func_level(instance, session)
+    result = await evaluator._eval_beyondswe(instance, session)
     # Verify f2p_script was uploaded as a test file, not executed
     assert "/workspace/test_fail_to_pass.py" in session.files
     assert b"def test_x" in session.files["/workspace/test_fail_to_pass.py"]
 
 
 @pytest.mark.asyncio
-async def test_eval_repo_level_zip_flow():
-    """_eval_repo_level reads ZIP, uploads, unzips, runs eval script."""
+async def test_eval_doc2repo_zip_flow():
+    """_eval_doc2repo reads ZIP, uploads, unzips, runs eval script."""
     import tempfile, os, zipfile
     from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
 
@@ -799,7 +799,7 @@ async def test_eval_repo_level_zip_flow():
             },
         )
 
-        result = await evaluator._eval_repo_level(instance, session)
+        result = await evaluator._eval_doc2repo(instance, session)
         assert result.accepted
         # Verify ZIP was uploaded
         assert "/tmp/_awe_test_suite.zip" in session.files

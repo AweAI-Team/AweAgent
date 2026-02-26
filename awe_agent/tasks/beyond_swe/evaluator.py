@@ -3,8 +3,9 @@
 Task types and their evaluation strategies:
 
 - **doc2repo**: Read a local test-suite ZIP, upload it to the container,
-  unzip, run the eval script, and check results.
-- **cross-repo / refactor / domain** (function-level): Apply the ``f2p_patch``
+  unzip, run the eval script, and check results.  Score = pass_rate
+  (number of passed tests / total expected tests).
+- **crossrepo / depmigrate / domainfix**: Apply the ``f2p_patch``
   (which introduces failing tests), upload ``f2p_script`` as a test file,
   then run all F2P + P2P tests together via the injected runner.
 """
@@ -18,6 +19,7 @@ from typing import TYPE_CHECKING
 from awe_agent.core.eval.base import PatchTestEvaluator
 from awe_agent.core.eval.setup import PreAgentSetup
 from awe_agent.core.eval.utils import (
+    parse_pytest_summary,
     parse_test_ids,
     run_tests_with_runner,
 )
@@ -28,6 +30,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Per-task-type evaluation timeouts
+_DOC2REPO_TIMEOUT = 1800  # 30 min — repo-level eval script
+_BEYONDSWE_TIMEOUT = 600  # ~10 min — func-level tests (crossrepo, depmigrate, domainfix)
+
 
 class BeyondSWEEvaluator(PatchTestEvaluator):
     """Evaluator for the BeyondSWE benchmark.
@@ -35,8 +41,8 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
     Dispatches to the appropriate evaluation strategy based on
     ``instance.metadata["task_type"]``:
 
-    - ``doc2repo`` → :meth:`_eval_repo_level`
-    - ``cross-repo`` / ``refactor`` / ``domain`` → :meth:`_eval_func_level`
+    - ``doc2repo`` → :meth:`_eval_doc2repo`
+    - ``crossrepo`` / ``depmigrate`` / ``domainfix`` → :meth:`_eval_beyondswe`
 
     Example::
 
@@ -58,23 +64,17 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
         task_type = instance.metadata.get("task_type", "domainfix")
 
         if task_type == "doc2repo":
-            return await self._eval_repo_level(instance, session)
-        return await self._eval_func_level(instance, session)
+            return await self._eval_doc2repo(instance, session)
+        return await self._eval_beyondswe(instance, session)
 
-    # ── Function-level evaluation (cross-repo, refactor, domain) ────────
+    # ── beyondswe evaluation (crossrepo, depmigrate, domainfix) ────────
 
-    async def _eval_func_level(
+    async def _eval_beyondswe(
         self,
         instance: Instance,
         session: RuntimeSession,
     ) -> EvalResult:
-        """Apply ``f2p_patch``, upload ``f2p_script`` as test file, run merged F2P+P2P.
-
-        Changes from the original:
-        - f2p_patch failure → immediate ``accepted=False`` (Issue 5)
-        - f2p_script uploaded as test file, not executed (Issue 2)
-        - F2P + P2P merged into one ``run_tests_with_runner`` call (Issue 3)
-        """
+        """Apply ``f2p_patch``, upload ``f2p_script`` as test file, run merged F2P+P2P."""
         workdir = instance.workdir
 
         # ── 1. Apply f2p_patch → fail immediately if it doesn't apply ──
@@ -116,8 +116,9 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
                 details={"error": "no_test_ids"},
             )
 
+        timeout = min(self._timeout, _BEYONDSWE_TIMEOUT)
         all_passed, raw_output, details = await run_tests_with_runner(
-            session, workdir, all_tests, timeout=self._timeout,
+            session, workdir, all_tests, timeout=timeout,
         )
 
         details["f2p_count"] = len(f2p_ids)
@@ -130,20 +131,17 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
             details=details,
         )
 
-    # ── Repo-level evaluation (doc2repo) ────────────────────────────────
+    # ── doc2repo evaluation ────────────────────────────────────────────
 
-    async def _eval_repo_level(
+    async def _eval_doc2repo(
         self,
         instance: Instance,
         session: RuntimeSession,
     ) -> EvalResult:
         """Read local test-suite ZIP, upload, unzip, and run eval script.
 
-        Changes from the original:
-        - ``test_suite`` is a filename, not script content (Issue 4)
-        - Reads ZIP from ``os.path.join(test_suite_path, test_suite)``
-        - Uploads and unzips in container
-        - Runs ``realswe_eval_script.py`` (included in the ZIP)
+        Scoring: ``pass_rate = passed / test_suite_num``.  ``accepted``
+        is ``True`` only when all tests pass (marker present).
         """
         workdir = instance.workdir
         test_suite_name = instance.metadata.get("test_suite", "")
@@ -175,10 +173,8 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
             with open(local_path, "rb") as f:
                 zip_bytes = f.read()
         except FileNotFoundError:
-            return EvalResult(
-                accepted=False,
-                score=0.0,
-                details={"error": f"test_suite_zip_not_found: {local_path}"},
+            raise FileNotFoundError(
+                f"doc2repo instance {instance.id}: test suite zip not found: {local_path}"
             )
 
         # ── 3. Upload ZIP + unzip in container ─────────────────────────
@@ -189,30 +185,33 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
         )
 
         # ── 4. Execute the eval script from the ZIP ────────────────────
+        timeout = min(self._timeout, _DOC2REPO_TIMEOUT)
         result = await session.execute(
             f"cd {workdir} && python realswe_eval_script.py",
-            timeout=self._timeout,
+            timeout=timeout,
         )
 
-        # ── 5. Check <pytest>true</pytest> marker ──────────────────────
-        if "<pytest>true</pytest>" in result.output:
-            return EvalResult(
-                accepted=True,
-                score=1.0,
-                details={
-                    "source": "pytest_marker",
-                    "exit_code": result.exit_code,
-                    "output": result.output[-2000:],
-                },
-            )
+        # ── 5. Parse results and compute pass_rate ──────────────────────
+        all_passed = "<pytest>true</pytest>" in result.output
 
-        # ── 6. Marker not found → fail ────────────────────────────────
+        summary = parse_pytest_summary(result.output)
+        effective_total = test_suite_num if test_suite_num > 0 else summary.total_run
+        pass_rate = (
+            summary.passed / effective_total
+            if effective_total > 0
+            else 0.0
+        )
+
         return EvalResult(
-            accepted=False,
-            score=0.0,
+            accepted=all_passed,
+            score=1.0 if all_passed else pass_rate,
             details={
-                "source": "pytest_marker_not_found",
                 "test_suite_num": test_suite_num,
+                "passed": summary.passed,
+                "failed": summary.failed,
+                "errors": summary.errors,
+                "effective_total": effective_total,
+                "pass_rate": pass_rate,
                 "exit_code": result.exit_code,
                 "output": result.output[-2000:],
             },

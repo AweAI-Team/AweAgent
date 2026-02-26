@@ -95,8 +95,11 @@ class PytestSummary:
         return self.failed == 0 and self.errors == 0 and self.passed > 0
 
 
-_SUMMARY_RE = re.compile(r"=+\s*(.*?)\s+in\s+[\d.]+[sm]\s*=+")
 _COUNT_RE = re.compile(r"(\d+)\s+(\w+)")
+# Match any line that looks like a pytest summary (contains "N passed/failed/errors/...")
+_SUMMARY_LINE_RE = re.compile(
+    r"\d+\s+(?:passed|failed|errors?|skipped|xfailed|xpassed)\b"
+)
 _LABEL_MAP: dict[str, str] = {
     "passed": "passed",
     "pass": "passed",
@@ -121,17 +124,28 @@ _LABEL_MAP: dict[str, str] = {
 def parse_pytest_summary(output: str) -> PytestSummary:
     """Parse the final pytest summary line into structured counts.
 
+    Scans all lines for pytest-style summary patterns (e.g.
+    ``5 passed, 2 failed``) and uses the **last** match, since
+    pytest may print intermediate lines before the final summary.
+
     Recognises lines like::
 
         ===== 5 passed, 2 failed in 3.45s =====
+        ===== 2 errors =====
         ===== 1 passed in 0.01s =====
-        ===== 3 passed, 1 warning in 0.50s =====
     """
     summary = PytestSummary()
-    match = _SUMMARY_RE.search(output)
-    if not match:
+
+    # Find all lines that look like pytest summaries, take the last one
+    summary_line = ""
+    for line in output.splitlines():
+        if _SUMMARY_LINE_RE.search(line):
+            summary_line = line
+
+    if not summary_line:
         return summary
-    for m in _COUNT_RE.finditer(match.group(1)):
+
+    for m in _COUNT_RE.finditer(summary_line):
         label = m.group(2).lower()
         field_name = _LABEL_MAP.get(label)
         if field_name:
@@ -490,7 +504,7 @@ async def run_tests_with_runner(
 def parse_pytest_output(output: str, pytest_num: int) -> bool:
     """Check repo-level test output: passed >= pytest_num and no failures.
 
-    Used by ``_eval_repo_level`` for doc2repo tasks where the expected
+    Used by ``_eval_doc2repo`` for doc2repo tasks where the expected
     number of passing tests is known (``test_suite_num``).
     """
     summary = parse_pytest_summary(output)
