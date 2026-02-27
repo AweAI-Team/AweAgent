@@ -1,0 +1,30 @@
+llm: "!include ../llm/azure.yaml"
+runtime:
+  backend: docker
+  timeout: 14400
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+agent:
+  type: search_swe
+  max_steps: 200
+  # max_context_length: 128000  # Max input tokens per LLM call; null = no limit
+  enable_search: false
+  bash_timeout: 1200
+  tool_call_format: codeact_xml
+task:
+  type: scale_swe
+  dataset_id: scale_swe
+  data_file: ${DATA_FILE}
+eval:
+  enabled: true
+  timeout: 3600
+execution:
+  max_concurrent: 50
+  max_retries: 3
+  output_path: ./results/scale_swe
+
+# security:
+#   bash_blocklist: []          # extra patterns (code defaults handle the rest)
+#   blocked_search_patterns:    # per-instance patterns are added by the task

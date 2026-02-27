@@ -66,15 +66,14 @@ class ExecutionConfig(BaseModel):
 
 
 class SecurityConfig(BaseModel):
-    """Security configuration."""
+    """Security configuration.
 
-    bash_blocklist: list[str] = Field(default_factory=lambda: [
-        r".*git clone.*",
-        r".*git fetch.*",
-        r".*git pull.*",
-        r".*curl.*github\.com.*",
-        r".*wget.*github\.com.*",
-    ])
+    Note: core blocklist patterns (git introspection, non-search git fetch)
+    are defined in ``SearchSWEAgent`` and applied automatically.  The
+    ``bash_blocklist`` here is for *additional* task-specific patterns only.
+    """
+
+    bash_blocklist: list[str] = Field(default_factory=list)
     blocked_urls: list[str] = Field(default_factory=list)
     # Search-specific constraint patterns, keyed by field name
     # e.g. {"url": [".*github\\.com/owner/repo.*"], "title": [...]}

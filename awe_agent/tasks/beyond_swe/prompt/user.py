@@ -592,20 +592,19 @@ Be thorough in your exploration, testing, and reasoning. It's fine if your think
 """
 
 
-# ── Registry ─────────────────────────────────────────────────────────────────
+# ── Task-level registry ──────────────────────────────────────────────────────
+# Declares which keys this task provides. Scaffold layers merge these dicts
+# from all tasks and perform conflict detection.
 
 USER_PROMPTS: dict[str, str] = {
-    # BeyondSWE — non-search
+    # non-search
     "doc2repo":            DOC2REPO_PROMPT,
     "crossrepo":           CROSSREPO_PROMPT,
     "depmigrate":          DEPMIGRATE_PROMPT,
     "domainfix":           DOMAINFIX_PROMPT,
-
-    # BeyondSWE — search-enabled
+    # search-enabled
     "search_doc2repo":     SEARCH_DOC2REPO_PROMPT,
     "search_crossrepo":    SEARCH_CROSSREPO_PROMPT,
     "search_depmigrate":   SEARCH_DEPMIGRATE_PROMPT,
     "search_domainfix":    SEARCH_DOMAINFIX_PROMPT,
 }
-
-

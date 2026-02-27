@@ -1,4 +1,4 @@
-"""Tests for task implementations (BeyondSWE)."""
+"""Tests for task implementations (BeyondSWE, ScaleSWE)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import pytest
 from awe_agent.core.task.types import Instance
 from awe_agent.tasks.beyond_swe.prompts import get_beyond_swe_prompt
 from awe_agent.tasks.beyond_swe.task import BeyondSWETask
+from awe_agent.tasks.scale_swe.task import ScaleSWETask
 
 
 def _write_jsonl(data: list[dict], path: str) -> None:
@@ -198,3 +199,105 @@ def test_test_suite_dir_constructor_overrides_env(monkeypatch):
     )
     inst = task.get_instances(instance_ids=["mylib_doc2repo_001"])[0]
     assert inst.metadata["test_suite_path"] == "/constructor/path"
+
+
+# ── ScaleSWE ──────────────────────────────────────────────────────────────────
+
+_SCALE_SWE_INSTANCES = [
+    {
+        "instance_id": "auth0__auth0-python-001",
+        "user": "auth0",
+        "repo": "auth0-python",
+        "parent_commit": "abc123def456",
+        "image_url": "scaleswe/auth0-python:latest",
+        "workdir": "/testbed",
+        "problem_statement": "Fix token refresh when session expires",
+        "pre_commands": "cd /testbed && git checkout abc123def456\\n",
+        "f2p_patch": "diff --git a/test.py b/test.py\n...",
+        "f2p_script": "import pytest\ndef test_refresh(): ...",
+        "FAIL_TO_PASS": '["test_refresh"]',
+        "PASS_TO_PASS": '["test_login"]',
+        "language": "python",
+    },
+    {
+        "instance_id": "fastapi__fastapi-002",
+        "user": "fastapi",
+        "repo": "fastapi",
+        "parent_commit": "deadbeef1234",
+        "image_url": "scaleswe/fastapi:latest",
+        "workdir": "/testbed",
+        "problem_statement": "Middleware ordering causes CORS failure",
+        "pre_commands": "cd /testbed && git checkout deadbeef1234",
+        "FAIL_TO_PASS": '["test_cors"]',
+        "PASS_TO_PASS": '[]',
+        "language": "python",
+    },
+]
+
+
+def test_scale_swe_task_from_instances():
+    task = ScaleSWETask(instances=_SCALE_SWE_INSTANCES)
+    instances = task.get_instances()
+    assert len(instances) == 2
+
+
+def test_scale_swe_instance_mapping():
+    """Verify parent_commit -> base_commit and image_url -> image mapping."""
+    task = ScaleSWETask(instances=_SCALE_SWE_INSTANCES)
+    inst = task.get_instances(instance_ids=["auth0__auth0-python-001"])[0]
+    assert inst.base_commit == "abc123def456"
+    assert inst.image == "scaleswe/auth0-python:latest"
+    assert inst.repo == "auth0/auth0-python"
+    assert inst.workdir == "/testbed"
+
+
+def test_scale_swe_prompt():
+    """Verify prompt contains issue text and workdir."""
+    task = ScaleSWETask(instances=_SCALE_SWE_INSTANCES)
+    inst = task.get_instances(instance_ids=["auth0__auth0-python-001"])[0]
+    prompt = task.get_prompt(inst)
+    assert "Fix token refresh when session expires" in prompt
+    assert "/testbed" in prompt
+
+
+def test_scale_swe_setup_commands():
+    """Verify pre_commands used directly as setup_commands, no extra git checkout."""
+    task = ScaleSWETask(instances=_SCALE_SWE_INSTANCES)
+    inst = task.get_instances(instance_ids=["auth0__auth0-python-001"])[0]
+    commands = task.get_setup_commands(inst)
+    # Should contain pre_commands but NOT an additional git checkout
+    assert len(commands) == 1
+    assert "cd /testbed && git checkout abc123def456" in commands[0]
+
+
+def test_scale_swe_from_jsonl():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        for item in _SCALE_SWE_INSTANCES:
+            f.write(json.dumps(item) + "\n")
+        f.flush()
+        task = ScaleSWETask(data_file=f.name)
+        instances = task.get_instances()
+        assert len(instances) == 2
+
+
+def test_prompt_routing_scale_swe():
+    """ScaleSWE route table resolves to (openhands, scaleswe)."""
+    from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
+
+    sys_key, usr_key = resolve_prompt_keys("scale_swe", None, False)
+    assert sys_key == "openhands"
+    assert usr_key == "scaleswe"
+
+
+def test_scale_swe_prompt_from_own_module():
+    """ScaleSWE prompt is defined in scale_swe/prompt.py, registered via scaffold."""
+    from awe_agent.tasks.scale_swe.prompt import SCALESWE_PROMPT
+
+    task = ScaleSWETask(instances=_SCALE_SWE_INSTANCES)
+    inst = task.get_instances(instance_ids=["auth0__auth0-python-001"])[0]
+    prompt = task.get_prompt(inst)
+    expected = SCALESWE_PROMPT.format(
+        workspace_dir=inst.workdir,
+        problem_statement=inst.problem_statement,
+    )
+    assert prompt == expected

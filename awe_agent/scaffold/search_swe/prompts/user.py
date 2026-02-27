@@ -1,32 +1,43 @@
 """User prompts for the SearchSWE agent.
 
-Prompt content is defined in :mod:`awe_agent.tasks.beyond_swe.prompt.user`.
-This module re-exports the registry and provides the ``get_user_prompt()`` accessor.
+The scaffold layer merges prompt registries from all task modules and
+performs conflict detection. Each task declares its own ``USER_PROMPTS``
+dict; this module combines them into a single lookup table.
 """
 
 from __future__ import annotations
 
+# ── Import task-level registries ──────────────────────────────────────────────
+
 from awe_agent.tasks.beyond_swe.prompt.user import (
-    CROSSREPO_PROMPT,
-    DEPMIGRATE_PROMPT,
-    DOC2REPO_PROMPT,
-    DOMAINFIX_PROMPT,
-    SEARCH_CROSSREPO_PROMPT,
-    SEARCH_DEPMIGRATE_PROMPT,
-    SEARCH_DOC2REPO_PROMPT,
-    SEARCH_DOMAINFIX_PROMPT,
-    USER_PROMPTS,
+    USER_PROMPTS as _BEYOND_SWE_USER_PROMPTS,
+)
+from awe_agent.tasks.scale_swe.prompt import (
+    USER_PROMPTS as _SCALE_SWE_USER_PROMPTS,
 )
 
+# ── Merge with conflict detection ────────────────────────────────────────────
+
+USER_PROMPTS: dict[str, str] = {}
+
+
+def _merge(source: dict[str, str], label: str) -> None:
+    for key, prompt in source.items():
+        if key in USER_PROMPTS:
+            raise ValueError(
+                f"Duplicate user prompt key {key!r} from {label}. "
+                f"Already registered: {list(USER_PROMPTS.keys())}"
+            )
+        USER_PROMPTS[key] = prompt
+
+
+_merge(_BEYOND_SWE_USER_PROMPTS, "beyond_swe")
+_merge(_SCALE_SWE_USER_PROMPTS,  "scale_swe")
+
+
+# ── Accessor ─────────────────────────────────────────────────────────────────
+
 __all__ = [
-    "DOC2REPO_PROMPT",
-    "CROSSREPO_PROMPT",
-    "DEPMIGRATE_PROMPT",
-    "DOMAINFIX_PROMPT",
-    "SEARCH_DOC2REPO_PROMPT",
-    "SEARCH_CROSSREPO_PROMPT",
-    "SEARCH_DEPMIGRATE_PROMPT",
-    "SEARCH_DOMAINFIX_PROMPT",
     "USER_PROMPTS",
     "get_user_prompt",
 ]

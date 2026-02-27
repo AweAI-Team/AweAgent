@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Run BeyondSWE benchmark in search mode with SearchSWE agent.
+# Run ScaleSWE benchmark (OpenHands style, search disabled).
 #
 # Usage:
-#   bash recipes/beyond_swe/run_beyondswe_searchswe.sh --data-file /path/to/data.jsonl
-#   bash recipes/beyond_swe/run_beyondswe_searchswe.sh --data-file data.jsonl --model gpt-4o --dry-run
-#   bash recipes/beyond_swe/run_beyondswe_searchswe.sh --data-file data.jsonl --instance-ids inst_001 inst_002
+#   bash recipes/scale_swe/run_scale_swe.sh --data-file /path/to/scaleswe.jsonl
+#   bash recipes/scale_swe/run_scale_swe.sh --data-file data.jsonl --model gpt-4o --dry-run
+#   bash recipes/scale_swe/run_scale_swe.sh --data-file data.jsonl --instance-ids inst_001 inst_002
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-CONFIG="${PROJECT_ROOT}/configs/tasks/beyondswe_searchswe.yaml"
+CONFIG="${PROJECT_ROOT}/configs/tasks/scale_swe.yaml"
 
 # ── Defaults ──────────────────────────────────────────────────────────
 DATA_FILE=""
 MODEL="${MODEL:-gpt-4o}"
 MAX_STEPS="${MAX_STEPS:-100}"
 MAX_CONCURRENT="${MAX_CONCURRENT:-50}"
-OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_ROOT}/results/beyondswe_searchswe}"
+OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_ROOT}/results/scale_swe}"
 INSTANCE_IDS=()
 DRY_RUN=false
 
@@ -26,25 +26,16 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Run BeyondSWE benchmark in search mode.
+Run ScaleSWE benchmark (OpenHands style, search disabled).
 
 Required:
-  --data-file PATH       Path to BeyondSWE JSONL data file
-
-Environment variables:
-  BEYONDSWE_TEST_SUITE_DIR   Directory containing doc2repo test suite zip files
-  SERPAPI_API_KEY             API key for SerpAPI search backend
-  JINA_API_KEY               API key for Jina reader backend (optional, higher rate limit)
-  SEARCH_BACKEND             Search backend name (default: auto-discover)
-  READER_BACKEND             Reader backend name (default: auto-discover)
-  LINK_SUMMARY_CONFIG_PATH   Path to LLM config YAML for link summary
-  LINK_SUMMARY_MODEL         LLM model for link summary (default: gpt-4o-mini)
+  --data-file PATH       Path to ScaleSWE JSONL data file
 
 Options:
   --model MODEL          LLM model name (default: gpt-4o, env: MODEL)
   --max-steps N          Max agent steps per instance (default: 100, env: MAX_STEPS)
   --max-concurrent N     Max concurrent instances (default: 50, env: MAX_CONCURRENT)
-  --output-dir DIR       Output directory (default: results/beyondswe_searchswe, env: OUTPUT_DIR)
+  --output-dir DIR       Output directory (default: results/scale_swe, env: OUTPUT_DIR)
   --instance-ids ID ...  Run only specific instance IDs
   --dry-run              List instances without running
   -h, --help             Show this help message
@@ -108,11 +99,6 @@ if [[ ! -f "${DATA_FILE}" ]]; then
     exit 1
 fi
 
-if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-    echo "Error: OPENAI_API_KEY environment variable is not set." >&2
-    exit 1
-fi
-
 if [[ ! -f "${CONFIG}" ]]; then
     echo "Error: Config file not found: ${CONFIG}" >&2
     exit 1
@@ -138,33 +124,21 @@ fi
 # ── Export env vars for config resolution ─────────────────────────────
 export DATA_FILE
 export AWE_AGENT__LLM__MODEL="${MODEL}"
-# test_suite_dir: pass through if set (needed for doc2repo evaluation)
-export BEYONDSWE_TEST_SUITE_DIR="${BEYONDSWE_TEST_SUITE_DIR:-}"
-# Search & link summary: pass through if set
-export SERPAPI_API_KEY="${SERPAPI_API_KEY:-}"
-export JINA_API_KEY="${JINA_API_KEY:-}"
-export SEARCH_BACKEND="${SEARCH_BACKEND:-}"
-export READER_BACKEND="${READER_BACKEND:-}"
-export LINK_SUMMARY_CONFIG_PATH="${LINK_SUMMARY_CONFIG_PATH:-}"
-export LINK_SUMMARY_MODEL="${LINK_SUMMARY_MODEL:-}"
 
 # ── Run ───────────────────────────────────────────────────────────────
-echo "=== BeyondSWE Search Mode ==="
+echo "=== ScaleSWE ==="
 echo "Config:         ${CONFIG}"
 echo "Data file:      ${DATA_FILE}"
 echo "Model:          ${MODEL}"
 echo "Max steps:      ${MAX_STEPS}"
 echo "Max concurrent: ${MAX_CONCURRENT}"
 echo "Output dir:     ${OUTPUT_DIR}"
-if [[ -n "${BEYONDSWE_TEST_SUITE_DIR}" ]]; then
-    echo "Test suite dir: ${BEYONDSWE_TEST_SUITE_DIR}"
-fi
 if [[ ${#INSTANCE_IDS[@]} -gt 0 ]]; then
     echo "Instance IDs:   ${INSTANCE_IDS[*]}"
 fi
 if [[ "${DRY_RUN}" == true ]]; then
     echo "Mode:           DRY RUN"
 fi
-echo "=============================="
+echo "================"
 
 exec "${CMD[@]}"

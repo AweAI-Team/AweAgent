@@ -1,4 +1,4 @@
-"""BeyondSWE recipe — unified entry point for prompt inspection, debug, and batch runs.
+"""ScaleSWE recipe — unified entry point for prompt inspection, debug, and batch runs.
 
 Modes:
 
@@ -9,52 +9,31 @@ Modes:
 
 Key CLI overrides (all optional, default from YAML config):
 
-  --config / -c       YAML config file (default: configs/tasks/beyondswe_searchswe.yaml)
+  --config / -c       YAML config file (default: configs/tasks/scale_swe.yaml)
   --model             LLM model name, e.g. gpt-4o, glm-4.7
   --max-steps         Max agent steps per instance
   --max-concurrent    Max parallel instances (batch mode)
   --output            Output directory (batch mode)
-  --enable-search     Force enable search tools  (SearchSWE style)
-  --no-search         Force disable search tools (OpenHands style)
   --skip-eval         Skip evaluation after agent run
   --verbose           DEBUG level logging
-
-Environment variables:
-
-  BEYONDSWE_TEST_SUITE_DIR    Directory containing doc2repo test suite zips
-  SERPAPI_API_KEY              API key for SerpAPI search backend
-  JINA_API_KEY                 API key for Jina reader backend
-  SEARCH_BACKEND               Search backend name (default: auto-discover)
-  READER_BACKEND               Reader backend name (default: auto-discover)
-  LINK_SUMMARY_CONFIG_PATH     Path to LLM config YAML for link summary
-  LINK_SUMMARY_MODEL           LLM model for link summary (default: gpt-4o-mini)
 
 Usage examples:
 
     # Inspect prompt (no Docker needed)
-    python recipes/beyond_swe/run.py \\
+    python recipes/scale_swe/run.py \\
         --data-file data.jsonl --instance-id inst_001 --mode prompt
 
-    # Debug single instance with custom model and step limit
-    python recipes/beyond_swe/run.py \\
+    # Debug single instance
+    python recipes/scale_swe/run.py \\
         --data-file data.jsonl --instance-id inst_001 --mode debug \\
         --model glm-4.7 --max-steps 30 --verbose
 
-    # Batch run — SearchSWE style (search enabled by default config)
-    python recipes/beyond_swe/run.py \\
+    # Batch run
+    python recipes/scale_swe/run.py \\
         --data-file data.jsonl --mode batch
 
-    # Batch run — OpenHands style (disable search)
-    python recipes/beyond_swe/run.py \\
-        --data-file data.jsonl --mode batch --no-search
-
-    # Batch run — only specific instances
-    python recipes/beyond_swe/run.py \\
-        --data-file data.jsonl --mode batch \\
-        --instance-ids inst_001 inst_002 inst_003
-
     # List instances
-    python recipes/beyond_swe/run.py \\
+    python recipes/scale_swe/run.py \\
         --data-file data.jsonl --mode dry-run
 """
 
@@ -76,12 +55,12 @@ logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="BeyondSWE recipe — unified entry point")
+    p = argparse.ArgumentParser(description="ScaleSWE recipe — unified entry point")
     p.add_argument("--data-file", required=True, help="Path to JSONL data file")
     p.add_argument(
         "--config", "-c",
-        default="configs/tasks/beyondswe_searchswe.yaml",
-        help="Path to YAML config (default: configs/tasks/beyondswe_searchswe.yaml)",
+        default="configs/tasks/scale_swe.yaml",
+        help="Path to YAML config (default: configs/tasks/scale_swe.yaml)",
     )
     p.add_argument(
         "--mode",
@@ -94,14 +73,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--model", default=None, help="Override LLM model")
     p.add_argument("--max-steps", type=int, default=None, help="Override max agent steps")
     p.add_argument("--max-concurrent", type=int, default=None, help="Override concurrency (batch)")
-    p.add_argument(
-        "--enable-search", default=None, action="store_true",
-        help="Enable search tools (SearchSWE style)",
-    )
-    p.add_argument(
-        "--no-search", dest="enable_search", action="store_false",
-        help="Disable search tools (OpenHands style)",
-    )
     p.add_argument("--output", default=None, help="Output directory (batch)")
     p.add_argument("--skip-eval", action="store_true", help="Skip evaluation")
     p.add_argument("--no-trajectories", action="store_true", help="Disable saving per-instance trajectory files")
@@ -118,8 +89,6 @@ def _load_config(args: argparse.Namespace):
         overrides.setdefault("agent", {})["max_steps"] = args.max_steps
     if args.max_concurrent is not None:
         overrides.setdefault("execution", {})["max_concurrent"] = args.max_concurrent
-    if args.enable_search is not None:
-        overrides.setdefault("agent", {})["enable_search"] = args.enable_search
     if args.output is not None:
         overrides.setdefault("execution", {})["output_path"] = args.output
 
@@ -128,13 +97,11 @@ def _load_config(args: argparse.Namespace):
 
 
 def _build_task(config, data_file: str):
-    from awe_agent.tasks.beyond_swe.task import BeyondSWETask
+    from awe_agent.tasks.scale_swe.task import ScaleSWETask
 
-    return BeyondSWETask(
+    return ScaleSWETask(
         dataset_id=config.task.dataset_id,
         data_file=data_file,
-        search_mode=config.agent.enable_search,
-        test_suite_dir=config.task.test_suite_dir,
     )
 
 
@@ -156,8 +123,7 @@ def _mode_dry_run(task, instance_ids: list[str] | None) -> None:
     instances = task.get_instances(instance_ids)
     print(f"\nDry run — {len(instances)} instances loaded:")
     for inst in instances:
-        task_type = inst.metadata.get("task_type", "?")
-        print(f"  {inst.id}  type={task_type}  image={inst.image[:60] if inst.image else 'none'}")
+        print(f"  {inst.id}  repo={inst.repo}  image={inst.image[:60] if inst.image else 'none'}")
 
 
 def _mode_prompt(task, instance_id: str) -> None:
@@ -176,7 +142,6 @@ def _mode_prompt(task, instance_id: str) -> None:
         "image": inst.image,
         "workdir": inst.workdir,
         "base_commit": inst.base_commit,
-        "task_type": inst.metadata.get("task_type"),
     }, indent=2))
     _print_section("TASK INFO", json.dumps(task_info, indent=2))
     _print_section("PROMPT", prompt)
@@ -208,7 +173,6 @@ async def _mode_debug(config, task, instance_id: str, skip_eval: bool) -> None:
         "image": inst.image,
         "workdir": inst.workdir,
         "base_commit": inst.base_commit,
-        "task_type": inst.metadata.get("task_type"),
     }, indent=2))
     _print_section("TASK INFO", json.dumps(task_info, indent=2))
     _print_section("PROMPT", prompt)
@@ -285,12 +249,12 @@ async def _mode_debug(config, task, instance_id: str, skip_eval: bool) -> None:
 
     # Evaluate (outside agent session)
     if not skip_eval:
-        from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+        from awe_agent.tasks.scale_swe.evaluator import ScaleSWEEvaluator
 
         eval_runtime = DockerRuntime(RuntimeConfig(
             backend="docker", image=image, workdir=inst.workdir,
         ))
-        evaluator = BeyondSWEEvaluator(timeout=3600)
+        evaluator = ScaleSWEEvaluator(timeout=3600)
         eval_result = await evaluator.evaluate(inst, result.patch, eval_runtime)
         _print_section("EVAL RESULT", json.dumps({
             "accepted": eval_result.accepted,

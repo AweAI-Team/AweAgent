@@ -65,7 +65,7 @@ class LLMConfig(BaseModel):
     # Middleware
     retry: RetryConfig = Field(default_factory=RetryConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
-    timeout: float = 120.0
+    timeout: float = 1200.0
 
     # RL mode: whether to return token ids and logprobs
     return_tokens: bool = False

@@ -13,7 +13,7 @@ Task implementation for the BeyondSWE benchmark. Supports four task types:
 
 ```bash
 # Via shell script (search mode)
-bash recipes/beyond_swe/run_beyond_swe_search.sh --data-file data.jsonl
+bash recipes/beyond_swe/run_beyondswe_searchswe.sh --data-file data.jsonl
 
 # Via Python entry point
 python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch
@@ -32,13 +32,13 @@ Resolution priority for `test_suite_path`:
 
 ```bash
 export BEYONDSWE_TEST_SUITE_DIR=/path/to/doc2repo_test_suite
-bash recipes/beyond_swe/run_beyond_swe_search.sh --data-file data.jsonl
+bash recipes/beyond_swe/run_beyondswe_searchswe.sh --data-file data.jsonl
 ```
 
 ### Option 2: YAML Config
 
 ```yaml
-# configs/tasks/beyond_swe_search.yaml
+# configs/tasks/beyondswe_searchswe.yaml
 task:
   type: beyond_swe
   dataset_id: beyond_swe

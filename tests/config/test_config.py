@@ -57,8 +57,8 @@ def test_runtime_config_defaults():
 
 def test_security_config_blocklist():
     cfg = SecurityConfig()
-    assert len(cfg.bash_blocklist) > 0
-    assert any("git clone" in p for p in cfg.bash_blocklist)
+    # Default bash_blocklist is empty — core patterns live in agent.py
+    assert cfg.bash_blocklist == []
 
 
 def test_load_config_from_yaml():

@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 from awe_agent.core.agent.context import AgentContext
 from awe_agent.core.agent.protocol import Agent
 from awe_agent.core.agent.trajectory import Action
-from awe_agent.core.llm.format import get_format
+from awe_agent.core.llm.format import get_tool_format
 from awe_agent.core.tool.code import ExecuteBashTool, FinishTool, StrReplaceEditorTool, ThinkTool
 from awe_agent.core.tool.protocol import Tool
 from awe_agent.core.tool.search import LinkSummaryTool, SearchConstraints, SearchTool
@@ -35,26 +35,29 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # ── Bash blocklists ──────────────────────────────────────────────
-# Always blocked regardless of mode (prevent repo introspection)
+# Always blocked regardless of mode.
+# git fetch/pull are always blocked because the container's origin
+# remote points to the target repo — a bare `git fetch` would leak
+# the answer.  Only git clone is unblocked in search mode, since it
+# requires an explicit URL.
 _ALWAYS_BLOCKED = [
     r".*git log.*--all.*",
     r".*git verify-pack.*",
     r".*git fsck.*",
     r".*git cat-file.*",
-]
-
-# Additional blocks for non-search mode (prevent external data fetching)
-_NON_SEARCH_BLOCKED = [
-    r".*git clone.*",
     r".*git fetch.*",
     r".*git pull.*",
+]
+
+# Additional blocks for non-search mode (prevent external data fetching).
+# In search mode these are skipped — the agent may clone reference repos.
+_NON_SEARCH_BLOCKED = [
+    r".*git clone.*",
     r".*api\.github\.com.*",
     r".*github\.io.*",
     r".*githubusercontent.*",
 ]
 
-# Combined default (used when no explicit blocklist and search is off)
-_DEFAULT_BLOCKLIST = _ALWAYS_BLOCKED + _NON_SEARCH_BLOCKED
 
 
 class SearchSWEAgent(Agent):
@@ -142,16 +145,23 @@ class SearchSWEAgent(Agent):
         tool_call_format: str = "openai_function",
     ) -> None:
         self._max_empty_retries = max_empty_retries
-        self._format = get_format(tool_call_format)
+        self._format = get_tool_format(tool_call_format)
         self._enable_search = enable_search
 
-        # Select base blocklist based on mode
+        # Build effective blocklist.
+        # _ALWAYS_BLOCKED is unconditional (repo introspection prevention).
+        # In non-search mode, _NON_SEARCH_BLOCKED is added (no external fetching).
+        # In search mode, generic git clone/fetch are allowed — the task-level
+        # SearchConstraints adds repo-specific blocks so the agent can't fetch
+        # the target repo but can clone reference repos.
+        # Explicit YAML patterns are always *additive*, never override.
+        effective_blocklist = list(_ALWAYS_BLOCKED)
+        if not enable_search:
+            effective_blocklist.extend(_NON_SEARCH_BLOCKED)
         if bash_blocklist is not None:
-            effective_blocklist = list(bash_blocklist)        # User-explicit: respect verbatim
-        elif enable_search:
-            effective_blocklist = list(_ALWAYS_BLOCKED)       # Search mode: relax git/github
-        else:
-            effective_blocklist = list(_DEFAULT_BLOCKLIST)    # Non-search: full lockdown
+            # Deduplicate: only add patterns not already present
+            existing = set(effective_blocklist)
+            effective_blocklist.extend(p for p in bash_blocklist if p not in existing)
         if search_constraints is not None:
             effective_blocklist.extend(search_constraints.get_bash_blocklist_patterns())
 

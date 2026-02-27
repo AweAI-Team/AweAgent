@@ -24,7 +24,7 @@ from awe_agent.core.agent.trajectory import Action
 from awe_agent.core.condenser import build_condenser
 from awe_agent.core.condenser.truncation import TruncationCondenser
 from awe_agent.core.config.schema import AgentConfig, CondenserConfig
-from awe_agent.core.llm.format import get_format
+from awe_agent.core.llm.format import get_tool_format
 from awe_agent.core.llm.format.openai import OpenAIFunctionFormat
 from awe_agent.core.llm.format.xml import CodeActXMLFormat
 from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
@@ -241,21 +241,23 @@ def test_always_blocked_in_search_mode():
     assert always_blocked, "git log --all should always be blocked"
 
 
-def test_explicit_blocklist_overrides():
-    """Explicit blocklist should override defaults entirely."""
+def test_explicit_blocklist_is_additive():
+    """Explicit blocklist adds to code defaults, not replaces them."""
     from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
 
     custom = [r".*forbidden.*"]
     agent = SearchSWEAgent(enable_search=False, bash_blocklist=custom)
     bash_tool = agent._tools[0]
 
-    # Custom blocklist only has our pattern (+ no defaults)
-    import re
+    # Custom pattern is present
     forbidden_blocked = any(p.match("forbidden command") for p in bash_tool._blocklist)
     assert forbidden_blocked
-    # Default patterns should NOT be present
+    # _ALWAYS_BLOCKED patterns are still present
+    always_blocked = any(p.match("git log --all") for p in bash_tool._blocklist)
+    assert always_blocked, "_ALWAYS_BLOCKED should never be skipped"
+    # Non-search mode: _NON_SEARCH_BLOCKED patterns are also present
     git_clone_blocked = any(p.match("git clone https://github.com/test/repo") for p in bash_tool._blocklist)
-    assert not git_clone_blocked
+    assert git_clone_blocked, "non-search mode should block git clone"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -365,24 +367,24 @@ def test_search_constraints_merge():
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def test_get_format_openai():
-    """get_format('openai_function') returns OpenAIFunctionFormat."""
-    fmt = get_format("openai_function")
+def test_get_tool_format_openai():
+    """get_tool_format('openai_function') returns OpenAIFunctionFormat."""
+    fmt = get_tool_format("openai_function")
     assert isinstance(fmt, OpenAIFunctionFormat)
     assert fmt.needs_native_tools()
 
 
-def test_get_format_xml():
-    """get_format('codeact_xml') returns CodeActXMLFormat."""
-    fmt = get_format("codeact_xml")
+def test_get_tool_format_xml():
+    """get_tool_format('codeact_xml') returns CodeActXMLFormat."""
+    fmt = get_tool_format("codeact_xml")
     assert isinstance(fmt, CodeActXMLFormat)
     assert not fmt.needs_native_tools()
 
 
-def test_get_format_invalid():
+def test_get_tool_format_invalid():
     """Unknown format raises ValueError."""
     with pytest.raises(ValueError, match="unknown_format"):
-        get_format("unknown_format")
+        get_tool_format("unknown_format")
 
 
 def test_openai_format_prepare_tools():
@@ -407,7 +409,7 @@ def test_xml_format_prepare_tools():
 
 
 def test_xml_format_system_prompt_suffix():
-    """XML format generates tool descriptions for system prompt."""
+    """XML format generates CodeAct-style tool descriptions."""
     fmt = CodeActXMLFormat()
     tools = [{
         "type": "function",
@@ -420,17 +422,35 @@ def test_xml_format_system_prompt_suffix():
                     "command": {
                         "type": "string",
                         "description": "The command to run",
-                    }
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in seconds",
+                        "enum": [60, 120, 300],
+                    },
                 },
                 "required": ["command"],
             },
         },
     }]
     suffix = fmt.get_system_prompt_suffix(tools)
-    assert "execute_bash" in suffix
-    assert "command" in suffix
-    assert "(required)" in suffix
-    assert "Run a bash command" in suffix
+    # Function delimiter format
+    assert "---- BEGIN FUNCTION #1: execute_bash ----" in suffix
+    assert "---- END FUNCTION #1 ----" in suffix
+    # Bold description
+    assert "**Description**: Run a bash command" in suffix
+    # Numbered parameters with (type, required/optional)
+    assert "(1) command (string, required): The command to run" in suffix
+    assert "(2) timeout (integer, optional): Timeout in seconds" in suffix
+    # Enum support
+    assert "Allowed values: [`60`, `120`, `300`]" in suffix
+    # IMPORTANT reminder block
+    assert "<IMPORTANT>" in suffix
+    assert "Only call one function at a time" in suffix
+    assert "Function calls MUST follow the specified format" in suffix
+    # Multi-line example
+    assert "that can span" in suffix
+    assert "multiple lines" in suffix
 
 
 def test_xml_format_parse_response():
@@ -451,8 +471,8 @@ def test_xml_format_parse_response():
     assert args["command"] == "ls -la"
 
 
-def test_xml_format_parse_multiple_calls():
-    """XML format parses multiple function calls."""
+def test_xml_format_parse_only_first_call():
+    """XML format parses only the first function call (one call per turn)."""
     fmt = CodeActXMLFormat()
     content = (
         "<function=execute_bash>\n"
@@ -466,13 +486,60 @@ def test_xml_format_parse_multiple_calls():
     )
     response = LLMResponse(content=content)
     tool_calls = fmt.parse_response(response)
-    assert len(tool_calls) == 2
+    assert len(tool_calls) == 1
     assert tool_calls[0].name == "execute_bash"
-    assert tool_calls[1].name == "str_replace_editor"
+
+
+def test_xml_format_parse_multiline_param():
+    """XML format handles multi-line parameter values."""
+    fmt = CodeActXMLFormat()
+    content = (
+        "<function=str_replace_editor>\n"
+        "<parameter=command>str_replace</parameter>\n"
+        "<parameter=old_str>def foo():\n"
+        "    return 1</parameter>\n"
+        "<parameter=new_str>def foo():\n"
+        "    return 2</parameter>\n"
+        "</function>\n"
+    )
+    response = LLMResponse(content=content)
+    tool_calls = fmt.parse_response(response)
+    assert len(tool_calls) == 1
     import json
-    args1 = json.loads(tool_calls[1].arguments)
-    assert args1["command"] == "view"
-    assert args1["path"] == "/test.py"
+    args = json.loads(tool_calls[0].arguments)
+    assert "def foo():" in args["old_str"]
+    assert "return 2" in args["new_str"]
+
+
+def test_xml_format_fix_incomplete_tag():
+    """XML format fixes missing </function> tag when output is cut off."""
+    fmt = CodeActXMLFormat()
+    content = (
+        "<function=execute_bash>\n"
+        "<parameter=command>ls -la</parameter>\n"
+    )
+    response = LLMResponse(content=content)
+    tool_calls = fmt.parse_response(response)
+    assert len(tool_calls) == 1
+    assert tool_calls[0].name == "execute_bash"
+
+
+def test_xml_format_mismatched_parameter_tags():
+    """XML format warns on mismatched parameter tags but still parses."""
+    fmt = CodeActXMLFormat()
+    content = (
+        "<function=execute_bash>\n"
+        "<parameter=command>ls</parameter>\n"
+        "<parameter=timeout>60\n"  # missing </parameter>
+        "</function>\n"
+    )
+    response = LLMResponse(content=content)
+    tool_calls = fmt.parse_response(response)
+    # Should still parse what it can
+    assert len(tool_calls) == 1
+    import json
+    args = json.loads(tool_calls[0].arguments)
+    assert args["command"] == "ls"
 
 
 def test_xml_format_parse_empty_content():

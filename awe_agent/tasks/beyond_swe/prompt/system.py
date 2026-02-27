@@ -451,12 +451,13 @@ Remember:
 """
 
 
-# ── Registry ─────────────────────────────────────────────────────────────────
+# ── Task-level registry ──────────────────────────────────────────────────────
+# Declares which keys this task provides. Scaffold layers merge these dicts
+# from all tasks and perform conflict detection.
 
 SYSTEM_PROMPTS: dict[str, str] = {
-    "beyondswe": SYSTEM_PROMPT_BEYONDSWE,
+    "beyondswe":        SYSTEM_PROMPT_BEYONDSWE,
     "search_beyondswe": SEARCH_SYSTEM_PROMPT_BEYONDSWE,
     "search_domainfix": SEARCH_SYSTEM_PROMPT_DOMAINFIX,
 }
-
 

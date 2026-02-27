@@ -1,7 +1,7 @@
 # BeyondSWE Search Mode Configuration
 # Usage:
-#   awe-agent run -c configs/tasks/beyond_swe_search.yaml
-#   python recipes/beyond_swe/run.py -c configs/tasks/beyond_swe_search.yaml --data-file ...
+#   awe-agent run -c configs/tasks/beyondswe_searchswe.yaml
+#   python recipes/beyond_swe/run.py -c configs/tasks/beyondswe_searchswe.yaml --data-file ...
 
 llm: "!include ../llm/azure.yaml"
 
@@ -32,12 +32,8 @@ eval:
 execution:
   max_concurrent: 50
   max_retries: 3
-  output_path: ./results/beyond_swe_search
+  output_path: ./results/beyondswe_searchswe
 
-security:
-  bash_blocklist:
-    - ".*git clone.*"
-    - ".*git fetch.*"
-    - ".*git pull.*"
-    - ".*curl.*github\\.com.*"
-    - ".*wget.*github\\.com.*"
+# security:
+#   bash_blocklist: []          # extra patterns (code defaults handle the rest)
+#   blocked_search_patterns:    # per-instance patterns are added by the task

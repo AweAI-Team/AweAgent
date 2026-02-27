@@ -109,7 +109,7 @@ def _cmd_info() -> None:
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nTasks: beyond_swe")
+    print("\nTasks: beyond_swe, scale_swe")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
@@ -188,20 +188,27 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 
 def _build_task(config: Any):
     """Build a Task instance from config."""
-    from awe_agent.tasks.beyond_swe.task import BeyondSWETask
-
     task_type = config.task.type
     search_mode = config.agent.enable_search
 
     if task_type == "beyond_swe":
+        from awe_agent.tasks.beyond_swe.task import BeyondSWETask
+
         return BeyondSWETask(
             dataset_id=config.task.dataset_id,
             data_file=config.task.data_file,
             search_mode=search_mode,
             test_suite_dir=config.task.test_suite_dir,
         )
+    elif task_type == "scale_swe":
+        from awe_agent.tasks.scale_swe.task import ScaleSWETask
+
+        return ScaleSWETask(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+        )
     else:
-        raise ValueError(f"Unknown task type: {task_type}. Available: beyond_swe.")
+        raise ValueError(f"Unknown task type: {task_type}. Available: beyond_swe, scale_swe.")
 
 
 def _build_agent_factory(config: Any):

@@ -13,6 +13,7 @@ This is the single source of truth for all prompt selection logic.
     | DepMigrate | 1      | search_beyondswe | search_depmigrate  |
     | DomainFix  | 0      | beyondswe        | domainfix          |
     | DomainFix  | 1      | search_domainfix | search_domainfix   |
+    | ScaleSWE   | 0      | openhands        | scaleswe           |
 """
 
 from __future__ import annotations
@@ -37,6 +38,9 @@ PROMPT_ROUTES: dict[tuple[str, str | None, bool], tuple[str, str]] = {
     ("beyond_swe", "depmigrate", True):    ("search_beyondswe", "search_depmigrate"),
     ("beyond_swe", "domainfix", False):    ("beyondswe",        "domainfix"),
     ("beyond_swe", "domainfix", True):     ("search_domainfix", "search_domainfix"),
+
+    # ── ScaleSWE ─────────────────────────────────────────────────────
+    ("scale_swe", None, False):            ("openhands", "scaleswe"),
 }
 
 # Default fallback when no exact route matches

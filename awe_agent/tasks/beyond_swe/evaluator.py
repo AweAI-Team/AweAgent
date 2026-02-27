@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Per-task-type evaluation timeouts
 _DOC2REPO_TIMEOUT = 1800  # 30 min — repo-level eval script
-_BEYONDSWE_TIMEOUT = 600  # ~10 min — func-level tests (crossrepo, depmigrate, domainfix)
+_BEYONDSWE_TIMEOUT = 1800  # ~30 min — func-level tests (crossrepo, depmigrate, domainfix)
 
 
 class BeyondSWEEvaluator(PatchTestEvaluator):
@@ -181,7 +181,7 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
         await session.upload_file("/tmp/_awe_test_suite.zip", zip_bytes)
         await session.execute(
             f"cd {workdir} && unzip -o /tmp/_awe_test_suite.zip",
-            timeout=120,
+            timeout=600,
         )
 
         # ── 4. Execute the eval script from the ZIP ────────────────────

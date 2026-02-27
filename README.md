@@ -118,8 +118,8 @@ Or use the CLI directly:
 
 ```bash
 export DATA_FILE=/path/to/data.jsonl
-awe-agent run -c configs/tasks/beyond_swe_search.yaml --dry-run
-awe-agent run -c configs/tasks/beyond_swe_search.yaml
+awe-agent run -c configs/tasks/beyondswe_searchswe.yaml --dry-run
+awe-agent run -c configs/tasks/beyondswe_searchswe.yaml
 ```
 
 ## Configuration
@@ -127,7 +127,7 @@ awe-agent run -c configs/tasks/beyond_swe_search.yaml
 Configs are YAML files with environment variable substitution (`${VAR}`) and `!include` support:
 
 ```yaml
-# configs/tasks/beyond_swe_search.yaml
+# configs/tasks/beyondswe_searchswe.yaml
 llm: "!include ../llm/azure.yaml"
 
 agent:
@@ -147,7 +147,7 @@ eval:
 
 execution:
   max_concurrent: 50
-  output_path: ./results/beyond_swe_search
+  output_path: ./results/beyondswe_searchswe
 ```
 
 ### LLM Backends

@@ -16,11 +16,11 @@ __all__ = [
     "FORMATS",
     "OpenAIFunctionFormat",
     "ToolCallFormat",
-    "get_format",
+    "get_tool_format",
 ]
 
 
-def get_format(name: str) -> ToolCallFormat:
+def get_tool_format(name: str) -> ToolCallFormat:
     """Instantiate a tool call format by name.
 
     Args:
