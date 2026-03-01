@@ -1,4 +1,4 @@
-llm: "!include ../llm/azure.yaml"
+llm: "!include ../llm/openai.yaml"
 runtime:
   backend: docker
   timeout: 14400

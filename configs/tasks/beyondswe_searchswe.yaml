@@ -3,7 +3,7 @@
 #   awe-agent run -c configs/tasks/beyondswe_searchswe.yaml
 #   python recipes/beyond_swe/run.py -c configs/tasks/beyondswe_searchswe.yaml --data-file ...
 
-llm: "!include ../llm/azure.yaml"
+llm: "!include ../llm/openai.yaml"
 
 runtime:
   backend: docker
