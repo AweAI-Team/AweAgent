@@ -33,6 +33,21 @@ Thumbs.db
 results/
 *.jsonl
 
+# Logs
+*.log
+
+# Secrets / certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Linter cache
+.ruff_cache/
+
 # Environment
 .env
 .env.*
