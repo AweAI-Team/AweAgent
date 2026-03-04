@@ -7,9 +7,13 @@ Run the BeyondSWE benchmark with the SearchSWE agent scaffold. Supports four tas
 Download the BeyondSWE dataset from [Hugging Face](https://huggingface.co/datasets/AweAI-Team/BeyondSWE):
 
 ```python
-from datasets import load_dataset
+from huggingface_hub import snapshot_download
 
-dataset = load_dataset("AweAI-Team/BeyondSWE")
+snapshot_download(
+    repo_id="AweAI-Team/BeyondSWE",
+    repo_type="dataset",
+    local_dir="<your_path>/BeyondSWE",
+)
 ```
 
 Or download the JSONL file directly from the Hugging Face repo page.

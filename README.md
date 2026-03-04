@@ -110,8 +110,13 @@ pip install -e ".[dev]"
 
 ```bash
 # BeyondSWE
-from datasets import load_dataset
-dataset = load_dataset("AweAI-Team/BeyondSWE")
+from huggingface_hub import snapshot_download
+
+snapshot_download(
+    repo_id="AweAI-Team/BeyondSWE",
+    repo_type="dataset",
+    local_dir="<your_path>/BeyondSWE",
+)
 
 # ScaleSWE — see the Hugging Face collection for available splits
 # https://huggingface.co/datasets/AweAI-Team/Scale-SWE
