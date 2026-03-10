@@ -153,13 +153,9 @@ class BeyondSWEEvaluator(PatchTestEvaluator):
             f"pip install -e .", cwd=workdir, timeout=300,
         )
         if not install_result.success:
-            return EvalResult(
-                accepted=False,
-                score=0.0,
-                details={
-                    "error": "pip_install_failed",
-                    "stderr": install_result.stderr[-2000:],
-                },
+            raise RuntimeError(
+                f"pip install -e . failed for {instance.id}: "
+                f"{install_result.stderr[-500:]}"
             )
 
         if not test_suite_name or not test_suite_path:

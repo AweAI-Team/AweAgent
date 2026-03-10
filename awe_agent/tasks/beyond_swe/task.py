@@ -27,12 +27,15 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from awe_agent.core.task.protocol import Evaluator, Task
 from awe_agent.core.task.types import Instance
 from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
 from awe_agent.scaffold.search_swe.prompts.user import get_user_prompt
+
+if TYPE_CHECKING:
+    from awe_agent.core.runtime.protocol import RuntimeSession
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +207,12 @@ class BeyondSWETask(Task):
             REPO_DOCUMENT=instance.metadata.get("REPO_DOCUMENT_CONTENT", ""),
         )
 
+    def get_llm_overrides(self, instance: Instance) -> dict[str, Any]:
+        task_type = instance.metadata.get("task_type", "domainfix")
+        if task_type == "doc2repo":
+            return {"max_completion_tokens": 16384}
+        return {}
+
     def get_image(self, instance: Instance) -> str:
         return instance.image
 
@@ -223,8 +232,41 @@ class BeyondSWETask(Task):
                 f"git log --oneline -1 | grep -q {parent_commit[:8]} || true"
             )
 
+        # PXMeter doc2repo instance requires removing evaluation dir first
+        if (
+            task_type == "doc2repo"
+            and instance.id == "PXMeter_7283384f03718625c13ee447b16db5206b45596b"
+        ):
+            commands.append("rm -rf /workspace/evaluation")
+
         commands.extend(instance.setup_commands)
         return commands
+
+    async def prepare_session(
+        self,
+        instance: Instance,
+        session: RuntimeSession,
+    ) -> None:
+        """doc2repo: upload repo_document.md and collect installed packages."""
+        task_type = instance.metadata.get("task_type", "domainfix")
+        if task_type != "doc2repo":
+            return
+
+        # 1. Upload repo_document.md into the container
+        repo_doc = instance.metadata.get("REPO_DOCUMENT_CONTENT", "")
+        if repo_doc:
+            doc_path = f"{instance.workdir}/repo_document.md"
+            await session.upload_file(doc_path, repo_doc.encode())
+            logger.info("Uploaded repo_document.md for %s", instance.id)
+
+        # 2. Collect pip freeze so the prompt knows installed packages
+        result = await session.execute("pip freeze", cwd=instance.workdir, timeout=60)
+        if result.success:
+            instance.metadata["installed_packages"] = result.stdout.strip()
+        else:
+            logger.warning(
+                "pip freeze failed for %s: %s", instance.id, result.stderr[:200],
+            )
 
     def get_task_info(self, instance: Instance) -> dict[str, Any]:
         return {

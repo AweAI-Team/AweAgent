@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from awe_agent.core.runtime.protocol import Runtime
 from awe_agent.core.task.types import EvalResult, Instance
 from awe_agent.core.tool.search.constraints import SearchConstraints
+
+if TYPE_CHECKING:
+    from awe_agent.core.runtime.protocol import RuntimeSession
 
 
 class Task(ABC):
@@ -52,6 +55,31 @@ class Task(ABC):
             "workdir": instance.workdir,
             "language": instance.language,
         }
+
+    def get_llm_overrides(self, instance: Instance) -> dict[str, Any]:
+        """Return per-instance LLM parameter overrides.
+
+        These are merged into ``LLMConfig.params`` for this instance,
+        allowing task types to customize e.g. ``max_completion_tokens``.
+
+        Default: no overrides (empty dict).
+        """
+        return {}
+
+    async def prepare_session(
+        self,
+        instance: Instance,
+        session: RuntimeSession,
+    ) -> None:
+        """Task-specific session preparation after setup commands, before prompt.
+
+        Called by the runner after ``get_setup_commands()`` and ``PreAgentSetup``
+        have run, but before ``get_prompt()`` is called.  Use this to upload
+        files, run commands, and populate ``instance.metadata`` with data
+        that the prompt template needs (e.g. ``installed_packages``).
+
+        Default implementation is a no-op.
+        """
 
     def get_search_constraints(self, instance: Instance) -> SearchConstraints | None:
         """Build search constraints for this instance.

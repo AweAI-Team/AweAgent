@@ -290,10 +290,20 @@ class TaskRunner:
             pre_agent_commit_id = await setup.commit_and_get_id()
             await setup.remove_future_commits()
 
+            # Task-specific session preparation (e.g. upload files, pip freeze)
+            await self.task.prepare_session(instance, session)
+
             # Create agent
             constraints = self.task.get_search_constraints(instance)
             agent = self.agent_factory(search_constraints=constraints)
-            llm = LLMClient(self.llm_config)
+            llm_overrides = self.task.get_llm_overrides(instance)
+            if llm_overrides:
+                llm_config = self.llm_config.model_copy(
+                    update={"params": {**self.llm_config.params, **llm_overrides}}
+                )
+            else:
+                llm_config = self.llm_config
+            llm = LLMClient(llm_config)
             task_info = self.task.get_task_info(instance)
             if pre_agent_commit_id:
                 task_info["pre_agent_commit_id"] = pre_agent_commit_id
