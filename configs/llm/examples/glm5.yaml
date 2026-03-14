@@ -1,0 +1,20 @@
+# GLM-5 (智谱 Zhipu AI)
+# Docs: https://docs.z.ai/guides/llm/glm-5
+# NOTE: clear_thinking is nested inside the thinking dict by the backend.
+#       See openai.py _build_params for the merge logic.
+backend: openai
+base_url: https://api.z.ai/api/paas/v4/
+api_key: ${GLM_API_KEY}
+model: glm-5
+params:
+  max_tokens: 20480
+  temperature: 1.0
+thinking: true
+reasoning:
+  # When clear_thinking=false (Preserved Thinking mode), the client must
+  # send back reasoning_content in subsequent turns per Z.AI docs.
+  preserve: true
+  format: reasoning_content
+extra:
+  # Merged into thinking dict at request time: {"type":"enabled","clear_thinking":false}
+  clear_thinking: false

@@ -76,10 +76,11 @@ bash recipes/scale_swe/run_scale_swe.sh \
 ```
 --data-file PATH          JSONL data file (required)
 --config / -c PATH        Config file (default: configs/tasks/scale_swe.yaml)
+--llm-config PATH         LLM backend config YAML (overrides LLM_CONFIG env var)
 --mode MODE               prompt | debug | batch | dry-run
 --instance-id ID          Single instance (prompt/debug)
 --instance-ids ID ...     Multiple instances (batch)
---model MODEL             Override LLM model
+--model MODEL             Override LLM model (within the selected backend)
 --max-steps N             Override max steps
 --max-concurrent N        Override concurrency
 --output DIR              Output directory
@@ -87,6 +88,32 @@ bash recipes/scale_swe/run_scale_swe.sh \
 --no-trajectories         Don't save per-instance trajectories
 --verbose                 DEBUG logging
 ```
+
+## Switching LLM Backends
+
+Use `--llm-config` to switch the LLM backend without creating separate task YAML files:
+
+```bash
+# Default: OpenAI
+python recipes/scale_swe/run.py --data-file data.jsonl --mode batch
+
+# Claude 4.6
+python recipes/scale_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/anthropic.yaml
+
+# Kimi K2.5
+python recipes/scale_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/examples/kimi.yaml
+```
+
+Override model name within a backend with `--model`:
+
+```bash
+python recipes/scale_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/anthropic.yaml --model claude-opus-4-6
+```
+
+Available presets: `configs/llm/` and `configs/llm/examples/`. See [`doc/llm_client/README.md`](../../doc/llm_client/README.md) for details.
 
 ## Config
 
@@ -110,6 +137,6 @@ execution:
 ```
 results/scale_swe/<run_id>/
   results.jsonl           # per-instance results
-  config.json             # config snapshot
+  run_config.json             # config snapshot
   trajectories/           # per-instance agent traces
 ```

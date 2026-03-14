@@ -159,7 +159,10 @@ def _resolve_includes(data: dict[str, Any], base_dir: Path) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in data.items():
         if isinstance(value, str) and value.startswith("!include "):
-            include_path = base_dir / value[len("!include "):]
+            raw_path = value[len("!include "):]
+            # Support ${VAR} in include paths, e.g. !include ${LLM_CONFIG}
+            raw_path = _resolve_env_vars(raw_path)
+            include_path = base_dir / raw_path
             if include_path.exists():
                 with open(include_path) as f:
                     result[key] = yaml.safe_load(f) or {}

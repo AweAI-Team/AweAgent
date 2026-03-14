@@ -70,6 +70,17 @@ def create_async_client(
                 "volcenginesdkarkruntime not installed, falling back to openai"
             )
 
+    if backend not in ("openai", "ark"):
+        # ark falls through here when SDK import fails; other backends
+        # (anthropic, openai_response, etc.) have fundamentally different
+        # client interfaces and cannot be used with chat.completions.create.
+        # Raise explicitly rather than returning a silently-wrong client.
+        raise ValueError(
+            f"create_async_client does not support backend={backend!r}. "
+            f"Only 'openai', 'azure', and 'ark' are supported. "
+            f"Use LLMClient for full backend support (anthropic, openai_response, etc.)."
+        )
+
     # Default: openai (also fallback for failed ark import)
     from openai import AsyncOpenAI
     return AsyncOpenAI(
@@ -129,12 +140,12 @@ class LLMClient:
         if "stop" not in overrides and self.config.stop:
             kwargs["stop"] = self.config.stop
 
-        # Thinking mode
+        # Thinking mode — pass config to backend for profile-aware resolution
         if self.config.thinking and "thinking" not in kwargs:
-            kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": self.config.thinking_budget or 10000,
-            }
+            thinking_dict: dict[str, Any] = {}
+            if self.config.thinking_budget is not None:
+                thinking_dict["budget_tokens"] = self.config.thinking_budget
+            kwargs["thinking"] = thinking_dict
 
         return await fn(messages, tools, **kwargs)
 

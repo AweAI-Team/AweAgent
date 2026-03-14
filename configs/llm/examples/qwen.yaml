@@ -1,0 +1,18 @@
+# Qwen 3.5 (通义千问 3.5) via DashScope OpenAI-compatible API
+# Models: qwen3.5-plus (flagship, 397B MoE), qwen3.5-flash (lighter, 35B MoE)
+# Docs: https://help.aliyun.com/zh/model-studio/deep-thinking
+backend: openai
+base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+api_key: ${DASHSCOPE_API_KEY}
+model: qwen3.5-plus
+params:
+  max_tokens: 16384
+  # Empirical: low temperature may cause repetitions with thinking models.
+  temperature: 0.6
+  top_p: 0.95
+reasoning:
+  # Conservative default: strip reasoning in multi-turn.
+  preserve: false
+  format: reasoning_content
+extra:
+  enable_thinking: true  # Qwen 3.5 default; set false for instant mode

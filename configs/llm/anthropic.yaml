@@ -1,0 +1,12 @@
+# Claude 4.6 via native Anthropic API
+# Docs: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+backend: anthropic
+api_key: ${ANTHROPIC_API_KEY}
+model: claude-sonnet-4-6
+params:
+  max_tokens: 16384
+thinking: true
+thinking_type: adaptive
+# For manual extended thinking with a fixed token budget:
+#   thinking_type: null   (or remove the line)
+#   thinking_budget: 10000

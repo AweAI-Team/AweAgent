@@ -32,6 +32,9 @@ Three ways to configure the LLM backend (can be combined):
 If neither ``LINK_SUMMARY_MODEL`` nor ``LINK_SUMMARY_CONFIG_PATH`` is set,
 the tool falls back to returning raw fetched content without summarization.
 
+Supports any backend available through AweAgent LLMClient (OpenAI, Azure,
+Anthropic, OpenAI Response API, Ark, etc.).
+
 Prompt Configuration
 ====================
 
@@ -48,7 +51,9 @@ import os
 from typing import Any
 
 from awe_agent.core.config.loader import load_yaml
-from awe_agent.core.llm.client import create_async_client
+from awe_agent.core.llm.client import LLMClient
+from awe_agent.core.llm.config import LLMConfig
+from awe_agent.core.llm.types import Message
 from awe_agent.core.runtime.protocol import RuntimeSession
 from awe_agent.core.tool.protocol import Tool
 from awe_agent.core.tool.search.constraints import SearchConstraints
@@ -74,12 +79,10 @@ class LinkSummaryTool(Tool):
         max_attempts: Retry attempts for LLM summarization.
         system_prompt: Custom system prompt (defaults to ``LINK_SUMMARY_PROMPT``).
         llm_config_path: Path to YAML config for the LLM client.
-        llm_params: LLM generation parameters (e.g. ``max_completion_tokens``).
-            Overrides values from YAML config. Defaults: ``max_completion_tokens=32768``.
-        llm_client: Optional pre-configured async LLM client (OpenAI-compatible).
-            Useful for testing or when you already have a client instance.
-        llm_model: Model name to use with ``llm_client``. Required when
-            ``llm_client`` is provided.
+        llm_params: LLM generation parameters (e.g. ``max_tokens``).
+            Overrides values from YAML config. Defaults: ``max_tokens=10240``.
+        llm: Optional pre-configured :class:`LLMClient` instance.
+            Useful for testing or when you already have a client.
         reader: Optional :class:`LinkReaderTool` instance. Defaults to creating
             one internally with the same constraints.
     """
@@ -92,8 +95,7 @@ class LinkSummaryTool(Tool):
         system_prompt: str | None = None,
         llm_config_path: str | None = None,
         llm_params: dict[str, Any] | None = None,
-        llm_client: Any = None,
-        llm_model: str | None = None,
+        llm: LLMClient | None = None,
         reader: LinkReaderTool | None = None,
     ) -> None:
         self._constraints = constraints or SearchConstraints()
@@ -112,12 +114,11 @@ class LinkSummaryTool(Tool):
             max_content_tokens=max_content_tokens,
         )
 
-        # Injected or lazy-loaded LLM client and resolved generation params
-        self._llm_client: Any = llm_client
-        self._llm_model: str | None = llm_model
+        # Injected or lazy-loaded LLMClient and resolved generation params
+        self._llm: LLMClient | None = llm
         # When client is injected, resolve params immediately
-        if llm_client is not None:
-            self._llm_params: dict[str, Any] = {"max_completion_tokens": 32768}
+        if llm is not None:
+            self._llm_params: dict[str, Any] = {"max_tokens": 10240}
             if llm_params:
                 self._llm_params.update(llm_params)
         else:
@@ -192,14 +193,15 @@ class LinkSummaryTool(Tool):
     async def _summarize_content(
         self, content: str, url: str, goal: str,
     ) -> str:
-        """Call LLM with system prompt + user message.
+        """Call LLM to summarize fetched content.
 
-        Lazy-loads LLM client from YAML config. Supports OpenAI, AzureOpenAI,
-        and Ark backends. Retries with exponential backoff.
+        Uses the unified LLMClient interface — works with any backend
+        (OpenAI, Anthropic, Response API, Ark, etc.). Retries with
+        exponential backoff on transient failures.
         """
         self._ensure_llm_loaded()
 
-        if self._llm_client is None:
+        if self._llm is None:
             # Fallback: return raw content with a note
             return (
                 f"Content from {url} (no LLM configured for summarization):\n\n"
@@ -215,16 +217,14 @@ class LinkSummaryTool(Tool):
         last_error: Exception | None = None
         for attempt in range(self._max_attempts):
             try:
-                response = await self._llm_client.chat.completions.create(
-                    model=self._llm_model,
+                response = await self._llm.chat(
                     messages=[
-                        {"role": "system", "content": self._system_prompt},
-                        {"role": "user", "content": user_message},
+                        Message(role="system", content=self._system_prompt),
+                        Message(role="user", content=user_message),
                     ],
                     **self._llm_params,
                 )
-                result = response.choices[0].message.content
-                return f"Summary of {url}:\n\n{result}"
+                return f"Summary of {url}:\n\n{response.content}"
 
             except Exception as exc:
                 last_error = exc
@@ -242,8 +242,8 @@ class LinkSummaryTool(Tool):
         )
 
     def _ensure_llm_loaded(self) -> None:
-        """Lazy-load LLM config from YAML file and create async client."""
-        if self._llm_client is not None:
+        """Lazy-load LLM from YAML config or environment variables."""
+        if self._llm is not None:
             return
 
         model = os.environ.get("LINK_SUMMARY_MODEL")
@@ -254,26 +254,36 @@ class LinkSummaryTool(Tool):
             )
             return
 
-        config: dict[str, Any] = {}
+        config_dict: dict[str, Any] = {}
         if self._llm_config_path:
-            config = load_yaml(self._llm_config_path)
+            config_dict = load_yaml(self._llm_config_path)
 
-        # Resolve model name and generation params
-        self._llm_model = model or config.get("model", "gpt-4o-mini")
-        # Defaults ← YAML config "params" ← constructor llm_params (highest priority)
-        self._llm_params = {"max_completion_tokens": 10240}
-        self._llm_params.update(config.get("params", {}))
+        # Resolve generation params: defaults ← YAML ← constructor override
+        self._llm_params = {"max_tokens": 10240}
+        self._llm_params.update(config_dict.get("params", {}))
         if self._llm_params_override:
             self._llm_params.update(self._llm_params_override)
 
+        # Apply env-var overrides and model name, then build full LLMConfig
+        # from the YAML dict so all fields (thinking, reasoning, extra, etc.)
+        # are inherited — not just backend/api_key/base_url/model.
+        if model:
+            config_dict["model"] = model
+        config_dict.setdefault("model", "gpt-4o-mini")
+        config_dict.setdefault("backend", "openai")
+        if not config_dict.get("api_key"):
+            config_dict["api_key"] = os.environ.get("OPENAI_API_KEY")
+        if not config_dict.get("base_url"):
+            env_url = os.environ.get("OPENAI_BASE_URL")
+            if env_url:
+                config_dict["base_url"] = env_url
+
         try:
-            self._llm_client = create_async_client(
-                backend=config.get("backend", "openai"),
-                api_key=config.get("api_key") or os.environ.get("OPENAI_API_KEY"),
-                base_url=config.get("base_url") or os.environ.get("OPENAI_BASE_URL"),
-                azure_endpoint=config.get("azure_endpoint"),
-                api_version=config.get("api_version", "2024-02-01"),
-            )
+            llm_config = LLMConfig(**{
+                k: v for k, v in config_dict.items()
+                if k in LLMConfig.model_fields
+            })
+            self._llm = LLMClient(llm_config)
         except Exception as exc:
             logger.warning("Failed to create LLM client for link_summary: %s", exc)
-            self._llm_client = None
+            self._llm = None

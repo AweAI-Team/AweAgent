@@ -1,0 +1,17 @@
+# Kimi K2.5 (Moonshot AI)
+# Docs: https://platform.moonshot.ai/docs/guide/kimi-k2-5-quickstart
+# NOTE: Moonshot also offers kimi-k2-thinking / kimi-k2-thinking-turbo
+#       for deeper reasoning tasks. Switch model name if needed.
+backend: openai
+base_url: https://api.moonshot.ai/v1
+api_key: ${MOONSHOT_API_KEY}
+model: kimi-k2.5
+params:
+  max_tokens: 32768
+  temperature: 1.0  # Empirical: recommended for thinking mode
+thinking: true
+reasoning:
+  # Empirical: tool-call messages may require reasoning_content to be
+  # preserved, otherwise some versions return errors.
+  preserve: true
+  format: reasoning_content

@@ -10,7 +10,8 @@ Modes:
 Key CLI overrides (all optional, default from YAML config):
 
   --config / -c       YAML config file (default: configs/tasks/beyondswe_searchswe.yaml)
-  --model             LLM model name, e.g. gpt-4o, glm-4.7
+  --llm-config        LLM backend config YAML (overrides LLM_CONFIG env var)
+  --model             LLM model name override (within the selected backend)
   --max-steps         Max agent steps per instance
   --max-concurrent    Max parallel instances (batch mode)
   --output            Output directory (batch mode)
@@ -35,10 +36,10 @@ Usage examples:
     python recipes/beyond_swe/run.py \\
         --data-file data.jsonl --instance-id inst_001 --mode prompt
 
-    # Debug single instance with custom model and step limit
+    # Debug single instance with Claude backend
     python recipes/beyond_swe/run.py \\
         --data-file data.jsonl --instance-id inst_001 --mode debug \\
-        --model glm-4.7 --max-steps 30 --verbose
+        --llm-config configs/llm/anthropic.yaml --verbose
 
     # Batch run — SearchSWE style (search enabled by default config)
     python recipes/beyond_swe/run.py \\
@@ -91,6 +92,7 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--instance-id", default=None, help="Single instance ID (prompt/debug)")
     p.add_argument("--instance-ids", nargs="*", default=None, help="Instance IDs (batch, optional)")
+    p.add_argument("--llm-config", default=None, help="Path to LLM config YAML (overrides LLM_CONFIG env var)")
     p.add_argument("--model", default=None, help="Override LLM model")
     p.add_argument("--max-steps", type=int, default=None, help="Override max agent steps")
     p.add_argument("--max-concurrent", type=int, default=None, help="Override concurrency (batch)")
@@ -111,6 +113,19 @@ def parse_args() -> argparse.Namespace:
 
 def _load_config(args: argparse.Namespace):
     """Load and apply CLI overrides to the YAML config."""
+    # --llm-config takes precedence over LLM_CONFIG env var.
+    # Convert to a path relative to the task config directory, since
+    # !include resolution uses the task YAML's parent as base.
+    if args.llm_config is not None:
+        from pathlib import Path
+        llm_abs = Path(args.llm_config).resolve()
+        task_dir = Path(args.config).resolve().parent
+        try:
+            os.environ["LLM_CONFIG"] = str(os.path.relpath(llm_abs, task_dir))
+        except ValueError:
+            # Different drives on Windows — fall back to absolute
+            os.environ["LLM_CONFIG"] = str(llm_abs)
+
     overrides: dict = {}
     if args.model is not None:
         overrides.setdefault("llm", {})["model"] = args.model
@@ -364,7 +379,9 @@ async def main() -> None:
     config = _load_config(args)
     task = _build_task(config, args.data_file)
 
+    llm_config_source = args.llm_config or os.environ.get("LLM_CONFIG", "(default in task YAML)")
     print(f"LLM:    backend={config.llm.backend}, model={config.llm.model}")
+    print(f"        config={llm_config_source}")
     print(f"Agent:  type={config.agent.type}, max_steps={config.agent.max_steps}, "
           f"search={config.agent.enable_search}")
     print(f"Mode:   {args.mode}")

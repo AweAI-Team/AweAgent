@@ -61,10 +61,10 @@ def test_llm_response():
 def test_llm_response_with_thinking():
     resp = LLMResponse(
         content="The fix.",
-        thinking="I need to change line 42.",
+        reasoning_text="I need to change line 42.",
         usage=TokenUsage(prompt_tokens=10, completion_tokens=20),
     )
-    assert resp.thinking == "I need to change line 42."
+    assert resp.reasoning_text == "I need to change line 42."
 
 
 def test_llm_response_with_tokens():

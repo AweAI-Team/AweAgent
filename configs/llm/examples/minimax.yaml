@@ -1,0 +1,20 @@
+# MiniMax M2.5 via OpenAI-compatible API
+# Docs: https://platform.minimax.io/docs/api-reference/text-openai-api
+#
+# Uses reasoning_split=true to get structured reasoning_details.
+# Better suited for the OpenAI-compatible reasoning processing chain
+# (reasoning_details / reasoning_split).
+#
+# MiniMax also offers an Anthropic-compatible API — see minimax_anthropic.yaml.
+backend: openai
+base_url: https://api.minimax.io/v1
+api_key: ${MINIMAX_API_KEY}
+model: MiniMax-M2.5
+params:
+  temperature: 1.0  # Required range: (0.0, 1.0]
+  max_tokens: 8192
+reasoning:
+  preserve: true
+  format: reasoning_details
+extra:
+  reasoning_split: true

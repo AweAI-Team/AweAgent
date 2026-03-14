@@ -1,0 +1,20 @@
+# MiniMax M2.5 via Anthropic-compatible API (official recommended)
+# Docs: https://platform.minimax.io/docs/api-reference/text-anthropic-api
+#
+# Uses the Anthropic SDK and content block format (thinking/text/tool_use).
+# Content block round-trip is handled automatically by AnthropicBackend.
+#
+# Do NOT set thinking/thinking_type — those are Claude 4.6 specific.
+# MiniMax's thinking behavior is controlled by the model itself, not by
+# request-side parameters.
+#
+# For the OpenAI-compatible alternative, see minimax.yaml.
+backend: anthropic
+base_url: https://api.minimax.io/anthropic
+api_key: ${MINIMAX_API_KEY}
+model: MiniMax-M2.5
+params:
+  max_tokens: 8192
+  temperature: 1.0
+reasoning:
+  preserve: true

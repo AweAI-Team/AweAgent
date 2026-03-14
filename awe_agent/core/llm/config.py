@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,17 @@ class CacheConfig(BaseModel):
 
     enabled: bool = False
     ttl: int = 3600
+
+
+class ReasoningConfig(BaseModel):
+    """Reasoning/thinking mode configuration for various models."""
+
+    preserve: bool | None = None  # None = auto (follow model default)
+    # True = preserve reasoning across turns (Kimi, GLM-5, MiniMax, Anthropic)
+    # False = strip reasoning across turns (DeepSeek)
+    format: str = "auto"  # "auto" | "reasoning_content" | "reasoning_details" | "think_tags"
+    effort: str | None = None  # "low" | "medium" | "high" (OpenAI reasoning models)
+    summary: str | None = None  # "auto" | "concise" (OpenAI Response API)
 
 
 class LLMConfig(BaseModel):
@@ -64,9 +75,13 @@ class LLMConfig(BaseModel):
 
     # Advanced features
     thinking: bool = False
-    thinking_budget: int | None = None
+    thinking_type: Literal["adaptive", "enabled"] | None = None
+    thinking_budget: Annotated[int, Field(gt=0)] | None = None
     stop: list[str] | None = None
     response_format: dict[str, Any] | None = None
+
+    # Fine-grained reasoning configuration
+    reasoning: ReasoningConfig = Field(default_factory=ReasoningConfig)
 
     # Middleware
     retry: RetryConfig = Field(default_factory=RetryConfig)

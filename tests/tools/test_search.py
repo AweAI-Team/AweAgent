@@ -280,36 +280,62 @@ class TestLinkReaderTool:
 # ── LinkSummaryTool ─────────────────────────────────────────────────────────
 
 
-def _make_mock_llm_client(summary_text: str = "This is the summary.") -> MagicMock:
-    """Create a mock OpenAI-compatible async client."""
-    mock_message = MagicMock()
-    mock_message.content = summary_text
+def test_link_summary_yaml_config_inherits_all_fields(tmp_path):
+    """LinkSummaryTool._ensure_llm_loaded builds a full LLMConfig from YAML.
 
-    mock_choice = MagicMock()
-    mock_choice.message = mock_message
+    Verifies that fields like thinking, reasoning, extra are NOT silently
+    dropped when loading from a YAML config file.
+    """
+    import yaml
 
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
+    yaml_content = {
+        "backend": "openai",
+        "model": "gpt-4o-mini",
+        "api_key": "test-key",
+        "thinking": True,
+        "thinking_budget": 5000,
+        "reasoning": {"preserve": True, "format": "reasoning_content"},
+        "extra": {"enable_thinking": True},
+        "params": {"temperature": 0.5},
+    }
+    config_path = tmp_path / "test_llm.yaml"
+    config_path.write_text(yaml.dump(yaml_content))
 
-    mock_client = MagicMock()
-    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-    return mock_client
+    tool = LinkSummaryTool(llm_config_path=str(config_path))
+    tool._ensure_llm_loaded()
+
+    assert tool._llm is not None
+    cfg = tool._llm.config
+    assert cfg.backend == "openai"
+    assert cfg.model == "gpt-4o-mini"
+    assert cfg.thinking is True
+    assert cfg.thinking_budget == 5000
+    assert cfg.reasoning.preserve is True
+    assert cfg.extra.get("enable_thinking") is True
+
+
+def _make_mock_llm(summary_text: str = "This is the summary.") -> MagicMock:
+    """Create a mock LLMClient for LinkSummaryTool tests."""
+    from awe_agent.core.llm.types import LLMResponse
+
+    mock_llm = MagicMock()
+    mock_llm.chat = AsyncMock(return_value=LLMResponse(content=summary_text))
+    return mock_llm
 
 
 class TestLinkSummaryTool:
 
     @pytest.mark.asyncio
     async def test_full_pipeline(self):
-        """End-to-end: fetch + summarize with injected dependencies."""
+        """End-to-end: fetch + summarize via LLMClient."""
         async def fake_reader(url):
             return "Django is a Python web framework."
 
         reader = LinkReaderTool(reader_fn=fake_reader)
-        mock_client = _make_mock_llm_client("Django is a high-level web framework for Python.")
+        mock_llm = _make_mock_llm("Django is a high-level web framework for Python.")
 
         tool = LinkSummaryTool(
-            llm_client=mock_client,
-            llm_model="test-model",
+            llm=mock_llm,
             reader=reader,
         )
         result = await tool.execute({
@@ -319,12 +345,12 @@ class TestLinkSummaryTool:
         assert "Summary of" in result
         assert "high-level web framework" in result
 
-        # Verify LLM was called with correct structure
-        call_kwargs = mock_client.chat.completions.create.call_args
-        messages = call_kwargs.kwargs["messages"]
-        assert messages[0]["role"] == "system"
-        assert messages[1]["role"] == "user"
-        assert "What is Django?" in messages[1]["content"]
+        # Verify LLMClient.chat was called with Message objects
+        call_args = mock_llm.chat.call_args
+        messages = call_args.kwargs["messages"]
+        assert messages[0].role == "system"
+        assert messages[1].role == "user"
+        assert "What is Django?" in messages[1].content
 
     @pytest.mark.asyncio
     async def test_url_blocked(self):
@@ -344,22 +370,21 @@ class TestLinkSummaryTool:
 
     @pytest.mark.asyncio
     async def test_llm_params_passed(self):
-        """Verify custom llm_params are forwarded to the LLM call."""
+        """Verify custom llm_params are forwarded to LLMClient.chat()."""
         async def fake_reader(url):
             return "content"
 
         reader = LinkReaderTool(reader_fn=fake_reader)
-        mock_client = _make_mock_llm_client()
+        mock_llm = _make_mock_llm()
 
         tool = LinkSummaryTool(
-            llm_client=mock_client,
-            llm_model="m",
+            llm=mock_llm,
             reader=reader,
             llm_params={"temperature": 0.7, "max_tokens": 2048},
         )
         await tool.execute({"url": "https://example.com", "goal": "summarize"})
 
-        call_kwargs = mock_client.chat.completions.create.call_args.kwargs
+        call_kwargs = mock_llm.chat.call_args.kwargs
         assert call_kwargs["temperature"] == 0.7
         assert call_kwargs["max_tokens"] == 2048
 
@@ -380,19 +405,16 @@ class TestLinkSummaryTool:
 
     @pytest.mark.asyncio
     async def test_llm_failure_returns_raw_content(self):
-        """When LLM call fails, should return raw content with error note."""
+        """When LLMClient.chat() fails, should return raw content with error note."""
         async def fake_reader(url):
             return "Fallback content"
 
         reader = LinkReaderTool(reader_fn=fake_reader)
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            side_effect=RuntimeError("LLM down")
-        )
+        mock_llm = MagicMock()
+        mock_llm.chat = AsyncMock(side_effect=RuntimeError("LLM down"))
 
         tool = LinkSummaryTool(
-            llm_client=mock_client,
-            llm_model="m",
+            llm=mock_llm,
             reader=reader,
             max_attempts=1,
         )

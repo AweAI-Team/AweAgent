@@ -1,4 +1,4 @@
-llm: "!include ../llm/openai.yaml"
+llm: "!include ${LLM_CONFIG:-../llm/openai.yaml}"
 runtime:
   backend: docker
   timeout: 14400

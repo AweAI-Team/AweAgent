@@ -328,7 +328,7 @@ async def generate_single(
     sample.loss_mask = rl_data["loss_mask"]
     sample.rollout_log_probs = rl_data["rollout_log_probs"]
     sample.train_metadata = {
-        "messages": [m.to_dict() for m in result.messages],
+        "messages": [m.to_full_dict() for m in result.messages],
         "patch": result.patch,
         "finish_reason": result.finish_reason,
     }

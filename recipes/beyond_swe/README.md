@@ -97,12 +97,59 @@ execution:
   max_retries: 3          # retry on failure
 ```
 
-### Model Configuration
+### Switching LLM Backends
 
-| Model | Usage | Max Completion Tokens |
-|-------|-------|----------------------:|
-| LLM (agent backbone) | Agent reasoning & tool calls | 16384 |
-| Summary model (DeepSeek v3.2) | Search link summarization | 32768 |
+The task config uses `LLM_CONFIG` to select the LLM backend at runtime — no need to create separate task YAML files per model.
+
+There are two equivalent ways to specify the LLM config: `--llm-config` (CLI) or `LLM_CONFIG` (env var). CLI takes precedence.
+
+```bash
+# Default: OpenAI (configs/llm/openai.yaml)
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch
+
+# Claude 4.6 — via CLI flag
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/anthropic.yaml
+
+# Kimi K2.5 — via env var
+LLM_CONFIG=../llm/examples/kimi.yaml \
+    python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch
+
+# GLM-5
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/examples/glm5.yaml
+
+# Qwen 3.5
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/examples/qwen.yaml
+
+# DeepSeek Reasoner
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/examples/deepseek.yaml
+
+# MiniMax M2.5 (OpenAI-compatible)
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/examples/minimax.yaml
+
+# MiniMax M2.5 (Anthropic-compatible)
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/examples/minimax_anthropic.yaml
+```
+
+**Path resolution:** `--llm-config` accepts either an absolute path or a path relative to the working directory. When using the `LLM_CONFIG` env var, the path is relative to `configs/tasks/` (since the task YAML contains the `!include`).
+
+**Override model name within a backend** — combine `--llm-config` with `--model`:
+
+```bash
+python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
+    --llm-config configs/llm/anthropic.yaml --model claude-opus-4-6
+```
+
+**Logging:** The resolved LLM config path is printed at startup, so you can verify which backend is being used. The full LLM configuration (backend, model, params, etc.) is saved in the batch output `run_config.json`.
+
+Each LLM preset reads its API key from an environment variable (e.g., `ANTHROPIC_API_KEY`, `MOONSHOT_API_KEY`, `DASHSCOPE_API_KEY`). See the corresponding YAML file for required variables.
+
+Available presets: `configs/llm/` (production) and `configs/llm/examples/` (model-specific). For full details on reasoning modes and configuration, see [`doc/llm_client/README.md`](../../doc/llm_client/README.md).
 
 ## Modes
 
@@ -118,6 +165,7 @@ execution:
 ```
 --data-file PATH          JSONL data file (required)
 --config / -c PATH        Config file (default: configs/tasks/beyondswe_searchswe.yaml)
+--llm-config PATH         LLM backend config YAML (overrides LLM_CONFIG env var)
 --mode MODE               prompt | debug | batch | dry-run
 --instance-id ID          Single instance ID (prompt/debug)
 --instance-ids ID ...     Multiple instance IDs (batch, optional)
@@ -139,7 +187,7 @@ Batch results are saved to the `--output` directory (default `results/beyondswe_
 results/beyondswe_searchswe/
   <run_id>/
     results.jsonl           # one line per instance result
-    config.json             # config snapshot
+    run_config.json             # config snapshot
     trajectories.jsonl      # per-instance agent trajectories
 ```
 

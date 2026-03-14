@@ -276,23 +276,27 @@ class SearchSWEAgent(Agent):
             return Action(
                 type="finish" if is_finish else "tool_call",
                 content=response.content,
-                thinking=response.thinking,
+                reasoning_text=response.reasoning_text,
+                reasoning_raw=response.reasoning_raw,
                 tool_calls=tool_call_dicts,
                 token_ids=response.completion_token_ids,
                 logprobs=response.logprobs,
                 weight_version=response.weight_version,
                 finish_status=response.finish_status,
                 usage=response.usage,
+                llm_response_raw=response.raw,
             )
 
         # LLM returned text without invoking any tool.
         return Action(
             type="message",
             content=response.content,
-            thinking=response.thinking,
+            reasoning_text=response.reasoning_text,
+            reasoning_raw=response.reasoning_raw,
             token_ids=response.completion_token_ids,
             logprobs=response.logprobs,
             weight_version=response.weight_version,
             finish_status=response.finish_status,
             usage=response.usage,
+            llm_response_raw=response.raw,
         )

@@ -40,7 +40,7 @@ class ArkBackend:
     ) -> LLMResponse:
         params: dict[str, Any] = {
             "model": kwargs.pop("model", self.config.model),
-            "messages": [m.to_dict() for m in messages],
+            "messages": self._serialize_messages(messages),
         }
 
         # Merge config params with runtime overrides — pass everything through.
@@ -71,6 +71,17 @@ class ArkBackend:
         response = await self._client.chat.completions.create(**params)
         return self._parse_response(response)
 
+    def _serialize_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
+        """Serialize messages with reasoning_content preservation."""
+        result = []
+        for m in messages:
+            d = m.to_dict()
+            # Ark uses reasoning_content for round-trip (same as Kimi, GLM-5)
+            if m.role == "assistant" and m.reasoning_raw is not None:
+                d["reasoning_content"] = m.reasoning_raw
+            result.append(d)
+        return result
+
     def _parse_response(self, response: Any) -> LLMResponse:
         choice = response.choices[0]
         msg = choice.message
@@ -86,8 +97,10 @@ class ArkBackend:
 
         # Extract thinking content if present
         thinking = None
+        reasoning_raw = None
         if hasattr(msg, "reasoning_content") and msg.reasoning_content:
             thinking = msg.reasoning_content
+            reasoning_raw = msg.reasoning_content
 
         usage = None
         if response.usage:
@@ -100,7 +113,8 @@ class ArkBackend:
         return LLMResponse(
             content=msg.content,
             tool_calls=tool_calls,
-            thinking=thinking,
+            reasoning_text=thinking,
+            reasoning_raw=reasoning_raw,
             usage=usage,
             finish_reason=getattr(choice, "finish_reason", None),
             raw=response,

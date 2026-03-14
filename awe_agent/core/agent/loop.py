@@ -168,12 +168,20 @@ class AgentLoop:
                         )
                         self.ctx.training.finish_status = "length"
                         finish_reason = "context_length"
-                        self.ctx.trajectory.add_step(step=step, action=action)
+                        self.ctx.trajectory.add_step(
+                            step=step, action=action,
+                            reasoning_text=action.reasoning_text,
+                            llm_response_raw=action.llm_response_raw,
+                        )
                         stats.end_step()
                         break
 
                 # Record in trajectory
-                self.ctx.trajectory.add_step(step=step, action=action)
+                self.ctx.trajectory.add_step(
+                    step=step, action=action,
+                    reasoning_text=action.reasoning_text,
+                    llm_response_raw=action.llm_response_raw,
+                )
 
                 # ── 1. Explicit finish (agent called the finish tool) ────
                 if action.type == "finish":
@@ -191,7 +199,11 @@ class AgentLoop:
                         self.ctx.trajectory.steps[-1].observations = observations
                     elif action.content:
                         self.ctx.messages.append(
-                            Message(role="assistant", content=action.content)
+                            Message(
+                                role="assistant",
+                                content=action.content,
+                                reasoning_raw=action.reasoning_raw,
+                            )
                         )
                     stats.end_step()
                     break
@@ -199,7 +211,11 @@ class AgentLoop:
                 # ── 2. Message-only (LLM returned no tool calls) ─────────
                 if action.type == "message":
                     self.ctx.messages.append(
-                        Message(role="assistant", content=action.content)
+                        Message(
+                            role="assistant",
+                            content=action.content,
+                            reasoning_raw=action.reasoning_raw,
+                        )
                     )
                     if not action.tool_calls:
                         if no_tool_call_prompt:
@@ -308,6 +324,7 @@ class AgentLoop:
             self.ctx.messages.append(Message(
                 role="assistant",
                 content=action.content,
+                reasoning_raw=action.reasoning_raw,
             ))
         else:
             # OpenAI mode: assistant message with tool_calls structure
@@ -317,6 +334,7 @@ class AgentLoop:
                 tool_calls=[
                     _make_tool_call_obj(tc) for tc in action.tool_calls
                 ] if action.tool_calls else None,
+                reasoning_raw=action.reasoning_raw,
             )
             self.ctx.messages.append(assistant_msg)
 

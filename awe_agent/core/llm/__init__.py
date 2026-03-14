@@ -11,7 +11,7 @@ Usage:
 """
 
 from awe_agent.core.llm.client import LLMClient, create_async_client, llm_registry
-from awe_agent.core.llm.config import LLMConfig
+from awe_agent.core.llm.config import LLMConfig, ReasoningConfig
 from awe_agent.core.llm.protocol import LLMBackend
 from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
 
@@ -22,6 +22,7 @@ __all__ = [
     "LLMConfig",
     "LLMResponse",
     "Message",
+    "ReasoningConfig",
     "TokenUsage",
     "ToolCall",
     "llm_registry",

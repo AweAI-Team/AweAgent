@@ -15,8 +15,16 @@ class Message:
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
     name: str | None = None
+    # Raw reasoning payload for multi-turn round-trip back to provider.
+    # Format depends on backend:
+    #   - str: reasoning_content field value (Kimi, DeepSeek, GLM-5, Ark)
+    #   - list[dict]: Anthropic content blocks (thinking/text/tool_use)
+    #   - dict: OpenAI Response API (response_id + reasoning items)
+    #   - None: no reasoning or backend doesn't need to preserve it
+    reasoning_raw: Any = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to standard OpenAI format (no reasoning — backward compatible)."""
         d: dict[str, Any] = {"role": self.role}
         if self.content is not None:
             d["content"] = self.content
@@ -26,6 +34,13 @@ class Message:
             d["tool_call_id"] = self.tool_call_id
         if self.name is not None:
             d["name"] = self.name
+        return d
+
+    def to_full_dict(self) -> dict[str, Any]:
+        """Serialize including reasoning_raw — for trajectory/training export."""
+        d = self.to_dict()
+        if self.reasoning_raw is not None:
+            d["reasoning_raw"] = self.reasoning_raw
         return d
 
     @classmethod
@@ -39,6 +54,7 @@ class Message:
             tool_calls=tool_calls,
             tool_call_id=d.get("tool_call_id"),
             name=d.get("name"),
+            reasoning_raw=d.get("reasoning_raw"),
         )
 
 
@@ -74,6 +90,8 @@ class TokenUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    reasoning_tokens: int = 0  # Reasoning/thinking token count
+    cached_tokens: int = 0  # Prompt cache hit tokens
 
 
 @dataclass
@@ -82,7 +100,8 @@ class LLMResponse:
 
     content: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
-    thinking: str | None = None  # Extended thinking content
+    reasoning_text: str | None = None  # Plain-text reasoning for logs/training
+    reasoning_raw: Any = None  # Raw provider payload for multi-turn round-trip
     usage: TokenUsage | None = None
     finish_reason: str | None = None  # "stop" | "length" | "tool_calls" | etc.
     raw: Any = None  # Raw response for debugging
