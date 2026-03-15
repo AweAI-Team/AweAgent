@@ -1,0 +1,32 @@
+# Terminal Bench V2 Configuration
+# Usage:
+#   python recipes/terminal_bench_v2/run.py -c configs/tasks/terminal_bench_v2.yaml \
+#       --task-data-dir data/terminal-bench-2 --data-file data/instance_ids.json --mode batch
+
+llm: "!include ../llm/openai.yaml"
+
+runtime:
+  backend: docker
+  timeout: 14400
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+agent:
+  type: terminus_2
+  max_steps: 500
+
+task:
+  type: terminal_bench_v2
+  dataset_id: terminal_bench_v2
+  task_data_dir: ${TASK_DATA_DIR}
+  data_file: ${DATA_FILE}
+
+eval:
+  enabled: true
+  timeout: 3600
+
+execution:
+  max_concurrent: 50
+  max_retries: 3
+  output_path: ./results/terminal_bench_v2

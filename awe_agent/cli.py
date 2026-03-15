@@ -56,6 +56,14 @@ def main() -> None:
     run_parser.add_argument(
         "--dry-run", action="store_true", help="Load config and list instances without running"
     )
+    run_parser.add_argument(
+        "--task-data-dir", default=None,
+        help="[Terminal Bench 2.0] Root directory of task folders (or TASK_DATA_DIR)",
+    )
+    run_parser.add_argument(
+        "--data-file", default=None,
+        help="[Terminal Bench 2.0] JSON file with instance ID array (or DATA_FILE)",
+    )
 
     # ── info command ─────────────────────────────────────────────────
     info_parser = subparsers.add_parser("info", help="Show available backends and plugins")
@@ -109,13 +117,12 @@ def _cmd_info() -> None:
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nTasks: beyond_swe, scale_swe")
+    print("\nTasks: beyond_swe, scale_swe, terminal_bench_v2")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
     """Run agent on task instances."""
     from awe_agent.core.config.loader import load_config
-    from awe_agent.core.task.runner import TaskRunner
 
     logger = logging.getLogger("awe_agent.cli")
 
@@ -127,6 +134,10 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         overrides.setdefault("agent", {})["max_steps"] = args.max_steps
     if args.output is not None:
         overrides.setdefault("execution", {})["output_path"] = args.output
+    if args.task_data_dir is not None:
+        overrides.setdefault("task", {})["task_data_dir"] = args.task_data_dir
+    if args.data_file is not None:
+        overrides.setdefault("task", {})["data_file"] = args.data_file
 
     # Load config
     config = load_config(args.config, overrides=overrides)
@@ -147,20 +158,29 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 
     logger.info("Running %d instances", len(instances))
 
-    # Build agent factory
+    # Terminal Bench 2.0 uses TB2BatchRunner (different agent loop + eval flow)
+    if config.task.type == "terminal_bench_v2":
+        from awe_agent.core.task.tb2_batch_runner import TB2BatchRunner
+
+        runner = TB2BatchRunner(
+            config,
+            task,
+            skip_eval=not config.eval.enabled,
+            save_trajectories=config.execution.save_trajectories and not args.no_trajectories,
+            max_retries=config.execution.max_retries,
+        )
+        await runner.run_all(args.instance_ids)
+        return
+
+    # BeyondSWE / ScaleSWE use TaskRunner
+    from awe_agent.core.task.runner import TaskRunner
+
     agent_factory = _build_agent_factory(config)
-
-    # Build evaluator (optional)
     evaluator = _build_evaluator(config, task)
-
-    # Build condenser (optional)
     from awe_agent.core.condenser import build_condenser
     condenser = build_condenser(config.agent.condenser)
-
-    # Build config snapshot for saving
     config_snapshot = json.loads(config.model_dump_json())
 
-    # Run
     runner = TaskRunner(
         task=task,
         agent_factory=agent_factory,
@@ -207,8 +227,31 @@ def _build_task(config: Any):
             dataset_id=config.task.dataset_id,
             data_file=config.task.data_file,
         )
+    elif task_type == "terminal_bench_v2":
+        from awe_agent.tasks.terminal_bench_v2.task import TerminalBenchV2Task
+
+        task_data_dir = config.task.task_data_dir
+        data_file = config.task.data_file
+        if not task_data_dir:
+            raise ValueError(
+                "task_data_dir is required for terminal_bench_v2. "
+                "Set --task-data-dir or TASK_DATA_DIR."
+            )
+        if not data_file:
+            raise ValueError(
+                "data_file is required for terminal_bench_v2. "
+                "Set --data-file or DATA_FILE."
+            )
+        return TerminalBenchV2Task(
+            task_data_dir=task_data_dir,
+            data_file=data_file,
+            dataset_id=config.task.dataset_id,
+        )
     else:
-        raise ValueError(f"Unknown task type: {task_type}. Available: beyond_swe, scale_swe.")
+        raise ValueError(
+            f"Unknown task type: {task_type}. "
+            "Available: beyond_swe, scale_swe, terminal_bench_v2."
+        )
 
 
 def _build_agent_factory(config: Any):
