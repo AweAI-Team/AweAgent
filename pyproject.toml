@@ -39,9 +39,11 @@ docker = "awe_agent.core.runtime.docker:DockerRuntime"
 
 [project.entry-points."awe_agent.agent"]
 search_swe = "awe_agent.scaffold.search_swe.agent:SearchSWEAgent"
+terminus_2 = "awe_agent.scaffold.terminus_2.agent:Terminus2Agent"
 
 [project.entry-points."awe_agent.evaluator"]
 beyond_swe = "awe_agent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"
+terminal_bench_v2 = "awe_agent.tasks.terminal_bench_v2.evaluator:TerminalBenchV2Evaluator"
 
 [project.entry-points."awe_agent.search_backend"]
 serpapi = "awe_agent.core.tool.search.backends.search.serpapi:SerpAPIBackend"

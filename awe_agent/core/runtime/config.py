@@ -21,6 +21,7 @@ class DockerConfig(BaseModel):
     network: str = "bridge"
     volumes: list[str] = Field(default_factory=list)
     pull_policy: str = "if_not_present"  # always | if_not_present | never
+    environment: dict[str, str] = Field(default_factory=dict)
 
 
 class K8sConfig(BaseModel):

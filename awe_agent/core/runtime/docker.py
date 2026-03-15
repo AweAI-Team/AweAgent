@@ -206,6 +206,7 @@ class DockerRuntime(Runtime):
                 network=self.config.docker.network,
                 mem_limit=mem_bytes,
                 nano_cpus=cpu_count * 10**9,
+                environment=self.config.docker.environment or None,
                 volumes=_parse_volumes(self.config.docker.volumes) or None,
             )
             return container
