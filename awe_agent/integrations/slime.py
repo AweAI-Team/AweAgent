@@ -95,7 +95,7 @@ class GenerateState(metaclass=_SingletonMeta):
 
     Holds the tokenizer (loaded from ``args.hf_checkpoint``), a concurrency
     semaphore, and the SGLang sampling parameters.  Mirrors the
-    ``GenerateState`` in ``swalm_generate.py``.
+    ``GenerateState`` in the RL rollout generator.
     """
 
     def __init__(self, args: Namespace) -> None:
@@ -142,8 +142,7 @@ class GenerateState(metaclass=_SingletonMeta):
 #
 # These functions create the Task, Agent, Runtime, and Evaluator objects
 # from environment variables.  They allow the rollout function to be
-# configured without touching code — the same pattern as swalm_generate.py
-# which uses AGENT_CLASS / MAX_ITERATIONS env vars.
+# configured without touching code via AGENT_CLASS / MAX_ITERATIONS env vars.
 
 def _get_task() -> Task:
     """Instantiate the task from environment configuration."""

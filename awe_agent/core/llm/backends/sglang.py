@@ -81,7 +81,7 @@ class SGLangBackend:
         """
         sampling_params = self._extract_sampling_params(params)
 
-        # ── Overflow guard (mirrors swalm behaviour) ──────────────────
+        # ── Overflow guard ─────────────────────────────────────────────
         # The model cannot generate if the remaining budget is exhausted.
         max_budget = sampling_params.get("max_new_tokens", 32768)
         remaining = max_budget - len(input_ids) - 128

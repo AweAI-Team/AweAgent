@@ -1,9 +1,9 @@
 """Quick smoke test for Ark LLM backend and LinkSummaryTool.
 
 Usage:
-    export LINK_SUMMARY_ARK_BASE_URL="https://ark-cn-beijing.bytedance.net/api/v3"
+    export LINK_SUMMARY_ARK_BASE_URL="https://your-ark-endpoint/api/v3"
     export LINK_SUMMARY_ARK_API_KEY="your-key"
-    export LINK_SUMMARY_ARK_MODEL="ep-..."
+    export LINK_SUMMARY_ARK_MODEL="your-model"
 
     # Test 1: raw Ark client
     python human_test/test_ark_llm.py

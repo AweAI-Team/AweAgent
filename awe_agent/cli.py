@@ -109,11 +109,12 @@ def _cmd_info() -> None:
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nTasks: beyond_swe, scale_swe")
+    print("\nTasks: beyond_swe, scale_swe, terminal_bench_v2")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
     """Run agent on task instances."""
+    from awe_agent.core.condenser import build_condenser
     from awe_agent.core.config.loader import load_config
     from awe_agent.core.task.runner import TaskRunner
 
@@ -147,20 +148,12 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 
     logger.info("Running %d instances", len(instances))
 
-    # Build agent factory
+    # Unified runner for all task types.
     agent_factory = _build_agent_factory(config)
-
-    # Build evaluator (optional)
     evaluator = _build_evaluator(config, task)
-
-    # Build condenser (optional)
-    from awe_agent.core.condenser import build_condenser
     condenser = build_condenser(config.agent.condenser)
-
-    # Build config snapshot for saving
     config_snapshot = json.loads(config.model_dump_json())
 
-    # Run
     runner = TaskRunner(
         task=task,
         agent_factory=agent_factory,
@@ -189,7 +182,6 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 def _build_task(config: Any):
     """Build a Task instance from config."""
     task_type = config.task.type
-    search_mode = config.agent.enable_search
 
     if task_type == "beyond_swe":
         from awe_agent.tasks.beyond_swe.task import BeyondSWETask
@@ -197,7 +189,7 @@ def _build_task(config: Any):
         return BeyondSWETask(
             dataset_id=config.task.dataset_id,
             data_file=config.task.data_file,
-            search_mode=search_mode,
+            search_mode=config.agent.enable_search,
             test_suite_dir=config.task.test_suite_dir,
         )
     elif task_type == "scale_swe":
@@ -207,8 +199,31 @@ def _build_task(config: Any):
             dataset_id=config.task.dataset_id,
             data_file=config.task.data_file,
         )
+    elif task_type == "terminal_bench_v2":
+        from awe_agent.tasks.terminal_bench_v2.task import TerminalBenchV2Task
+
+        task_data_dir = config.task.task_data_dir
+        data_file = config.task.data_file
+        if not task_data_dir:
+            raise ValueError(
+                "task_data_dir is required for terminal_bench_v2. "
+                "Set task.task_data_dir in config YAML."
+            )
+        if not data_file:
+            raise ValueError(
+                "data_file is required for terminal_bench_v2. "
+                "Set task.data_file in config YAML."
+            )
+        return TerminalBenchV2Task(
+            task_data_dir=task_data_dir,
+            data_file=data_file,
+            dataset_id=config.task.dataset_id,
+        )
     else:
-        raise ValueError(f"Unknown task type: {task_type}. Available: beyond_swe, scale_swe.")
+        raise ValueError(
+            f"Unknown task type: {task_type}. "
+            "Available: beyond_swe, scale_swe, terminal_bench_v2."
+        )
 
 
 def _build_agent_factory(config: Any):
@@ -239,10 +254,9 @@ def _build_evaluator(config: Any, task: Any):
         return None
 
     # Prefer task-specific evaluator
-    if hasattr(task, "default_evaluator"):
-        task_eval = task.default_evaluator(timeout=config.eval.timeout)
-        if task_eval is not None:
-            return task_eval
+    task_eval = task.default_evaluator(timeout=config.eval.timeout)
+    if task_eval is not None:
+        return task_eval
 
     # Fallback to generic isolated evaluator
     if config.eval.isolated:

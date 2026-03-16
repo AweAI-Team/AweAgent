@@ -13,7 +13,7 @@ from awe_agent.core.runtime.types import ExecutionResult
 
 logger = logging.getLogger(__name__)
 
-# ─── .gitignore rules (ported from swalm/core/utils/swe_bench.py) ────────────
+# ─── .gitignore rules for filtering patch output ────────────────────────────
 # Shared across all runtime backends so that get_patch() excludes build
 # artefacts regardless of whether the session runs on Docker or Portal.
 

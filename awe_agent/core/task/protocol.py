@@ -81,6 +81,16 @@ class Task(ABC):
         Default implementation is a no-op.
         """
 
+    def requires_git_snapshot(self) -> bool:
+        """Whether a git snapshot should be taken before the agent runs.
+
+        Returns ``True`` by default (SWE-bench style tasks where the
+        patch is extracted via ``git diff``).  Override to ``False`` for
+        tasks that do not use a git repository in the workdir
+        (e.g. Terminal Bench).
+        """
+        return True
+
     def get_search_constraints(self, instance: Instance) -> SearchConstraints | None:
         """Build search constraints for this instance.
 
@@ -89,6 +99,22 @@ class Task(ABC):
         """
         if instance.repo:
             return SearchConstraints.from_repo(instance.repo)
+        return None
+
+    def get_resource_limits(self, instance: Instance) -> dict[str, str] | None:
+        """Return per-instance resource limits for the runtime.
+
+        Expected dict keys: ``"cpu"`` and ``"memory"`` (e.g. ``"2048Mi"``).
+        Return ``None`` (default) when all instances share the same limits
+        defined in the global runtime config.
+        """
+        return None
+
+    def get_docker_environment(self, instance: Instance) -> dict[str, str] | None:
+        """Return per-instance Docker environment variables.
+
+        Return ``None`` (default) when no extra env vars are needed.
+        """
         return None
 
     def default_evaluator(self, timeout: int | None = None) -> Evaluator | None:
@@ -114,6 +140,18 @@ class Evaluator(ABC):
     Evaluates an agent's submission (patch) against the ground truth.
     Key design: evaluation runs in an ISOLATED runtime to prevent leakage.
     """
+
+    @property
+    def requires_same_session(self) -> bool:
+        """Whether evaluation must run in the agent's session.
+
+        When ``True``, the runner evaluates inside the same container
+        the agent used (e.g. Terminal Bench, where the agent modifies
+        container state directly and there is no patch to apply).
+
+        Default is ``False`` (isolated evaluation).
+        """
+        return False
 
     @abstractmethod
     async def evaluate(

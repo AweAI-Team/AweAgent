@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.agent.loop import AgentLoop
+from awe_agent.core.agent.loop import AgentLoop, AgentResult
 from awe_agent.core.agent.protocol import Agent
 from awe_agent.core.llm.client import LLMClient
 from awe_agent.core.llm.config import LLMConfig
@@ -245,6 +245,8 @@ class TaskRunner:
                         with open(output_file, "a") as f:
                             f.write(json.dumps({
                                 "instance_id": result.instance_id,
+                                "dataset_id": instance.dataset_id,
+                                "task": instance.metadata.get("task_type", ""),
                                 "success": result.success,
                                 "score": result.eval_result.score if result.eval_result else 0.0,
                                 "error": result.error,
@@ -278,21 +280,31 @@ class TaskRunner:
         """Run agent + evaluation on a single instance."""
         start_time = time.monotonic()
 
-        # Create runtime with per-instance workdir override
-        runtime_cls = runtime_registry.get(self.runtime_config.backend)
-        instance_workdir = instance.workdir or self.runtime_config.workdir
-        runtime_config = self.runtime_config.model_copy(
-            update={"workdir": instance_workdir},
-        )
+        # Create runtime with per-instance overrides.
+        runtime_config = self._instance_runtime_config(instance)
+        runtime_cls = runtime_registry.get(runtime_config.backend)
         runtime: Runtime = runtime_cls(runtime_config)
         image = self.task.get_image(instance)
 
+        # Determine if evaluation must happen inside the agent session
+        # (e.g. Terminal Bench modifies container state directly).
+        same_session_eval = (
+            self.evaluator is not None
+            and self.evaluator.requires_same_session
+        )
+
+        eval_result: EvalResult | None = None
+
         async with runtime.session(image) as session:
-            # Pre-agent setup: run commands, commit snapshot, remove future commits
+            # Pre-agent setup
             setup = PreAgentSetup(session, instance.workdir)
             await setup.run_setup_commands(self.task.get_setup_commands(instance))
-            pre_agent_commit_id = await setup.commit_and_get_id()
-            await setup.remove_future_commits()
+
+            # Git snapshot (only for tasks that use git repos).
+            pre_agent_commit_id: str | None = None
+            if self.task.requires_git_snapshot():
+                pre_agent_commit_id = await setup.commit_and_get_id()
+                await setup.remove_future_commits()
 
             # Task-specific session preparation (e.g. upload files, pip freeze)
             await self.task.prepare_session(instance, session)
@@ -322,13 +334,38 @@ class TaskRunner:
             )
             loop = AgentLoop(agent, context)
 
-            # Run agent
+            # Run agent (with optional per-instance wall-clock timeout).
             prompt = self.task.get_prompt(instance)
-            agent_result = await loop.run(prompt)
+            agent_timeout = task_info.get("agent_timeout_sec")
+            if agent_timeout is not None:
+                try:
+                    agent_result = await asyncio.wait_for(
+                        loop.run(prompt), timeout=float(agent_timeout),
+                    )
+                except TimeoutError:
+                    logger.warning(
+                        "Agent timed out for %s after %ss",
+                        instance.id, agent_timeout,
+                    )
+                    if context.training is not None:
+                        context.training.finish_status = "timeout"
+                    agent_result = AgentResult(
+                        trajectory=context.trajectory,
+                        messages=list(context.messages),
+                        finish_reason="timeout",
+                        error=f"Agent timed out after {agent_timeout}s",
+                    )
+            else:
+                agent_result = await loop.run(prompt)
 
-        # Evaluate in isolated container (agent session already released)
-        eval_result: EvalResult | None = None
-        if self.evaluator and agent_result.patch:
+            # Same-session evaluation (must happen before session closes).
+            if same_session_eval:
+                eval_result = await self._evaluate_same_session(
+                    instance, session,
+                )
+
+        # Isolated evaluation (default: agent session already released).
+        if not same_session_eval and self.evaluator and agent_result.patch:
             eval_result = await self._evaluate(instance, agent_result.patch)
 
         elapsed = time.monotonic() - start_time
@@ -338,6 +375,40 @@ class TaskRunner:
             eval_result=eval_result,
             metadata={"duration": elapsed},
         )
+
+    def _instance_runtime_config(self, instance: Instance) -> RuntimeConfig:
+        """Build a runtime config with per-instance overrides."""
+        updates: dict[str, Any] = {}
+
+        instance_workdir = instance.workdir or self.runtime_config.workdir
+        updates["workdir"] = instance_workdir
+
+        # Per-instance resource limits (e.g. Terminal Bench task.toml).
+        limits = self.task.get_resource_limits(instance)
+        if limits:
+            from awe_agent.core.runtime.config import ResourceLimits
+            updates["resource_limits"] = ResourceLimits(
+                cpu=limits.get("cpu", "1"),
+                memory=limits.get("memory", "2048Mi"),
+            )
+
+        # Per-instance Docker environment variables (e.g. BASH_ENV).
+        env = self.task.get_docker_environment(instance)
+        if env:
+            docker_update = self.runtime_config.docker.model_copy(
+                update={"environment": env},
+            )
+            updates["docker"] = docker_update
+
+        return self.runtime_config.model_copy(update=updates)
+
+    async def _evaluate_same_session(
+        self, instance: Instance, session: Any,
+    ) -> EvalResult:
+        """Evaluate inside the agent's session (no patch, no isolation)."""
+        from awe_agent.core.runtime.reuse_session import RuntimeWithExistingSession
+        eval_runtime = RuntimeWithExistingSession(session)
+        return await self.evaluator.evaluate(instance, "", eval_runtime)
 
     async def _evaluate(self, instance: Instance, patch: str) -> EvalResult:
         """Evaluate in an isolated runtime."""

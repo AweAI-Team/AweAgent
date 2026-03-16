@@ -91,21 +91,19 @@ class AgentLoop:
         6. **Max steps** — loop counter exhausted.
         7. **Error** — any exception during a step.
         """
-        # Read no-tool-call prompt from agent (may be None).
-        no_tool_call_prompt: str | None = None
-        if hasattr(self.agent, "get_no_tool_call_prompt"):
-            no_tool_call_prompt = self.agent.get_no_tool_call_prompt()
+        # Propagate tool call format from agent to context so
+        # _execute_tools() knows how to format observations.
+        if self.ctx.tool_call_format is None:
+            self.ctx.tool_call_format = self.agent.get_tool_call_format()
 
-        # Propagate tool call format from agent to context (for XML mode support)
-        if self.ctx.tool_call_format is None and hasattr(self.agent, "_format"):
-            self.ctx.tool_call_format = self.agent._format
-
-        # Initialize conversation
+        # Initialize conversation.  Skip the system message when the
+        # agent returns an empty prompt (e.g. Terminus2Agent puts
+        # everything in the user message, e.g. Terminal Bench).
         system_prompt = self.agent.get_system_prompt(self.ctx.task_info)
-        self.ctx.messages = [
-            Message(role="system", content=system_prompt),
-            Message(role="user", content=task_prompt),
-        ]
+        self.ctx.messages = []
+        if system_prompt:
+            self.ctx.messages.append(Message(role="system", content=system_prompt))
+        self.ctx.messages.append(Message(role="user", content=task_prompt))
         self.ctx.trajectory = Trajectory()
 
         # ── Training mode: tokenize initial prompt ────────────────────
@@ -218,6 +216,11 @@ class AgentLoop:
                         )
                     )
                     if not action.tool_calls:
+                        # Query the agent per-step so dynamic prompts
+                        # (e.g. parse-error details) are always fresh.
+                        no_tool_call_prompt = (
+                            self.agent.get_no_tool_call_prompt()
+                        )
                         if no_tool_call_prompt:
                             # Send a reminder and let the loop continue.
                             logger.info(
@@ -313,14 +316,15 @@ class AgentLoop:
         """
         observations: list[str] = []
 
-        # Determine if we're in XML mode (text-based tool calls)
-        xml_mode = (
+        # Text mode: tool calls are parsed from LLM text (XML, JSON, etc.)
+        # rather than from native API tool-calling responses.
+        text_mode = (
             self.ctx.tool_call_format is not None
             and not self.ctx.tool_call_format.needs_native_tools()
         )
 
-        if xml_mode:
-            # XML mode: assistant message is plain text, observations as user messages
+        if text_mode:
+            # Text mode: assistant message is plain text, observations as user messages
             self.ctx.messages.append(Message(
                 role="assistant",
                 content=action.content,
@@ -374,8 +378,8 @@ class AgentLoop:
                     tool_call_id=tool_call_id,
                     name=tool_name,
                 ))
-            elif xml_mode:
-                # XML mode: tool responses as user messages
+            elif text_mode:
+                # Text mode: tool responses as user messages
                 self.ctx.messages.append(Message(
                     role="user",
                     content=f"OBSERVATION:\n[{tool_name}]\n{obs}",

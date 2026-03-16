@@ -15,6 +15,7 @@ from awe_agent.core.tool.protocol import Tool
 
 if TYPE_CHECKING:
     from awe_agent.core.config.schema import AweAgentConfig
+    from awe_agent.core.llm.format.protocol import ToolCallFormat
 
 
 class Agent(ABC):
@@ -55,6 +56,18 @@ class Agent(ABC):
     def get_tools(self) -> list[Tool]:
         """Return the tools this agent uses."""
         ...
+
+    def get_tool_call_format(self) -> ToolCallFormat | None:
+        """Return the tool call format used by this agent.
+
+        ``AgentLoop`` propagates this to ``AgentContext.tool_call_format``
+        so that ``_execute_tools()`` can format observations correctly
+        (e.g. native tool role vs. user-message observations).
+
+        Return ``None`` (default) to use native OpenAI function calling.
+        Override in subclasses that use text-based formats (XML, JSON).
+        """
+        return None
 
     def get_no_tool_call_prompt(self) -> str | None:
         """Return a reminder prompt for when the LLM returns no tool calls.

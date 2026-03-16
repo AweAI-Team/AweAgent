@@ -187,9 +187,36 @@ Batch results are saved to the `--output` directory (default `results/beyondswe_
 results/beyondswe_searchswe/
   <run_id>/
     results.jsonl           # one line per instance result
-    run_config.json             # config snapshot
+    run_config.json         # config snapshot
     trajectories.jsonl      # per-instance agent trajectories
 ```
+
+Each line in `results.jsonl`:
+
+```json
+{
+  "instance_id": "...",
+  "dataset_id": "BeyondSWE",
+  "task": "crossrepo",
+  "success": true,
+  "score": 1.0,
+  "error": null,
+  "finish_reason": "finish"
+}
+```
+
+## Analyze Results
+
+```bash
+python recipes/beyond_swe/analyze_results.py \
+    --result-dir <output_run_dir>
+```
+
+Statistics:
+- **Doc2Repo** (domain): avg pass rate, almost correct count (>=90%), correct count (100%)
+- **CrossRepo / DomainFix / DepMigrate**: solved % (score == 1.0)
+
+Output is saved to `<result-dir>/analysis.json`.
 
 ## Troubleshooting
 

@@ -129,7 +129,7 @@ class TrainingState:
     ) -> None:
         """Tokenize and record an environment observation (``loss_mask = 0``).
 
-        Replicates the exact tokenization pattern used by the swalm
+        Replicates the exact tokenization pattern used by the RL
         training pipeline: the observation message is formatted via
         ``apply_chat_template``, then — unless this is the final step —
         the assistant generation header is appended so that the next

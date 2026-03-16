@@ -43,6 +43,8 @@ class TaskConfig(BaseModel):
     data_file: str | None = None
     instance_ids: list[str] | None = None
     test_suite_dir: str | None = None
+    task_data_dir: str | None = None
+    override_agent_timeout: float | None = None
 
 
 class EvalConfig(BaseModel):

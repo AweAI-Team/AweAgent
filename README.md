@@ -15,36 +15,41 @@ AweAgent provides two core capabilities:
 - **Pluggable Agent Scaffolds** — Modular agent loop with extensible tools (bash, editor, search, think), pluggable LLM backends (OpenAI, Azure, Ark, SGLang), and configurable context management.
 - **Reproducible Evaluation** — Docker-isolated execution, built-in evaluators, batch runner with concurrent execution, and structured result / trajectory output.
 
-AweAgent currently ships with [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE) and [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE) benchmark support.
+AweAgent currently ships with [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE) (training data), [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE), and [Terminal Bench 2.0](https://github.com/laude-institute/terminal-bench-2) benchmarks support.
 
 ## :newspaper: News
 
-- `[2026-03-11]` Sync codebase with internal version for BeyondSWE + SearchSWE
-- `[2026-03-01]` 🎉 Initial release — SearchSWE agent scaffold (OpenHands-compatible CodeAct XML) with [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE) & [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE) benchmark support
+- `[2026-03-15]` 🎉 Terminus-2 agent scaffold with [Terminal Bench 2.0](https://github.com/laude-institute/terminal-bench-2) benchmark support
+- `[2026-03-11]` 🎉 Sync codebase with internal version for BeyondSWE + SearchSWE
+- `[2026-03-01]` 🎉 Initial release — SearchSWE agent scaffold with [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE) & [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE) support
 
 ## :building_construction: Architecture
 
 ```
 awe_agent/
   core/              # Framework internals
-    agent/           #   Agent loop, context, trajectory
+    agent/           #   Agent loop, context, trajectory, protocol
     condenser/       #   Context window management
     config/          #   YAML config loading & schema
     eval/            #   Evaluation (PatchTestEvaluator, isolation)
     llm/             #   LLM backends + tool-call formatting
+      format/        #     Three modes: openai_function, codeact_xml, terminus_json
     runtime/         #   Container runtimes (Docker)
-    task/            #   Task protocol, batch runner
+    task/            #   Task protocol, TaskRunner (unified batch engine)
     tool/            #   Tool registry (bash, editor, search, think, finish)
   scaffold/          # Agent implementations
     search_swe/      #   SearchSWE agent with optional web search
+    terminus_2/      #   Terminus-2 agent (tmux + JSON keystrokes)
   tasks/             # Benchmark-specific task & evaluator
     beyond_swe/      #   BeyondSWE
     scale_swe/       #   ScaleSWE
+    terminal_bench_v2/  #   Terminal Bench 2.0
 
 configs/             # YAML configurations (LLM, task, runtime)
 recipes/             # Reproducible entry points
   beyond_swe/        #   BeyondSWE runner
   scale_swe/         #   ScaleSWE runner
+  terminal_bench_v2/ #   Terminal Bench 2.0 runner
 ```
 
 ## :jigsaw: Supported Scaffolds
@@ -71,13 +76,23 @@ The built-in **SearchSWE** agent scaffold (`awe_agent/scaffold/search_swe/`) is 
 
 Adding a custom tool is as simple as implementing the `Tool` protocol and registering it via a Python entry-point — no changes to the agent loop required.
 
-**Isolated Evaluation.** After the agent finishes, evaluation runs in a **separate Docker container** to ensure a clean, tamper-proof environment:
+### Terminus-2
+
+The **Terminus-2** agent scaffold (`awe_agent/scaffold/terminus_2/`) is a terminal agent that uses tmux for persistent shell sessions. The LLM outputs raw JSON with keystrokes; the framework translates this into actions via `TerminusJSONFormat` (the third `ToolCallFormat` alongside `openai_function` and `codeact_xml`). This allows Terminus-2 to run inside the standard `AgentLoop`, inheriting RL training, context condensing, stats tracking, and step callbacks — without changing the LLM-facing prompt.
+
+Designed for [Terminal Bench 2.0](https://github.com/laude-institute/terminal-bench-2) evaluation, aligned with the official Harbor framework. Evaluation runs in the **same container** as the agent (no patch — the agent modifies container state directly).
+
+### Evaluation
+
+**SWE-bench style (BeyondSWE / ScaleSWE).** After the agent finishes, evaluation runs in a **separate Docker container** to ensure a clean, tamper-proof environment:
 
 1. Check out the base commit in a fresh container
 2. Apply the agent-generated patch (6 auto-fallback strategies)
 3. Restore original test files (prevents the agent from gaming tests)
 4. Run fail-to-pass & pass-to-pass test suites via an injected pytest runner
 5. Report structured results (score, pass/fail details, trajectory)
+
+**Terminal Bench 2.0.** Evaluation runs in the **same container** — the evaluator uploads test scripts, executes `bash /tests/test.sh`, and reads the reward file. This is controlled by the `Evaluator.requires_same_session` protocol property.
 
 ## :rocket: Installation
 
@@ -105,7 +120,8 @@ pip install -e ".[dev]"
 | Benchmark | Description | Agent | Dataset | Guide |
 |-----------|-------------|-------|---------|-------|
 | BeyondSWE | Doc2Repo, CrossRepo, DepMigrate, DomainFix | SearchSWE (with web search) | [Hugging Face](https://huggingface.co/datasets/AweAI-Team/BeyondSWE) | [README](recipes/beyond_swe/) |
-| ScaleSWE | Large-scale SWE-bench style datasets (20k instances) | SearchSWE (CodeAct XML) | [Hugging Face](https://huggingface.co/datasets/AweAI-Team/Scale-SWE) | [README](recipes/scale_swe/) |
+| ScaleSWE | Large-scale SWE-bench style training datasets (20k instances) | SearchSWE (CodeAct XML) | [Hugging Face](https://huggingface.co/datasets/AweAI-Team/Scale-SWE) | [README](recipes/scale_swe/) |
+| Terminal Bench 2.0 | Terminal tasks in containerized environments | Terminus-2 | [GitHub](https://github.com/laude-institute/terminal-bench-2) (commit `69671fbaac6d67a7ef0dfec016cc38a64ef7a77c`) | [README](recipes/terminal_bench_v2/README.md) |
 
 ### Download Data
 
@@ -121,6 +137,12 @@ snapshot_download(
 
 # ScaleSWE — see the Hugging Face collection for available splits
 # https://huggingface.co/datasets/AweAI-Team/Scale-SWE
+
+# Terminal Bench 2.0 — clone and checkout commit for reproducibility
+git clone https://github.com/laude-institute/terminal-bench-2.git
+cd terminal-bench-2
+git checkout 69671fbaac6d67a7ef0dfec016cc38a64ef7a77c
+# Each task folder contains instruction.md, task.toml, environment/, tests/
 ```
 
 ### Quick Example
@@ -192,11 +214,12 @@ Our long-term goal is to build practical, general-purpose agents and optimize th
 
 **Agent Scaffolds & Capabilities**
 - [x] SearchSWE — coding agent with optional web search augmentation
+- [x] Terminus-2 — terminal agent for Terminal Bench 2.0
 - [ ] deep research Agent
-- [ ] terminal agent
 
 **Evaluation & Optimization**
 - [x] BeyondSWE & ScaleSWE benchmark support
+- [x] Terminal Bench 2.0 benchmark support
 - [ ] More benchmarks — wider task coverage and domain diversity
 - [ ] Agentic RL — scalable reinforcement learning infrastructure for agent optimization
 

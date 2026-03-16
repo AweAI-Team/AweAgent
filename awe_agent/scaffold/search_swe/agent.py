@@ -31,6 +31,7 @@ _FINISH_TOOL_NAME = "finish"
 
 if TYPE_CHECKING:
     from awe_agent.core.config.schema import AweAgentConfig
+    from awe_agent.core.llm.format.protocol import ToolCallFormat
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,10 @@ class SearchSWEAgent(Agent):
 
     def get_tools(self) -> list[Tool]:
         return list(self._tools)
+
+    def get_tool_call_format(self) -> ToolCallFormat | None:
+        """Return the tool call format (OpenAI, XML, etc.)."""
+        return self._format
 
     def get_no_tool_call_prompt(self) -> str | None:
         """Remind the LLM to use tools or call ``finish``."""
