@@ -14,7 +14,7 @@ base_url: https://api.minimax.io/anthropic
 api_key: ${MINIMAX_API_KEY}
 model: MiniMax-M2.5
 params:
-  max_tokens: 8192
-  temperature: 1.0
+  max_completion_tokens: 8192
+  # temperature: 1.0
 reasoning:
   preserve: true

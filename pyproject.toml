@@ -31,7 +31,7 @@ awe-agent = "awe_agent.cli:main"
 
 [project.entry-points."awe_agent.llm_backend"]
 openai = "awe_agent.core.llm.backends.openai:OpenAIBackend"
-azure = "awe_agent.core.llm.backends.azure:AzureOpenAIBackend"
+azure = "awe_agent.core.llm.backends.openai:OpenAIBackend"
 ark = "awe_agent.core.llm.backends.ark:ArkBackend"
 sglang = "awe_agent.core.llm.backends.sglang:SGLangBackend"
 anthropic = "awe_agent.core.llm.backends.anthropic:AnthropicBackend"

@@ -1,20 +1,35 @@
-# GLM-5 (智谱 Zhipu AI)
-# Docs: https://docs.z.ai/guides/llm/glm-5
-# NOTE: clear_thinking is nested inside the thinking dict by the backend.
-#       See openai.py _build_params for the merge logic.
+# GLM-5 (Zhipu AI)
+# Docs: https://docs.z.ai/guides/capabilities/thinking-mode
+#
+# GLM-5 has two thinking modes (both require reasoning.preserve: true):
+#
+#   1. Interleaved Thinking (DEFAULT)
+#      - Model thinks between tool calls automatically.
+#      - Thinking blocks must be returned within the current tool-call loop.
+#      - API clears reasoning from previous turns (not accumulated in history).
+#      - No special config needed beyond reasoning.preserve: true.
+#
+#   2. Preserved Thinking (OPT-IN, recommended for coding/agent)
+#      - Reasoning from ALL previous turns is kept in context.
+#      - Enabled by: clear_thinking: false
+#      - Disabled by default on the standard API endpoint.
+#      - Client must return complete, unmodified reasoning_content.
+#
+# This preset enables Preserved Thinking for agent use cases.
+# To use standard Interleaved Thinking only, remove the clear_thinking line.
 backend: openai
 base_url: https://api.z.ai/api/paas/v4/
 api_key: ${GLM_API_KEY}
 model: glm-5
 params:
-  max_tokens: 20480
-  temperature: 1.0
+  max_completion_tokens: 20480
+  # temperature: 1.0
 thinking: true
 reasoning:
-  # When clear_thinking=false (Preserved Thinking mode), the client must
-  # send back reasoning_content in subsequent turns per Z.AI docs.
   preserve: true
   format: reasoning_content
 extra:
-  # Merged into thinking dict at request time: {"type":"enabled","clear_thinking":false}
+  # Preserved Thinking (opt-in). Merged into thinking dict at request time:
+  # {"type": "enabled", "clear_thinking": false}
+  # Remove this line to use default Interleaved Thinking only.
   clear_thinking: false

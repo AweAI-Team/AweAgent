@@ -35,7 +35,7 @@ def create_async_client(
     direct access to the ``chat.completions.create`` API.
 
     Args:
-        backend: One of ``"openai"``, ``"azure"``, ``"ark"``.
+        backend: One of ``"openai"``, ``"azure"`` (alias for openai), ``"ark"``.
         api_key: API key for the service.
         base_url: Base URL / endpoint for the service.
         **kwargs: Backend-specific arguments:

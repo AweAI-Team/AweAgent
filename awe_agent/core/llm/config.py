@@ -19,7 +19,6 @@ class RetryConfig(BaseModel):
             "RateLimitError",
             "APIConnectionError",
             "Timeout",
-            "BadRequestError",
             "InternalServerError",
         ]
     )

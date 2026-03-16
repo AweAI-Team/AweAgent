@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from openai import AsyncOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
@@ -54,7 +54,25 @@ class OpenAIResponseBackend:
 
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
-        self._client = AsyncOpenAI(
+        self._client = self._create_client(config)
+
+    @staticmethod
+    def _create_client(config: LLMConfig) -> AsyncOpenAI:
+        """Create the appropriate async client.
+
+        Uses AsyncAzureOpenAI when ``extra.api_version`` is set (Azure-
+        compatible endpoints like ByteDance GPT proxy), otherwise plain
+        AsyncOpenAI.
+        """
+        api_version = config.extra.get("api_version")
+        if api_version:
+            return AsyncAzureOpenAI(
+                api_key=config.api_key or "dummy",
+                azure_endpoint=config.base_url or "",
+                api_version=api_version,
+                timeout=config.timeout,
+            )
+        return AsyncOpenAI(
             api_key=config.api_key or "dummy",
             base_url=config.base_url,
             timeout=config.timeout,
@@ -97,9 +115,11 @@ class OpenAIResponseBackend:
         if tools:
             params["tools"] = self._convert_tools(tools)
 
-        # max_tokens → max_output_tokens (Response API naming)
+        # max_tokens / max_completion_tokens → max_output_tokens (Response API naming)
         if "max_tokens" in params and "max_output_tokens" not in params:
             params["max_output_tokens"] = params.pop("max_tokens")
+        if "max_completion_tokens" in params and "max_output_tokens" not in params:
+            params["max_output_tokens"] = params.pop("max_completion_tokens")
 
         # Remove keys not accepted by Response API
         params.pop("stop", None)

@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Any
 
-from openai import AsyncOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
@@ -46,11 +46,30 @@ class OpenAIBackend:
 
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
-        # Don't pass extra_body keys to the client constructor
+        self._client = self._create_client(config)
+
+    @staticmethod
+    def _create_client(config: LLMConfig) -> AsyncOpenAI:
+        """Create the appropriate async client.
+
+        Uses AsyncAzureOpenAI when ``extra.api_version`` is set (Azure and
+        Azure-compatible endpoints), otherwise plain AsyncOpenAI.
+        """
+        # Don't pass extra_body keys or api_version to the client constructor
+        skip_keys = _EXTRA_BODY_KEYS | {"api_version"}
         client_extra = {
-            k: v for k, v in config.extra.items() if k not in _EXTRA_BODY_KEYS
+            k: v for k, v in config.extra.items() if k not in skip_keys
         }
-        self._client = AsyncOpenAI(
+        api_version = config.extra.get("api_version")
+        if api_version:
+            return AsyncAzureOpenAI(
+                api_key=config.api_key or "dummy",
+                azure_endpoint=config.base_url or "",
+                api_version=api_version,
+                timeout=config.timeout,
+                **client_extra,
+            )
+        return AsyncOpenAI(
             api_key=config.api_key or "dummy",
             base_url=config.base_url,
             timeout=config.timeout,

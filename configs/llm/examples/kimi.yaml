@@ -7,7 +7,7 @@ base_url: https://api.moonshot.ai/v1
 api_key: ${MOONSHOT_API_KEY}
 model: kimi-k2.5
 params:
-  max_tokens: 32768
+  max_completion_tokens: 32768
   temperature: 1.0  # Empirical: recommended for thinking mode
 thinking: true
 reasoning:

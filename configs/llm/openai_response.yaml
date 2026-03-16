@@ -1,9 +1,14 @@
 backend: openai_response
+base_url: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
 api_key: ${OPENAI_API_KEY}
-model: gpt-4.1
+model: ${OPENAI_MODEL:-gpt-5.4}
 params:
-  temperature: 0.0
-  max_tokens: 4096
+  # temperature: 0.0
+  max_output_tokens: 32768
 reasoning:
   effort: medium
   summary: auto
+# For Azure-compatible endpoints, set api_version
+# to switch from AsyncOpenAI to AsyncAzureOpenAI automatically.
+extra:
+  api_version: ${OPENAI_API_VERSION:-}

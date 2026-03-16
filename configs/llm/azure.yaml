@@ -1,11 +1,13 @@
 # Azure OpenAI LLM configuration
-backend: azure
+# "backend: azure" is an alias for "backend: openai" — they share the same
+# implementation. Azure mode is activated by setting extra.api_version.
+backend: openai
 base_url: ${AZURE_OPENAI_ENDPOINT}
 api_key: ${AZURE_OPENAI_API_KEY}
-model: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}
+model: ${AZURE_OPENAI_DEPLOYMENT:-gpt-5.4}
 params:
   # temperature: 0.0
-  max_completion_tokens: 8192
+  max_completion_tokens: 32768
 # thinking: false
 extra:
   api_version: ${AZURE_API_VERSION:-2024-06-01}

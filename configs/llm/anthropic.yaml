@@ -2,7 +2,7 @@
 # Docs: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
 backend: anthropic
 api_key: ${ANTHROPIC_API_KEY}
-model: claude-sonnet-4-6
+model: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
 params:
   max_tokens: 16384
 thinking: true
