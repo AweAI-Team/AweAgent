@@ -19,6 +19,7 @@ AweAgent currently ships with [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE)
 
 ## :newspaper: News
 
+- `[2026-03-16]` 🎉 Unified LLM backend (openai/azure/response/ark/anthropic/...) with multi-provider reasoning support ([docs](doc/llm_client/README.md))
 - `[2026-03-15]` 🎉 Terminus-2 agent scaffold with [Terminal Bench 2.0](https://github.com/laude-institute/terminal-bench-2) benchmark support
 - `[2026-03-11]` 🎉 Sync codebase with internal version for BeyondSWE + SearchSWE
 - `[2026-03-01]` 🎉 Initial release — SearchSWE agent scaffold with [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE) & [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE) support
