@@ -215,7 +215,12 @@ class OpenAIResponseBackend:
         # - If we have a previous_response_id, the API already holds all
         #   items up to last_response_item_end.  Only send new input.
         # - Otherwise, send everything (manual replay mode).
-        if last_response_id is not None:
+        # Continuation can be disabled via extra.use_continuation=false
+        # for endpoints that don't persist server-side response state.
+        use_continuation = self.config.extra.get("use_continuation", True)
+        if not use_continuation:
+            last_response_id = None
+        elif last_response_id is not None:
             items = items[last_response_item_end:]
 
         instructions = "\n\n".join(instructions_parts) if instructions_parts else ""
@@ -318,7 +323,7 @@ class OpenAIResponseBackend:
                 "name": func["name"],
                 "description": func.get("description", ""),
                 "parameters": func.get("parameters", {}),
-                "strict": True,
+                "strict": self.config.extra.get("strict_tools", False),
             })
         return response_tools
 
