@@ -103,15 +103,19 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
 
     trajectory_steps = []
     for step in agent_result.trajectory.steps:
-        trajectory_steps.append({
+        action_dict: dict[str, Any] = {
+            "type": step.action.type,
+            "content": step.action.content,
+            "tool_calls": step.action.tool_calls,
+        }
+        if step.action.reasoning_text is not None:
+            action_dict["reasoning_text"] = step.action.reasoning_text
+        step_dict: dict[str, Any] = {
             "step": step.step,
-            "action": {
-                "type": step.action.type,
-                "content": step.action.content,
-                "tool_calls": step.action.tool_calls,
-            },
+            "action": action_dict,
             "observations": step.observations,
-        })
+        }
+        trajectory_steps.append(step_dict)
 
     return {
         "instance_id": result.instance_id,
@@ -123,6 +127,7 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
         "patch": agent_result.patch,
         "stats": agent_result.metadata.get("stats"),
         "trajectory": trajectory_steps,
+        "messages": [m.to_full_dict() for m in agent_result.messages],
         "eval_result": asdict(result.eval_result) if result.eval_result else None,
     }
 
@@ -160,6 +165,8 @@ class TaskRunner:
         config_snapshot: dict[str, Any] | None = None,
         max_steps: int = 100,
         max_context_length: int | None = None,
+        workspace_output_dir: str | None = None,
+        agent_timeout_override: float | None = None,
     ) -> None:
         self.task = task
         self.agent_factory = agent_factory
@@ -172,10 +179,12 @@ class TaskRunner:
         self.max_steps = max_steps
         self.max_context_length = max_context_length
         self.output_path = Path(output_path)
+        self.workspace_output_dir = workspace_output_dir
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._condenser = condenser
         self._save_trajectories = save_trajectories
         self._config_snapshot = config_snapshot
+        self._agent_timeout_override = agent_timeout_override
         self.run_dir: Path | None = None  # set in run_all()
 
     async def run_all(
@@ -323,6 +332,8 @@ class TaskRunner:
             task_info = self.task.get_task_info(instance)
             if pre_agent_commit_id:
                 task_info["pre_agent_commit_id"] = pre_agent_commit_id
+            if self._agent_timeout_override is not None:
+                task_info["agent_timeout_sec"] = float(self._agent_timeout_override)
             context = AgentContext(
                 llm=llm,
                 session=session,
@@ -406,9 +417,18 @@ class TaskRunner:
         self, instance: Instance, session: Any,
     ) -> EvalResult:
         """Evaluate inside the agent's session (no patch, no isolation)."""
+        from dataclasses import replace
+
         from awe_agent.core.runtime.reuse_session import RuntimeWithExistingSession
+
+        eval_instance = instance
+        if self.workspace_output_dir:
+            meta = dict(instance.metadata) if instance.metadata else {}
+            meta["workspace_output_dir"] = self.workspace_output_dir
+            eval_instance = replace(instance, metadata=meta)
+
         eval_runtime = RuntimeWithExistingSession(session)
-        return await self.evaluator.evaluate(instance, "", eval_runtime)
+        return await self.evaluator.evaluate(eval_instance, "", eval_runtime)
 
     async def _evaluate(self, instance: Instance, patch: str) -> EvalResult:
         """Evaluate in an isolated runtime."""

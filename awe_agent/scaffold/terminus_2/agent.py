@@ -192,7 +192,8 @@ class Terminus2Agent(Agent):
             return Action(
                 type="message",
                 content=response.content,
-                thinking=response.thinking,
+                reasoning_text=response.reasoning_text,
+                reasoning_raw=response.reasoning_raw,
                 token_ids=response.completion_token_ids,
                 logprobs=response.logprobs,
                 weight_version=response.weight_version,
@@ -214,7 +215,8 @@ class Terminus2Agent(Agent):
             return Action(
                 type="finish",
                 content=response.content,
-                thinking=response.thinking,
+                reasoning_text=response.reasoning_text,
+                reasoning_raw=response.reasoning_raw,
                 tool_calls=tool_call_dicts,
                 token_ids=response.completion_token_ids,
                 logprobs=response.logprobs,
@@ -233,7 +235,8 @@ class Terminus2Agent(Agent):
         return Action(
             type="tool_call",
             content=response.content,
-            thinking=response.thinking,
+            reasoning_text=response.reasoning_text,
+            reasoning_raw=response.reasoning_raw,
             tool_calls=tool_call_dicts,
             token_ids=response.completion_token_ids,
             logprobs=response.logprobs,
