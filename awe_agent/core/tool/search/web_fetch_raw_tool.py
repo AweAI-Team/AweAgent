@@ -1,4 +1,4 @@
-"""LinkReaderTool — fetch raw content from URLs with pluggable reader backends."""
+"""WebFetchRawTool — fetch raw content from URLs with pluggable reader backends."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MAX_CONTENT_TOKENS = 100000
 
 
-class LinkReaderTool(Tool):
+class WebFetchRawTool(Tool):
     """Fetch raw content from URLs (web pages or PDFs).
 
     Checks URLs against :class:`SearchConstraints` before fetching.
@@ -68,14 +68,14 @@ class LinkReaderTool(Tool):
 
     @property
     def name(self) -> str:
-        return "link_reader"
+        return "web_fetch_raw"
 
     @property
     def description(self) -> str:
         return (
             "Fetch raw content from a URL. Returns the full text content of "
-            "a web page or PDF. Use 'link_summary' instead if you need a "
-            "concise summary of the content."
+            "a web page or PDF. Use 'web_fetch' instead if you want an "
+            "LLM-summarized response focused on a specific question."
         )
 
     @property

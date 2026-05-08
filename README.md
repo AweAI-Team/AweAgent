@@ -61,7 +61,7 @@ The built-in **SearchSWE** agent scaffold (`awe_agent/scaffold/search_swe/`) is 
 
 | Mode | `enable_search` | `tool_call_format` | Description |
 |------|:---:|---|---|
-| **SearchSWE** | `true` | `openai_function` | Full tool set including web search & link summary |
+| **SearchSWE** | `true` | `openai_function` | Full tool set including web search & web fetch |
 | **OpenHands-style** | `false` | `codeact_xml` | CodeAct XML format, compatible with OpenHands agent behavior |
 
 **Tool Blocks.** The agent composes its tool set from independent, self-contained tool blocks. Each block implements a unified `Tool` protocol (name, JSON Schema parameters, async execute) and is registered via a plugin registry with entry-point discovery:
@@ -70,8 +70,8 @@ The built-in **SearchSWE** agent scaffold (`awe_agent/scaffold/search_swe/`) is 
 |------|------|-------------|
 | Bash | `execute_bash` | Persistent shell session inside Docker with output truncation, timeout control, and regex-based command blocklist |
 | Editor | `str_replace_editor` | File viewer/editor with `view`, `create`, `str_replace`, and `insert` sub-commands |
-| Search | `search` | Web search with anti-leak filtering (auto-blocks target repo URLs). Only active when `enable_search: true` |
-| Link Summary | `link_summary` | Fetch a URL and summarize content via a dedicated LLM. Only active when `enable_search: true` |
+| Web Search | `web_search` | Web search with anti-leak filtering (auto-blocks target repo URLs). Only active when `enable_search: true` |
+| Web Fetch | `web_fetch` | Fetch a URL and run a prompt against its content via a dedicated LLM. Only active when `enable_search: true` |
 | Think | `think` | Reasoning scratchpad — no environment side-effects, helps the agent plan before acting |
 | Finish | `finish` | Signals task completion and triggers evaluation |
 

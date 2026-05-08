@@ -59,9 +59,9 @@ execute_bash = "awe_agent.core.tool.code.bash:ExecuteBashTool"
 str_replace_editor = "awe_agent.core.tool.code.editor:StrReplaceEditorTool"
 think = "awe_agent.core.tool.code.think:ThinkTool"
 finish = "awe_agent.core.tool.code.finish:FinishTool"
-search = "awe_agent.core.tool.search:SearchTool"
-link_summary = "awe_agent.core.tool.search:LinkSummaryTool"
-link_reader = "awe_agent.core.tool.search:LinkReaderTool"
+web_search = "awe_agent.core.tool.search:WebSearchTool"
+web_fetch = "awe_agent.core.tool.search:WebFetchTool"
+web_fetch_raw = "awe_agent.core.tool.search:WebFetchRawTool"
 
 [build-system]
 requires = ["hatchling"]

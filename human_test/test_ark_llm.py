@@ -1,14 +1,14 @@
-"""Quick smoke test for Ark LLM backend and LinkSummaryTool.
+"""Quick smoke test for Ark LLM backend and WebFetchTool.
 
 Usage:
-    export LINK_SUMMARY_ARK_BASE_URL="https://your-ark-endpoint/api/v3"
-    export LINK_SUMMARY_ARK_API_KEY="your-key"
-    export LINK_SUMMARY_ARK_MODEL="your-model"
+    export WEB_FETCH_ARK_BASE_URL="https://your-ark-endpoint/api/v3"
+    export WEB_FETCH_ARK_API_KEY="your-key"
+    export WEB_FETCH_ARK_MODEL="your-model"
 
     # Test 1: raw Ark client
     python human_test/test_ark_llm.py
 
-    # Test 2: also test LinkSummaryTool (needs network for URL fetch)
+    # Test 2: also test WebFetchTool (needs network for URL fetch)
     python human_test/test_ark_llm.py --with-tool
 """
 
@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONFIG_PATH = PROJECT_ROOT / "configs" / "llm" / "link_summary" / "ark.yaml"
+CONFIG_PATH = PROJECT_ROOT / "configs" / "llm" / "web_fetch" / "ark.yaml"
 
 
 async def test_raw_client():
@@ -56,26 +56,25 @@ async def test_raw_client():
     print("  PASSED\n")
 
 
-async def test_link_summary_tool():
-    """Test 2: LinkSummaryTool with Ark backend."""
+async def test_web_fetch_tool():
+    """Test 2: WebFetchTool with Ark backend."""
     print("=" * 60)
-    print("Test 2: LinkSummaryTool (Ark backend)")
+    print("Test 2: WebFetchTool (Ark backend)")
     print("=" * 60)
 
-    os.environ.setdefault("LINK_SUMMARY_CONFIG_PATH", str(CONFIG_PATH))
+    os.environ.setdefault("WEB_FETCH_CONFIG_PATH", str(CONFIG_PATH))
 
-    from awe_agent.core.tool.search.link_summary_tool import LinkSummaryTool
+    from awe_agent.core.tool.search.web_fetch_tool import WebFetchTool
 
-    tool = LinkSummaryTool()
+    tool = WebFetchTool()
     # Force lazy-load to verify config is picked up
     tool._ensure_llm_loaded()
-    print(f"  LLM client: {type(tool._llm_client).__name__}")
-    print(f"  Model: {tool._llm_model}")
+    print(f"  LLM client: {type(tool._llm).__name__}")
     print(f"  Params: {tool._llm_params}")
 
     result = await tool.execute({
         "url": "https://httpbin.org/html",
-        "goal": "What is on this page?",
+        "prompt": "What is on this page?",
     })
     print(f"  Result ({len(result)} chars): {result[:300]}")
     print("  PASSED\n")
@@ -84,7 +83,7 @@ async def test_link_summary_tool():
 async def main():
     # Validate env vars
     missing = []
-    for var in ["LINK_SUMMARY_ARK_BASE_URL", "LINK_SUMMARY_ARK_API_KEY", "LINK_SUMMARY_ARK_MODEL"]:
+    for var in ["WEB_FETCH_ARK_BASE_URL", "WEB_FETCH_ARK_API_KEY", "WEB_FETCH_ARK_MODEL"]:
         if not os.environ.get(var):
             missing.append(var)
     if missing:
@@ -99,7 +98,7 @@ async def main():
     await test_raw_client()
 
     if "--with-tool" in sys.argv:
-        await test_link_summary_tool()
+        await test_web_fetch_tool()
 
     print("All tests passed.")
 

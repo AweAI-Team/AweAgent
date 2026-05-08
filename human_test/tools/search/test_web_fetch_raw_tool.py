@@ -1,4 +1,4 @@
-"""Debug: LinkReaderTool — test with Jina Reader backend and reader_fn injection.
+"""Debug: WebFetchRawTool — test with Jina Reader backend and reader_fn injection.
 
 Before running, optionally set:
     export JINA_API_KEY=your_key_here   (optional, 20 RPM without key)
@@ -7,16 +7,16 @@ Before running, optionally set:
 import asyncio
 import os
 
-from awe_agent.core.tool.search.constraints import SearchConstraints
-from awe_agent.core.tool.search.link_reader_tool import LinkReaderTool
 from awe_agent.core.tool.search.backends.reader.jina import JinaReaderBackend
+from awe_agent.core.tool.search.constraints import SearchConstraints
+from awe_agent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
 
 
 # ── 1. Standalone JinaReaderBackend ───────────────────────────────────────
 
 
 async def test_jina_backend_directly():
-    """Directly call JinaReaderBackend.read_link() — bypass LinkReaderTool."""
+    """Directly call JinaReaderBackend.read_link() — bypass WebFetchRawTool."""
     print("=" * 60)
     print("1. JinaReaderBackend standalone")
     print("=" * 60)
@@ -68,57 +68,57 @@ async def test_jina_backend_with_target_selector():
     print()
 
 
-# ── 2. LinkReaderTool with backend ────────────────────────────────────────
+# ── 2. WebFetchRawTool with backend ────────────────────────────────────────
 
 
-async def test_link_reader_auto_discover():
-    """LinkReaderTool with auto-discovered Jina backend."""
+async def test_web_fetch_raw_auto_discover():
+    """WebFetchRawTool with auto-discovered Jina backend."""
     print("=" * 60)
-    print("5. LinkReaderTool — auto-discover backend")
+    print("5. WebFetchRawTool — auto-discover backend")
     print("=" * 60)
 
-    tool = LinkReaderTool()
+    tool = WebFetchRawTool()
     result = await tool.execute({"url": "https://httpbin.org/html"})
     print(f"  Length: {len(result)} chars")
     print(f"  First 300 chars:\n{result[:300]}")
     print()
 
 
-async def test_link_reader_explicit_backend():
-    """LinkReaderTool with explicit backend='jina'."""
+async def test_web_fetch_raw_explicit_backend():
+    """WebFetchRawTool with explicit backend='jina'."""
     print("=" * 60)
-    print("6. LinkReaderTool — explicit backend='jina'")
+    print("6. WebFetchRawTool — explicit backend='jina'")
     print("=" * 60)
 
-    tool = LinkReaderTool(backend="jina")
+    tool = WebFetchRawTool(backend="jina")
     result = await tool.execute({"url": "https://httpbin.org/html"})
     print(f"  Length: {len(result)} chars")
     print(f"  First 300 chars:\n{result[:300]}")
     print()
 
 
-async def test_link_reader_inject_backend_instance():
-    """LinkReaderTool with injected JinaReaderBackend instance."""
+async def test_web_fetch_raw_inject_backend_instance():
+    """WebFetchRawTool with injected JinaReaderBackend instance."""
     print("=" * 60)
-    print("7. LinkReaderTool — inject backend instance")
+    print("7. WebFetchRawTool — inject backend instance")
     print("=" * 60)
 
     backend = JinaReaderBackend()
-    tool = LinkReaderTool(backend=backend)
+    tool = WebFetchRawTool(backend=backend)
     result = await tool.execute({"url": "https://httpbin.org/html"})
     print(f"  Length: {len(result)} chars")
     print(f"  First 300 chars:\n{result[:300]}")
     print()
 
 
-async def test_link_reader_with_constraints():
+async def test_web_fetch_raw_with_constraints():
     """Blocked URLs should be rejected without making any request."""
     print("=" * 60)
-    print("8. LinkReaderTool — URL blocked by constraints")
+    print("8. WebFetchRawTool — URL blocked by constraints")
     print("=" * 60)
 
     constraints = SearchConstraints.from_repo("django/django")
-    tool = LinkReaderTool(constraints=constraints)
+    tool = WebFetchRawTool(constraints=constraints)
 
     blocked_urls = [
         "https://github.com/django/django/blob/main/README.rst",
@@ -134,31 +134,31 @@ async def test_link_reader_with_constraints():
     print()
 
 
-async def test_link_reader_truncation():
+async def test_web_fetch_raw_truncation():
     """Verify token truncation with real content."""
     print("=" * 60)
-    print("9. LinkReaderTool — truncation (max_content_tokens=200)")
+    print("9. WebFetchRawTool — truncation (max_content_tokens=200)")
     print("=" * 60)
 
-    tool = LinkReaderTool(max_content_tokens=200)
+    tool = WebFetchRawTool(max_content_tokens=200)
     result = await tool.execute({"url": "https://docs.python.org/3/library/asyncio.html"})
     print(f"  Length: {len(result)} chars")
     print(f"  Truncated: {'truncated' in result}")
     print()
 
 
-async def test_link_reader_empty_url():
+async def test_web_fetch_raw_empty_url():
     print("=" * 60)
-    print("10. LinkReaderTool — empty URL")
+    print("10. WebFetchRawTool — empty URL")
     print("=" * 60)
 
-    tool = LinkReaderTool()
+    tool = WebFetchRawTool()
     result = await tool.execute({"url": ""})
     print(f"  Result: {result}")
     print()
 
 
-async def test_link_reader_no_backend():
+async def test_jina_backend_no_api_key():
     """Without API key — still works at 20 RPM but some domains may be blocked."""
     print("=" * 60)
     print("11. JinaReaderBackend — no API key (20 RPM)")
@@ -184,18 +184,18 @@ async def main():
         print("JINA_API_KEY not set (20 RPM, still works)")
     print()
 
-    await test_link_reader_empty_url()
-    await test_link_reader_with_constraints()
-    await test_link_reader_no_backend()
+    await test_web_fetch_raw_empty_url()
+    await test_web_fetch_raw_with_constraints()
+    await test_jina_backend_no_api_key()
     await test_jina_backend_directly()
     await test_jina_backend_real_page()
     await test_jina_backend_pdf()
     await test_jina_backend_with_target_selector()
-    await test_link_reader_auto_discover()
-    await test_link_reader_explicit_backend()
-    await test_link_reader_inject_backend_instance()
-    await test_link_reader_truncation()
-    print("All LinkReaderTool tests done.")
+    await test_web_fetch_raw_auto_discover()
+    await test_web_fetch_raw_explicit_backend()
+    await test_web_fetch_raw_inject_backend_instance()
+    await test_web_fetch_raw_truncation()
+    print("All WebFetchRawTool tests done.")
 
 
 if __name__ == "__main__":

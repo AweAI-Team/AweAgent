@@ -1,0 +1,14 @@
+# Azure OpenAI backend for WebFetchTool
+# Usage:
+#   export WEB_FETCH_CONFIG_PATH=configs/llm/web_fetch/azure.yaml
+#   export WEB_FETCH_MODEL=gpt-5   (optional, overrides model below)
+
+backend: openai
+base_url: ${WEB_FETCH_AZURE_ENDPOINT}
+api_key: ${WEB_FETCH_API_KEY}
+model: ${WEB_FETCH_MODEL:-gpt-5}
+params:
+  # temperature: 1  # gpt-5 only supports temperature=1
+  max_completion_tokens: 32768
+extra:
+  api_version: ${WEB_FETCH_API_VERSION:-2024-03-01-preview}

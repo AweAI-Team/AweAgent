@@ -1,4 +1,4 @@
-"""Debug: SearchTool — verify real search via SerpAPI backend.
+"""Debug: WebSearchTool — verify real search via SerpAPI backend.
 
 Before running, set:
     export SERPAPI_API_KEY=your_key_here
@@ -9,14 +9,14 @@ import os
 
 from awe_agent.core.tool.search.backends.search.serpapi import SerpAPIBackend
 from awe_agent.core.tool.search.constraints import SearchConstraints
-from awe_agent.core.tool.search.search_tool import SearchTool
+from awe_agent.core.tool.search.web_search_tool import WebSearchTool
 
 
 # ── 1. Standalone SerpAPIBackend ──────────────────────────────────────────
 
 
 async def test_serpapi_backend_directly():
-    """Directly call SerpAPIBackend.search() — bypass SearchTool entirely."""
+    """Directly call SerpAPIBackend.search() — bypass WebSearchTool entirely."""
     print("=" * 60)
     print("1. SerpAPIBackend standalone")
     print("=" * 60)
@@ -32,66 +32,66 @@ async def test_serpapi_backend_directly():
     print()
 
 
-# ── 2. SearchTool with SerpAPIBackend ─────────────────────────────────────
+# ── 2. WebSearchTool with SerpAPIBackend ──────────────────────────────────
 
 
-async def test_search_tool_single_query():
-    """Single query through SearchTool (auto-discovers SerpAPIBackend)."""
+async def test_web_search_single_query():
+    """Single query through WebSearchTool (auto-discovers SerpAPIBackend)."""
     print("=" * 60)
-    print("2. SearchTool — single query (auto-discover backend)")
+    print("2. WebSearchTool — single query (auto-discover backend)")
     print("=" * 60)
 
-    tool = SearchTool()
+    tool = WebSearchTool()
     result = await tool.execute({"query": "django queryset lazy evaluation"})
     print(result)
     print()
 
 
-async def test_search_tool_with_backend_name():
+async def test_web_search_with_backend_name():
     """Explicitly pass backend name 'serpapi'."""
     print("=" * 60)
-    print("3. SearchTool — explicit backend='serpapi'")
+    print("3. WebSearchTool — explicit backend='serpapi'")
     print("=" * 60)
 
-    tool = SearchTool(backend="serpapi")
+    tool = WebSearchTool(backend="serpapi")
     result = await tool.execute({"query": "python type hints best practices", "num": 3})
     print(result)
     print()
 
 
-async def test_search_tool_with_backend_instance():
+async def test_web_search_with_backend_instance():
     """Inject a SerpAPIBackend instance directly."""
     print("=" * 60)
-    print("4. SearchTool — inject backend instance")
+    print("4. WebSearchTool — inject backend instance")
     print("=" * 60)
 
     backend = SerpAPIBackend()
-    tool = SearchTool(backend=backend)
+    tool = WebSearchTool(backend=backend)
     result = await tool.execute({"query": "aiohttp client session example", "num": 3})
     print(result)
     print()
 
 
-async def test_search_tool_with_constraints():
+async def test_web_search_with_constraints():
     """Search with constraint filtering — github.com/django/* should be filtered."""
     print("=" * 60)
-    print("5. SearchTool — with constraints (django/django)")
+    print("5. WebSearchTool — with constraints (django/django)")
     print("=" * 60)
 
     constraints = SearchConstraints.from_repo("django/django")
-    tool = SearchTool(constraints=constraints)
+    tool = WebSearchTool(constraints=constraints)
     result = await tool.execute({"query": "django queryset filter github"})
     print(result)
     print()
 
 
-async def test_search_tool_batch_query():
+async def test_web_search_batch_query():
     """Batch query — multiple queries in one call."""
     print("=" * 60)
-    print("6. SearchTool — batch query")
+    print("6. WebSearchTool — batch query")
     print("=" * 60)
 
-    tool = SearchTool()
+    tool = WebSearchTool()
     result = await tool.execute({
         "query": ["python asyncio tutorial", "pytorch nn.Linear usage"],
         "num": 3,
@@ -100,19 +100,19 @@ async def test_search_tool_batch_query():
     print()
 
 
-async def test_search_tool_empty_query():
+async def test_web_search_empty_query():
     """Empty query should return error without calling backend."""
     print("=" * 60)
-    print("7. SearchTool — empty query")
+    print("7. WebSearchTool — empty query")
     print("=" * 60)
 
-    tool = SearchTool()
+    tool = WebSearchTool()
     result = await tool.execute({"query": ""})
     print(f"  Result: {result}")
     print()
 
 
-async def test_search_tool_no_api_key():
+async def test_web_search_no_api_key():
     """Without API key, should get empty results (not crash)."""
     print("=" * 60)
     print("8. SerpAPIBackend — no API key")
@@ -135,15 +135,15 @@ async def main():
         print("WARNING: SERPAPI_API_KEY not set. Real search tests will fail.")
         print("Set it with: export SERPAPI_API_KEY=your_key_here\n")
 
-    await test_search_tool_empty_query()
-    await test_search_tool_no_api_key()
+    await test_web_search_empty_query()
+    await test_web_search_no_api_key()
     await test_serpapi_backend_directly()
-    await test_search_tool_single_query()
-    await test_search_tool_with_backend_name()
-    await test_search_tool_with_backend_instance()
-    await test_search_tool_with_constraints()
-    await test_search_tool_batch_query()
-    print("All SearchTool tests done.")
+    await test_web_search_single_query()
+    await test_web_search_with_backend_name()
+    await test_web_search_with_backend_instance()
+    await test_web_search_with_constraints()
+    await test_web_search_batch_query()
+    print("All WebSearchTool tests done.")
 
 
 if __name__ == "__main__":

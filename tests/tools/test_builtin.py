@@ -16,7 +16,7 @@ from awe_agent.core.tool.code.finish import (
     LineFLFinishTool,
     SubmitFileFinishTool,
 )
-from awe_agent.core.tool.search import LinkSummaryTool, SearchTool
+from awe_agent.core.tool.search import WebFetchTool, WebSearchTool
 from tests.conftest import MockRuntimeSession
 
 
@@ -269,49 +269,49 @@ def test_finish_submit_file():
     assert result == "/tmp/result.txt"
 
 
-# ── SearchTool ────────────────────────────────────────────────────────
+# ── WebSearchTool ─────────────────────────────────────────────────────
 
 
-def test_search_schema():
-    tool = SearchTool()
-    assert tool.name == "search"
+def test_web_search_schema():
+    tool = WebSearchTool()
+    assert tool.name == "web_search"
     assert "query" in tool.parameters["properties"]
 
 
 @pytest.mark.asyncio
-async def test_search_default():
-    tool = SearchTool()
+async def test_web_search_default():
+    tool = WebSearchTool()
     result = await tool.execute({"query": "python asyncio timeout"})
     # Without bandai_mcp_host, returns no results
     assert "python asyncio timeout" in result
 
 
 @pytest.mark.asyncio
-async def test_search_empty_query():
-    tool = SearchTool()
+async def test_web_search_empty_query():
+    tool = WebSearchTool()
     result = await tool.execute({"query": ""})
     assert "error" in result.lower()
 
 
-# ── LinkSummaryTool ───────────────────────────────────────────────────
+# ── WebFetchTool ──────────────────────────────────────────────────────
 
 
-def test_link_summary_schema():
-    tool = LinkSummaryTool()
-    assert tool.name == "link_summary"
+def test_web_fetch_schema():
+    tool = WebFetchTool()
+    assert tool.name == "web_fetch"
     assert "url" in tool.parameters["properties"]
-    assert "goal" in tool.parameters["properties"]
+    assert "prompt" in tool.parameters["properties"]
 
 
 @pytest.mark.asyncio
-async def test_link_summary_empty_url():
-    tool = LinkSummaryTool()
-    result = await tool.execute({"url": "", "goal": "test"})
+async def test_web_fetch_empty_url():
+    tool = WebFetchTool()
+    result = await tool.execute({"url": "", "prompt": "test"})
     assert "error" in result.lower()
 
 
 @pytest.mark.asyncio
-async def test_link_summary_empty_goal():
-    tool = LinkSummaryTool()
-    result = await tool.execute({"url": "https://example.com", "goal": ""})
+async def test_web_fetch_empty_prompt():
+    tool = WebFetchTool()
+    result = await tool.execute({"url": "https://example.com", "prompt": ""})
     assert "error" in result.lower()

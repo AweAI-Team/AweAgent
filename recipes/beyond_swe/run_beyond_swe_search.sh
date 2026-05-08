@@ -37,8 +37,8 @@ Environment variables:
   JINA_API_KEY               API key for Jina reader backend (optional, higher rate limit)
   SEARCH_BACKEND             Search backend name (default: auto-discover)
   READER_BACKEND             Reader backend name (default: auto-discover)
-  LINK_SUMMARY_CONFIG_PATH   Path to LLM config YAML for link summary
-  LINK_SUMMARY_MODEL         LLM model for link summary (default: gpt-4o-mini)
+  WEB_FETCH_CONFIG_PATH      Path to LLM config YAML for web_fetch
+  WEB_FETCH_MODEL            LLM model for web_fetch (default: gpt-4o-mini)
 
 Options:
   --model MODEL          LLM model name (default: gpt-4o, env: MODEL)
@@ -140,13 +140,13 @@ export DATA_FILE
 export AWE_AGENT__LLM__MODEL="${MODEL}"
 # test_suite_dir: pass through if set (needed for doc2repo evaluation)
 export BEYONDSWE_TEST_SUITE_DIR="${BEYONDSWE_TEST_SUITE_DIR:-}"
-# Search & link summary: pass through if set
+# Search & web_fetch: pass through if set
 export SERPAPI_API_KEY="${SERPAPI_API_KEY:-}"
 export JINA_API_KEY="${JINA_API_KEY:-}"
 export SEARCH_BACKEND="${SEARCH_BACKEND:-}"
 export READER_BACKEND="${READER_BACKEND:-}"
-export LINK_SUMMARY_CONFIG_PATH="${LINK_SUMMARY_CONFIG_PATH:-}"
-export LINK_SUMMARY_MODEL="${LINK_SUMMARY_MODEL:-}"
+export WEB_FETCH_CONFIG_PATH="${WEB_FETCH_CONFIG_PATH:-}"
+export WEB_FETCH_MODEL="${WEB_FETCH_MODEL:-}"
 
 # ── Run ───────────────────────────────────────────────────────────────
 echo "=== BeyondSWE Search Mode ==="
