@@ -1,4 +1,7 @@
-"""LinkSummaryTool — fetch and summarize web content with anti-hack URL blocking.
+"""WebFetchTool — fetch a web page, then run a user prompt against its content.
+
+Takes a URL and a prompt: fetches the page via :class:`WebFetchRawTool`, then
+sends the content + prompt to a configured LLM and returns its response.
 
 LLM Configuration
 =================
@@ -7,13 +10,13 @@ Three ways to configure the LLM backend (can be combined):
 
 1. **YAML config only** (recommended for production)::
 
-       export LINK_SUMMARY_CONFIG_PATH=/path/to/configs/llm/link_summary/azure.yaml
+       export WEB_FETCH_CONFIG_PATH=/path/to/configs/llm/web_fetch/azure.yaml
 
    The YAML file provides all settings: backend, api_key, model, params, etc.
 
 2. **Environment variables only** (quick setup, no YAML needed)::
 
-       export LINK_SUMMARY_MODEL=gpt-4o
+       export WEB_FETCH_MODEL=gpt-4o
        export OPENAI_API_KEY=sk-...
        export OPENAI_BASE_URL=https://api.openai.com/v1   # optional
 
@@ -22,14 +25,14 @@ Three ways to configure the LLM backend (can be combined):
 
 3. **Both** (YAML config + model override)::
 
-       export LINK_SUMMARY_CONFIG_PATH=/path/to/configs/llm/link_summary/azure.yaml
-       export LINK_SUMMARY_MODEL=gpt-5.2-2025-12-11
+       export WEB_FETCH_CONFIG_PATH=/path/to/configs/llm/web_fetch/azure.yaml
+       export WEB_FETCH_MODEL=gpt-5.2-2025-12-11
 
-   Backend, api_key, and params come from YAML; ``LINK_SUMMARY_MODEL``
+   Backend, api_key, and params come from YAML; ``WEB_FETCH_MODEL``
    overrides only the model name. Useful for quick model switching without
    editing the config file.
 
-If neither ``LINK_SUMMARY_MODEL`` nor ``LINK_SUMMARY_CONFIG_PATH`` is set,
+If neither ``WEB_FETCH_MODEL`` nor ``WEB_FETCH_CONFIG_PATH`` is set,
 the tool falls back to returning raw fetched content without summarization.
 
 Supports any backend available through AweAgent LLMClient (OpenAI, Azure,
@@ -38,8 +41,8 @@ Anthropic, OpenAI Response API, Ark, etc.).
 Prompt Configuration
 ====================
 
-- ``LINK_SUMMARY_PROMPT_NAME``: Select a built-in preset (``default``, ``code``, ``paper``).
-- ``LINK_SUMMARY_PROMPT_PATH``: Path to a custom prompt file (Markdown).
+- ``WEB_FETCH_PROMPT_NAME``: Select a built-in preset (``default``, ``code``, ``paper``).
+- ``WEB_FETCH_PROMPT_PATH``: Path to a custom prompt file (Markdown).
 - Or pass ``system_prompt=...`` in the constructor (highest priority).
 """
 
@@ -57,8 +60,8 @@ from awe_agent.core.llm.types import Message
 from awe_agent.core.runtime.protocol import RuntimeSession
 from awe_agent.core.tool.protocol import Tool
 from awe_agent.core.tool.search.constraints import SearchConstraints
-from awe_agent.core.tool.search.link_reader_tool import LinkReaderTool
 from awe_agent.core.tool.search.prompts import resolve_prompt
+from awe_agent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
 
 logger = logging.getLogger(__name__)
 
@@ -66,24 +69,24 @@ _DEFAULT_MAX_CONTENT_TOKENS = 25000
 _DEFAULT_MAX_ATTEMPTS = 3
 
 
-class LinkSummaryTool(Tool):
+class WebFetchTool(Tool):
     """Fetch and summarize web content with anti-hack URL blocking.
 
-    Two-step process: :class:`LinkReaderTool` fetches the content, then an
-    LLM summarizes it based on the user's goal. See module docstring for
+    Two-step process: :class:`WebFetchRawTool` fetches the content, then an
+    LLM summarizes it based on the user's prompt. See module docstring for
     LLM and prompt configuration details.
 
     Args:
         constraints: Optional constraints for URL blocking.
         max_content_tokens: Maximum tokens for fetched content.
         max_attempts: Retry attempts for LLM summarization.
-        system_prompt: Custom system prompt (defaults to ``LINK_SUMMARY_PROMPT``).
+        system_prompt: Custom system prompt (defaults to ``WEB_FETCH_PROMPT``).
         llm_config_path: Path to YAML config for the LLM client.
         llm_params: LLM generation parameters (e.g. ``max_tokens``).
             Overrides values from YAML config. Defaults: ``max_tokens=10240``.
         llm: Optional pre-configured :class:`LLMClient` instance.
             Useful for testing or when you already have a client.
-        reader: Optional :class:`LinkReaderTool` instance. Defaults to creating
+        reader: Optional :class:`WebFetchRawTool` instance. Defaults to creating
             one internally with the same constraints.
     """
 
@@ -96,20 +99,20 @@ class LinkSummaryTool(Tool):
         llm_config_path: str | None = None,
         llm_params: dict[str, Any] | None = None,
         llm: LLMClient | None = None,
-        reader: LinkReaderTool | None = None,
+        reader: WebFetchRawTool | None = None,
     ) -> None:
         self._constraints = constraints or SearchConstraints()
         self._system_prompt = resolve_prompt(system_prompt)
         self._max_attempts = max_attempts
         self._llm_config_path = llm_config_path or os.environ.get(
-            "LINK_SUMMARY_CONFIG_PATH"
+            "WEB_FETCH_CONFIG_PATH"
         )
         # LLM generation parameters — overridable via constructor or YAML config.
         # Resolved lazily in _ensure_llm_loaded(); constructor values take priority.
         self._llm_params_override = llm_params
 
         # Internal reader — injected or created with shared constraints
-        self._reader = reader or LinkReaderTool(
+        self._reader = reader or WebFetchRawTool(
             constraints=self._constraints,
             max_content_tokens=max_content_tokens,
         )
@@ -126,14 +129,14 @@ class LinkSummaryTool(Tool):
 
     @property
     def name(self) -> str:
-        return "link_summary"
+        return "web_fetch"
 
     @property
     def description(self) -> str:
         return (
-            "Fetch and summarize a web page. Provide a URL and a goal describing "
-            "what information you need. The tool will fetch the page content and "
-            "return an LLM-generated summary focused on your goal."
+            "Fetch a web page and run a prompt against its content. Provide a URL "
+            "and a prompt describing what information you need. The tool fetches "
+            "the page and returns an LLM-generated response focused on your prompt."
         )
 
     @property
@@ -143,17 +146,14 @@ class LinkSummaryTool(Tool):
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": "The URL to fetch and summarize.",
+                    "description": "The URL to fetch content from.",
                 },
-                "goal": {
+                "prompt": {
                     "type": "string",
-                    "description": (
-                        "What information you need from this page. "
-                        "Be specific to get a focused summary."
-                    ),
+                    "description": "The prompt to run on the fetched content.",
                 },
             },
-            "required": ["url", "goal"],
+            "required": ["url", "prompt"],
         }
 
     async def execute(
@@ -162,12 +162,12 @@ class LinkSummaryTool(Tool):
         session: RuntimeSession | None = None,
     ) -> str:
         url = params.get("url", "").strip()
-        goal = params.get("goal", "").strip()
+        prompt = params.get("prompt", "").strip()
 
         if not url:
             return "Error: empty URL."
-        if not goal:
-            return "Error: empty goal. Please describe what information you need."
+        if not prompt:
+            return "Error: empty prompt. Please describe what information you need."
 
         # Check URL against constraints
         if self._constraints.is_url_blocked(url):
@@ -177,7 +177,7 @@ class LinkSummaryTool(Tool):
                 "not allowed during evaluation."
             )
 
-        # Fetch content via LinkReaderTool
+        # Fetch content via WebFetchRawTool
         content = await self._reader.execute({"url": url}, session=session)
 
         # Check if fetch returned an error
@@ -187,11 +187,10 @@ class LinkSummaryTool(Tool):
             return content
 
         # Summarize via LLM
-        summary = await self._summarize_content(content, url, goal)
-        return summary
+        return await self._summarize_content(content, url, prompt)
 
     async def _summarize_content(
-        self, content: str, url: str, goal: str,
+        self, content: str, url: str, prompt: str,
     ) -> str:
         """Call LLM to summarize fetched content.
 
@@ -208,10 +207,13 @@ class LinkSummaryTool(Tool):
                 f"{content}"
             )
 
+        # Page Content first — keeps prompt-cache prefix stable across multiple
+        # prompts on the same URL (the large content block stays cached; only
+        # the small prompt at the end varies).
         user_message = (
+            f"## Page Content\n{content}\n\n"
             f"## URL\n{url}\n\n"
-            f"## Goal\n{goal}\n\n"
-            f"## Page Content\n{content}"
+            f"## Prompt\n{prompt}"
         )
 
         last_error: Exception | None = None
@@ -246,11 +248,11 @@ class LinkSummaryTool(Tool):
         if self._llm is not None:
             return
 
-        model = os.environ.get("LINK_SUMMARY_MODEL")
+        model = os.environ.get("WEB_FETCH_MODEL")
         if not model and not self._llm_config_path:
             logger.info(
-                "No LINK_SUMMARY_MODEL or LINK_SUMMARY_CONFIG_PATH set — "
-                "link_summary will return raw content without summarization."
+                "No WEB_FETCH_MODEL or WEB_FETCH_CONFIG_PATH set — "
+                "web_fetch will return raw content without summarization."
             )
             return
 
@@ -285,5 +287,5 @@ class LinkSummaryTool(Tool):
             })
             self._llm = LLMClient(llm_config)
         except Exception as exc:
-            logger.warning("Failed to create LLM client for link_summary: %s", exc)
+            logger.warning("Failed to create LLM client for web_fetch: %s", exc)
             self._llm = None

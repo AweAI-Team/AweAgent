@@ -1,37 +1,37 @@
-# Search Tools
+# Web Tools
 
-Web search, link reading, and summarization with pluggable backends.
+Web search, fetch + summarize, and raw fetch — with pluggable backends.
 
 ## Directory Structure
 
 ```
 awe_agent/core/tool/search/
 ├── backends/
-│   ├── search/              # search backends
-│   │   ├── __init__.py      # search_backend_registry + get_search_backend()
-│   │   └── serpapi.py       # SerpAPIBackend
-│   └── reader/              # reader backends
-│       ├── __init__.py      # reader_backend_registry + get_reader_backend()
-│       └── jina.py          # JinaReaderBackend
-├── constraints.py           # SearchConstraints (anti-hack URL/result filtering)
-├── link_reader_tool.py      # LinkReaderTool
-├── link_summary_tool.py     # LinkSummaryTool
-├── prompts.py               # LLM prompt templates for summarization
-├── search_tool.py           # SearchTool
+│   ├── search/                  # search backends
+│   │   ├── __init__.py          # search_backend_registry + get_search_backend()
+│   │   └── serpapi.py           # SerpAPIBackend
+│   └── reader/                  # reader backends
+│       ├── __init__.py          # reader_backend_registry + get_reader_backend()
+│       └── jina.py              # JinaReaderBackend
+├── constraints.py               # SearchConstraints (anti-hack URL/result filtering)
+├── prompts.py                   # LLM prompt templates for web_fetch
+├── web_search_tool.py           # WebSearchTool
+├── web_fetch_tool.py            # WebFetchTool (fetch + LLM summarize)
+├── web_fetch_raw_tool.py        # WebFetchRawTool (fetch raw content, no LLM)
 └── README.md
 ```
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| `SearchTool` | Web search with anti-hack constraint filtering |
-| `LinkReaderTool` | Fetch raw content from URLs |
-| `LinkSummaryTool` | Fetch + LLM summarize (depends on `LinkReaderTool`) |
+| Tool | Name | Description |
+|------|------|-------------|
+| `WebSearchTool` | `web_search` | Web search with anti-hack constraint filtering |
+| `WebFetchTool` | `web_fetch` | Fetch + LLM-process via a prompt (depends on `WebFetchRawTool`) |
+| `WebFetchRawTool` | `web_fetch_raw` | Fetch raw content (no LLM) |
 
 ---
 
-## SearchTool
+## WebSearchTool
 
 ### Environment Variables
 
@@ -51,9 +51,9 @@ export SEARCH_BACKEND=serpapi  # optional, auto-discovered if only one backend
 ```
 
 ```python
-from awe_agent.core.tool.search import SearchTool
+from awe_agent.core.tool.search import WebSearchTool
 
-tool = SearchTool()
+tool = WebSearchTool()
 result = await tool.execute({"query": "python asyncio tutorial"})
 result = await tool.execute({"query": ["query1", "query2"], "num": 3})
 ```
@@ -62,11 +62,11 @@ result = await tool.execute({"query": ["query1", "query2"], "num": 3})
 
 ```python
 # By registry name
-tool = SearchTool(backend="serpapi")
+tool = WebSearchTool(backend="serpapi")
 
 # By instance (useful for custom api_key or timeout)
 from awe_agent.core.tool.search.backends.search.serpapi import SerpAPIBackend
-tool = SearchTool(backend=SerpAPIBackend(api_key="your_key_here", timeout=60))
+tool = WebSearchTool(backend=SerpAPIBackend(api_key="your_key_here", timeout=60))
 ```
 
 Backend resolution order: explicit `backend` argument → `SEARCH_BACKEND` env var → auto-discover first available.
@@ -75,13 +75,13 @@ Backend resolution order: explicit `backend` argument → `SEARCH_BACKEND` env v
 
 ```bash
 export SERPAPI_API_KEY=your_key_here
-python human_test/tools/search/test_search_tool.py
+python human_test/tools/search/test_web_search_tool.py
 python human_test/tools/search/test_constraints.py
 ```
 
 ---
 
-## LinkReaderTool
+## WebFetchRawTool
 
 ### Environment Variables
 
@@ -100,9 +100,9 @@ export READER_BACKEND=jina           # optional, auto-discovered if only one bac
 ```
 
 ```python
-from awe_agent.core.tool.search import LinkReaderTool
+from awe_agent.core.tool.search import WebFetchRawTool
 
-tool = LinkReaderTool()
+tool = WebFetchRawTool()
 result = await tool.execute({"url": "https://example.com"})
 ```
 
@@ -110,11 +110,11 @@ result = await tool.execute({"url": "https://example.com"})
 
 ```python
 # By registry name
-tool = LinkReaderTool(backend="jina")
+tool = WebFetchRawTool(backend="jina")
 
 # By instance (useful for custom options)
 from awe_agent.core.tool.search.backends.reader.jina import JinaReaderBackend
-tool = LinkReaderTool(backend=JinaReaderBackend(
+tool = WebFetchRawTool(backend=JinaReaderBackend(
     api_key="your_key_here",
     target_selector="article",       # CSS selector to extract specific elements
     wait_for_selector=".content",    # wait for JS-rendered content
@@ -137,23 +137,26 @@ Backend resolution order: explicit `backend` argument → `reader_fn` callable �
 
 ```bash
 export JINA_API_KEY=your_key_here  # optional
-python human_test/tools/search/test_link_reader.py
+python human_test/tools/search/test_web_fetch_raw_tool.py
 ```
 
 ---
 
-## LinkSummaryTool
+## WebFetchTool
 
-Combines `LinkReaderTool` (fetch) + LLM (summarize). Internally creates a `LinkReaderTool`, so reader backend configuration (env vars, auto-discovery) applies equally here.
+Combines `WebFetchRawTool` (fetch) + LLM (run prompt). Takes a `url` and a
+`prompt`, fetches the page, and returns the LLM's response to the prompt
+applied against the page content. Internally creates a `WebFetchRawTool`,
+so reader backend configuration (env vars, auto-discovery) applies equally here.
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `JINA_API_KEY` | No | Jina API key for reader backend (same as LinkReaderTool) |
-| `READER_BACKEND` | No | Override reader backend (same as LinkReaderTool) |
-| `LINK_SUMMARY_CONFIG_PATH` | For summarization | Path to LLM YAML config |
-| `LINK_SUMMARY_MODEL` | For summarization | LLM model name (alternative to config) |
+| `JINA_API_KEY` | No | Jina API key for reader backend (same as WebFetchRawTool) |
+| `READER_BACKEND` | No | Override reader backend (same as WebFetchRawTool) |
+| `WEB_FETCH_CONFIG_PATH` | For summarization | Path to LLM YAML config |
+| `WEB_FETCH_MODEL` | For summarization | LLM model name (alternative to config) |
 | `OPENAI_API_KEY` | For summarization | OpenAI API key (when using env-var config) |
 
 If no LLM is configured, returns raw fetched content without summarization.
@@ -161,23 +164,29 @@ If no LLM is configured, returns raw fetched content without summarization.
 ### Usage
 
 ```python
-from awe_agent.core.tool.search import LinkSummaryTool
+from awe_agent.core.tool.search import WebFetchTool
 
 # Default — auto-discovers reader backend + LLM from env vars
-tool = LinkSummaryTool()
+tool = WebFetchTool()
 
-# Explicit reader backend via injected LinkReaderTool
-from awe_agent.core.tool.search import LinkReaderTool
-reader = LinkReaderTool(backend="jina")
-tool = LinkSummaryTool(reader=reader)
+# Explicit reader backend via injected WebFetchRawTool
+from awe_agent.core.tool.search import WebFetchRawTool
+reader = WebFetchRawTool(backend="jina")
+tool = WebFetchTool(reader=reader)
+
+# Invoke
+result = await tool.execute({
+    "url": "https://docs.python.org/3/library/asyncio.html",
+    "prompt": "How do you create a task that runs concurrently?",
+})
 ```
 
 ### Manual Testing
 
 ```bash
 export JINA_API_KEY=your_key_here
-export LINK_SUMMARY_CONFIG_PATH=configs/llm/link_summary/azure.yaml
-python human_test/tools/search/test_link_summary.py
+export WEB_FETCH_CONFIG_PATH=configs/llm/web_fetch/azure.yaml
+python human_test/tools/search/test_web_fetch_tool.py
 ```
 
 ---

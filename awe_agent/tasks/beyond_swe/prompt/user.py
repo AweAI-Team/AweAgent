@@ -333,7 +333,7 @@ This document is the **ABSOLUTE AUTHORITY** for the **Architecture, Public API, 
     * **Search Usage Limit**: Use the Search Tool **ONLY** if you encounter:
         1.  Syntactical errors related to specific library versions (e.g., `pydantic` v1 vs v2 differences).
         2.  Missing imports or dependencies that are implied but not listed.
-    **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **LinkSummary** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
+    **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **`web_fetch`** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
     * **Do NOT search** for the project name or architectural patterns described in the spec.
 
 **Phase 2: Implementation**
@@ -400,7 +400,7 @@ Phase 3. EXPLORATION: find the files that are related to the problem and possibl
    3.4 From the possible file locations, select the most likely location to fix the issue.
    3.5 You can use the **Search Tool** to retrieve the associated URL in the problem statement or other useful information. 
    3.6 **Attention**:
-       - **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **LinkSummary** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
+       - **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **`web_fetch`** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
 
 Phase 4. TEST CREATION: before implementing any fix, create a script to reproduce and verify the issue.
    4.1 Look at existing test files in the repository to understand the test format/structure.
@@ -475,7 +475,7 @@ Phase 3. EXPLORATION: find the files that are related to the problem and possibl
        - Goal: Determine if a feature was removed, renamed, or requires new dependencies.
        - Verification: Ensure the solution applies to the currently installed version in the environment. 
    3.6 **Attention**:
-       - **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **LinkSummary** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
+       - **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **`web_fetch`** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
 
 Phase 4. TEST CREATION: before implementing any fix, create a script to reproduce and verify the issue.
    4.1 Look at existing test files in the repository to understand the test format/structure.
@@ -550,7 +550,7 @@ Phase 3. EXPLORATION: find the files that are related to the problem and possibl
        - If the issue involves an API change (e.g., "Xpress 9.4"), explicitly Search for **"Release Notes"** or **"Migration Guide"**.
        - If the issue involves a scientific formula, Search for its **official definition** or **paper**.
    3.5 **Attention**:
-       - **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **LinkSummary** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
+       - **MANDATORY Deep Reading**: If a search result looks promising, you **MUST** use the **`web_fetch`** tool to fetch and read the actual page content. Treat search snippets merely as relevance indicators. Snippets are often incomplete or outdated. **Never write code based solely on search snippets.**
 
 Phase 4. TEST CREATION: before implementing any fix, create a script to reproduce and verify the issue.
    4.1 Look at existing test files in the repository to understand the test format/structure.

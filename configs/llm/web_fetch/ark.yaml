@@ -1,0 +1,11 @@
+# Ark (Volcengine) backend for WebFetchTool — dpsk v3.2
+# Usage:
+#   export WEB_FETCH_CONFIG_PATH=configs/llm/web_fetch/ark.yaml
+#   export WEB_FETCH_ARK_API_KEY=...
+
+backend: ark
+base_url: ${WEB_FETCH_ARK_BASE_URL}
+api_key: ${WEB_FETCH_ARK_API_KEY}
+model: ${WEB_FETCH_ARK_MODEL}
+params:
+  max_completion_tokens: 32768

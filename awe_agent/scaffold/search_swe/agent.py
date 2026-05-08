@@ -7,7 +7,7 @@ table in :mod:`~awe_agent.scaffold.search_swe.prompts.config`.
 Supports two modes of operation:
 
 - **Standard** (``enable_search=False``): Bash + Editor + Think.
-- **Search**  (``enable_search=True``):  Adds SearchTool and LinkSummaryTool
+- **Search**  (``enable_search=True``):  Adds WebSearchTool and WebFetchTool
   for evidence-based problem solving with web research.
 """
 
@@ -22,7 +22,7 @@ from awe_agent.core.agent.trajectory import Action
 from awe_agent.core.llm.format import get_tool_format
 from awe_agent.core.tool.code import ExecuteBashTool, FinishTool, StrReplaceEditorTool, ThinkTool
 from awe_agent.core.tool.protocol import Tool
-from awe_agent.core.tool.search import LinkSummaryTool, SearchConstraints, SearchTool
+from awe_agent.core.tool.search import SearchConstraints, WebFetchTool, WebSearchTool
 from awe_agent.scaffold.search_swe.prompts.config import resolve_from_task_info
 from awe_agent.scaffold.search_swe.prompts.system import NO_TOOL_CALL_PROMPT, get_system_prompt
 
@@ -66,7 +66,7 @@ class SearchSWEAgent(Agent):
 
     Dynamically resolves the system prompt from the task context using
     the prompt routing table.  When ``enable_search=True``, the agent
-    gains access to :class:`SearchTool` and :class:`LinkSummaryTool`
+    gains access to :class:`WebSearchTool` and :class:`WebFetchTool`
     for evidence-based coding.
 
     Args:
@@ -181,10 +181,10 @@ class SearchSWEAgent(Agent):
             self._tools.append(ThinkTool())
 
         if enable_search:
-            self._tools.append(SearchTool(
+            self._tools.append(WebSearchTool(
                 constraints=search_constraints,
             ))
-            self._tools.append(LinkSummaryTool(
+            self._tools.append(WebFetchTool(
                 constraints=search_constraints,
             ))
 

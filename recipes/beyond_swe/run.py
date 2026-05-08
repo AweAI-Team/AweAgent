@@ -27,8 +27,8 @@ Environment variables:
   JINA_API_KEY                 API key for Jina reader backend
   SEARCH_BACKEND               Search backend name (default: auto-discover)
   READER_BACKEND               Reader backend name (default: auto-discover)
-  LINK_SUMMARY_CONFIG_PATH     Path to LLM config YAML for link summary
-  LINK_SUMMARY_MODEL           LLM model for link summary (default: gpt-4o-mini)
+  WEB_FETCH_CONFIG_PATH        Path to LLM config YAML for web_fetch
+  WEB_FETCH_MODEL              LLM model for web_fetch (default: gpt-4o-mini)
 
 Usage examples:
 

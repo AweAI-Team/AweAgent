@@ -40,7 +40,7 @@ export SEARCH_BACKEND="serpapi"              # or jina
 export READER_BACKEND="jina"                 # web page reader
 export SERPAPI_API_KEY="your-serpapi-key"     # if using serpapi
 export JINA_API_KEY="your-jina-key"          # if using jina
-export LINK_SUMMARY_CONFIG_PATH="/path/to/configs/llm/link_summary/azure.yaml"
+export WEB_FETCH_CONFIG_PATH="/path/to/configs/llm/web_fetch/azure.yaml"
 ```
 
 ## Quick Start
@@ -81,7 +81,7 @@ bash recipes/beyond_swe/run_beyond_swe_search.sh \
 |------|-------------|
 | `configs/tasks/beyondswe_searchswe.yaml` | Main task config (search mode) |
 | `configs/llm/azure.yaml` | Azure OpenAI LLM config |
-| `configs/llm/link_summary/azure.yaml` | LLM config for search link summarization |
+| `configs/llm/web_fetch/azure.yaml` | LLM config for web_fetch summarization |
 
 Key settings in `beyondswe_searchswe.yaml`:
 

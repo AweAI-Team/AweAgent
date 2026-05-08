@@ -1,4 +1,4 @@
-"""SearchTool — web search with pluggable backends and anti-hack constraint filtering."""
+"""WebSearchTool — web search with pluggable backends and anti-hack constraint filtering."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_RESULT_SCHEME = ["position", "title", "description", "snippets", "url"]
 
 
-class SearchTool(Tool):
+class WebSearchTool(Tool):
     """Web search with anti-hack constraint filtering.
 
     Supports pluggable search backends discovered through entry-points
@@ -70,7 +70,7 @@ class SearchTool(Tool):
 
     @property
     def name(self) -> str:
-        return "search"
+        return "web_search"
 
     @property
     def description(self) -> str:
