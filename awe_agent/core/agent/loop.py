@@ -270,18 +270,31 @@ class AgentLoop:
 
         stats.finish()
 
-        # Extract patch if in a code environment
+        # Extract patch if in a code environment.  Tasks that submit a
+        # non-patch artifact (e.g. NL2Repo tars the whole workspace) set
+        # ``skip_patch_extraction`` to True so we don't fire git commands
+        # on sandboxes that may not even have ``git`` installed.
         patch = ""
-        try:
-            workdir = self.ctx.task_info.get("workdir", "/testbed")
-            commit = (
-                self.ctx.task_info.get("pre_agent_commit_id")
-                or self.ctx.task_info.get("base_commit")
-            )
-            language = self.ctx.task_info.get("language", "python")
-            patch = await self.ctx.session.get_patch(workdir, commit, language=language)
-        except Exception as e:
-            logger.warning("Failed to extract patch: %s", e)
+        if not self.ctx.task_info.get("skip_patch_extraction"):
+            try:
+                workdir = self.ctx.task_info.get("workdir", "/testbed")
+                commit = (
+                    self.ctx.task_info.get("pre_agent_commit_id")
+                    or self.ctx.task_info.get("base_commit")
+                )
+                language = self.ctx.task_info.get("language", "python")
+                patch = await self.ctx.session.get_patch(workdir, commit, language=language)
+                # Tasks that want a clean patch matching the upstream
+                # ``git diff <base_commit>`` convention (e.g. SWE-bench-Pro)
+                # opt out of the AweAgent-injected ``.gitignore`` hunk by
+                # setting ``inject_gitignore_in_patch=False`` in ``task_info``.
+                if self.ctx.task_info.get("inject_gitignore_in_patch") is False:
+                    from awe_agent.core.runtime.protocol import (
+                        strip_aweagent_gitignore_block,
+                    )
+                    patch = strip_aweagent_gitignore_block(patch)
+            except Exception as e:
+                logger.warning("Failed to extract patch: %s", e)
 
         return AgentResult(
             trajectory=self.ctx.trajectory,
