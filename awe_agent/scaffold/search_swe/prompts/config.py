@@ -14,6 +14,8 @@ This is the single source of truth for all prompt selection logic.
     | DomainFix  | 0      | beyondswe        | domainfix          |
     | DomainFix  | 1      | search_domainfix | search_domainfix   |
     | ScaleSWE   | 0      | openhands        | scaleswe           |
+    | NL2Repo    | 0      | beyondswe        | nl2repo            |
+    | SWE-bench-Pro | 0   | openhands        | swebenchpro        |
 """
 
 from __future__ import annotations
@@ -41,6 +43,17 @@ PROMPT_ROUTES: dict[tuple[str, str | None, bool], tuple[str, str]] = {
 
     # ── ScaleSWE ─────────────────────────────────────────────────────
     ("scale_swe", None, False):            ("openhands", "scaleswe"),
+
+    # ── NL2Repo ──────────────────────────────────────────────────────
+    # NL2RepoBench has a single from-scratch repo-generation task type.
+    # Reuses the BeyondSWE non-search system prompt because both are
+    # OpenHands-style coding agents working on a clean Linux workspace;
+    # the user prompt is the verbatim NL2RepoBench instruction string.
+    ("nl2repo", "nl2repo", False):         ("beyondswe", "nl2repo"),
+    ("nl2repo", None, False):              ("beyondswe", "nl2repo"),
+
+    # ── SWE-bench-Pro ────────────────────────────────────────────────
+    ("swe_bench_pro", None, False):        ("openhands", "swebenchpro"),
 }
 
 # Default fallback when no exact route matches
