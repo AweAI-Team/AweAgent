@@ -44,6 +44,12 @@ class TaskConfig(BaseModel):
     instance_ids: list[str] | None = None
     test_suite_dir: str | None = None
     task_data_dir: str | None = None
+    # NL2Repo: optional override of the per-instance agent image.
+    agent_run_docker: str | None = None
+    # SWE-bench-Pro: image-index JSONL + official repo root for eval-asset
+    # generation when prebuilt scripts aren't shipped in the data file.
+    images_jsonl: str | None = None
+    official_repo_root: str | None = None
     override_agent_timeout: float | None = None
 
 

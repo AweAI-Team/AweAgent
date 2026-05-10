@@ -109,7 +109,7 @@ def _cmd_info() -> None:
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nTasks: beyond_swe, scale_swe, terminal_bench_v2")
+    print("\nTasks: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
@@ -219,10 +219,27 @@ def _build_task(config: Any):
             data_file=data_file,
             dataset_id=config.task.dataset_id,
         )
+    elif task_type == "nl2repo":
+        from awe_agent.tasks.nl2repo.task import NL2RepoTask
+
+        return NL2RepoTask(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+            agent_run_docker=config.task.agent_run_docker,
+        )
+    elif task_type == "swe_bench_pro":
+        from awe_agent.tasks.swe_bench_pro.task import SWEBenchProTask
+
+        return SWEBenchProTask(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+            images_jsonl=config.task.images_jsonl,
+            official_repo_root=config.task.official_repo_root,
+        )
     else:
         raise ValueError(
             f"Unknown task type: {task_type}. "
-            "Available: beyond_swe, scale_swe, terminal_bench_v2."
+            "Available: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro."
         )
 
 

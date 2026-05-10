@@ -275,15 +275,35 @@ class TaskRunner:
                     return result
 
                 except Exception as e:
-                    last_error = str(e)
+                    last_error = f"[{type(e).__name__}] {e}"
                     logger.warning(
-                        "Instance %s attempt %d/%d failed: %s",
-                        instance.id, attempt, self.max_retries, e,
+                        "Instance %s attempt %d/%d failed: [%s] %s",
+                        instance.id, attempt, self.max_retries,
+                        type(e).__name__, e,
+                        exc_info=True,
                     )
                     if attempt < self.max_retries:
                         await asyncio.sleep(attempt * 2)
 
-            return TaskResult(instance_id=instance.id, error=last_error)
+            # All retries exhausted — record an error row so the failure is
+            # visible in ``results.jsonl`` rather than silently swallowed.
+            logger.error(
+                "Instance %s failed after %d retries: %s",
+                instance.id, self.max_retries, last_error,
+            )
+            error_result = TaskResult(instance_id=instance.id, error=last_error)
+            async with write_lock:
+                with open(output_file, "a") as f:
+                    f.write(json.dumps({
+                        "instance_id": instance.id,
+                        "dataset_id": instance.dataset_id,
+                        "task": instance.metadata.get("task_type", ""),
+                        "success": False,
+                        "score": 0.0,
+                        "error": last_error,
+                        "finish_reason": "error",
+                    }) + "\n")
+            return error_result
 
     async def _run_instance(self, instance: Instance) -> TaskResult:
         """Run agent + evaluation on a single instance."""
@@ -303,6 +323,7 @@ class TaskRunner:
         )
 
         eval_result: EvalResult | None = None
+        artifact_bytes: bytes | None = None
 
         async with runtime.session(image) as session:
             # Pre-agent setup
@@ -332,6 +353,8 @@ class TaskRunner:
             task_info = self.task.get_task_info(instance)
             if pre_agent_commit_id:
                 task_info["pre_agent_commit_id"] = pre_agent_commit_id
+            if not self.task.requires_patch_extraction():
+                task_info["skip_patch_extraction"] = True
             if self._agent_timeout_override is not None:
                 task_info["agent_timeout_sec"] = float(self._agent_timeout_override)
             context = AgentContext(
@@ -369,6 +392,16 @@ class TaskRunner:
             else:
                 agent_result = await loop.run(prompt)
 
+            # Collect a non-patch artifact (e.g. NL2Repo's tarball) while
+            # the agent session is still alive.  Stashed onto the instance
+            # below so the evaluator can read it through ``metadata``.
+            try:
+                artifact_bytes = await self.task.collect_artifact(instance, session)
+            except Exception as e:
+                logger.warning(
+                    "Failed to collect artifact for %s: %s", instance.id, e,
+                )
+
             # Same-session evaluation (must happen before session closes).
             if same_session_eval:
                 eval_result = await self._evaluate_same_session(
@@ -376,7 +409,11 @@ class TaskRunner:
                 )
 
         # Isolated evaluation (default: agent session already released).
-        if not same_session_eval and self.evaluator and agent_result.patch:
+        if not same_session_eval and self.evaluator and (
+            agent_result.patch or artifact_bytes is not None
+        ):
+            if artifact_bytes is not None:
+                instance.metadata["_agent_artifact"] = artifact_bytes
             eval_result = await self._evaluate(instance, agent_result.patch)
 
         elapsed = time.monotonic() - start_time

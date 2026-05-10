@@ -16,6 +16,9 @@ from awe_agent.tasks.beyond_swe.prompt.system import (
 from awe_agent.tasks.scale_swe.prompt import (
     SYSTEM_PROMPTS as _SCALE_SWE_SYSTEM_PROMPTS,
 )
+from awe_agent.tasks.swe_bench_pro.prompt import (
+    SYSTEM_PROMPTS as _SWE_BENCH_PRO_SYSTEM_PROMPTS,
+)
 
 # ── Merge with conflict detection ────────────────────────────────────────────
 
@@ -34,6 +37,7 @@ def _merge(source: dict[str, str], label: str) -> None:
 
 _merge(_BEYOND_SWE_SYSTEM_PROMPTS, "beyond_swe")
 _merge(_SCALE_SWE_SYSTEM_PROMPTS,  "scale_swe")
+_merge(_SWE_BENCH_PRO_SYSTEM_PROMPTS, "swe_bench_pro")
 
 
 # ── Accessor ─────────────────────────────────────────────────────────────────

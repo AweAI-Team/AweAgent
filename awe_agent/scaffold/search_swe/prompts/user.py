@@ -12,8 +12,14 @@ from __future__ import annotations
 from awe_agent.tasks.beyond_swe.prompt.user import (
     USER_PROMPTS as _BEYOND_SWE_USER_PROMPTS,
 )
+from awe_agent.tasks.nl2repo.prompt.user import (
+    USER_PROMPTS as _NL2REPO_USER_PROMPTS,
+)
 from awe_agent.tasks.scale_swe.prompt import (
     USER_PROMPTS as _SCALE_SWE_USER_PROMPTS,
+)
+from awe_agent.tasks.swe_bench_pro.prompt import (
+    USER_PROMPTS as _SWEBENCH_PRO_USER_PROMPTS,
 )
 
 # ── Merge with conflict detection ────────────────────────────────────────────
@@ -32,7 +38,9 @@ def _merge(source: dict[str, str], label: str) -> None:
 
 
 _merge(_BEYOND_SWE_USER_PROMPTS, "beyond_swe")
+_merge(_NL2REPO_USER_PROMPTS,    "nl2repo")
 _merge(_SCALE_SWE_USER_PROMPTS,  "scale_swe")
+_merge(_SWEBENCH_PRO_USER_PROMPTS, "swe_bench_pro")
 
 
 # ── Accessor ─────────────────────────────────────────────────────────────────

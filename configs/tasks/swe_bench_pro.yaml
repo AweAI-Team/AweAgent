@@ -1,0 +1,45 @@
+# SWE-bench-Pro Configuration
+# Faithful AweAgent port of SWE-bench-Pro.
+#
+# Usage:
+#   awe-agent run -c configs/tasks/swe_bench_pro.yaml
+#   python recipes/swe_bench_pro/run.py -c configs/tasks/swe_bench_pro.yaml \
+#       --data-file /path/to/data/swe_bench_pro/swe_bench_pro.jsonl
+
+llm: "!include ${LLM_CONFIG:-../llm/openai.yaml}"
+
+runtime:
+  backend: portal
+  timeout: 57600
+  extra:
+    region: ${SANDBOX_GATEWAY_REGION}
+    sandbox_psm: ${SANDBOX_PSM:-}
+    sandbox_id: ${SANDBOX_ID:-}
+    portal_wait_timeout: 120
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+agent:
+  type: search_swe
+  max_steps: 500
+  enable_search: false
+  bash_timeout: 3600
+  bash_max_timeout: 3600
+  tool_call_format: openai_function
+
+task:
+  type: swe_bench_pro
+  dataset_id: swe_bench_pro
+  data_file: ${DATA_FILE}
+  images_jsonl: ${SWEBENCH_PRO_IMAGES_JSONL:-/path/to/data/swe_bench_pro/images.jsonl}
+  official_repo_root: ${SWEBENCH_PRO_OFFICIAL_REPO_ROOT:-/path/to/SWE-bench_Pro-os}
+
+eval:
+  enabled: true
+  timeout: 3600
+
+execution:
+  max_concurrent: 50
+  max_retries: 3
+  output_path: ./results/swe_bench_pro

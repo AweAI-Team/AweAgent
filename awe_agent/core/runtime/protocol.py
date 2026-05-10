@@ -60,6 +60,42 @@ _GITIGNORE_START = "# === AWEAGENT AUTO-GENERATED START ==="
 _GITIGNORE_END = "# === AWEAGENT AUTO-GENERATED END ==="
 
 
+def strip_aweagent_gitignore_block(patch: str) -> str:
+    """Remove the AweAgent-injected ``.gitignore`` hunk from a patch.
+
+    :meth:`RuntimeSession.get_patch` writes a marker-delimited block of
+    language-specific ignore rules into ``.gitignore`` before running
+    ``git diff`` so that build artefacts don't bloat the diff.  As a
+    side-effect, every patch produced this way starts with a
+    ``diff --git a/.gitignore b/.gitignore`` section whose only changes
+    are the marker block.
+
+    For tasks that want a clean patch matching the upstream convention
+    (e.g. SWE-bench-Pro: ``git diff <base_commit>`` with no extra
+    plumbing), strip the entire ``.gitignore`` section if it contains
+    the AweAgent markers.  This is conservative — if the agent edits
+    ``.gitignore`` for non-marker reasons, that section won't carry the
+    marker and is preserved.
+    """
+    import re
+
+    if _GITIGNORE_START not in patch:
+        return patch
+
+    sections = re.split(r"(?=^diff --git )", patch, flags=re.MULTILINE)
+    kept: list[str] = []
+    for section in sections:
+        if not section.strip():
+            continue
+        if re.match(
+            r"^diff --git a/\.gitignore b/\.gitignore",
+            section,
+        ) and _GITIGNORE_START in section:
+            continue
+        kept.append(section)
+    return "".join(kept)
+
+
 def _normalize_language(language: str) -> str:
     """Normalize language aliases (e.g., 'javascript' → 'js')."""
     language = language.lower().strip()
