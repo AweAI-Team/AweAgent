@@ -1,0 +1,43 @@
+# NL2Repo Configuration
+# Faithful AweAgent port of NL2RepoBench.
+#
+# Usage:
+#   awe-agent run -c configs/tasks/nl2repo.yaml
+#   python recipes/nl2repo/run.py -c configs/tasks/nl2repo.yaml \
+#       --data-file /path/to/data/nl2repo/nl2repo.jsonl
+
+llm: "!include ${LLM_CONFIG:-../llm/openai.yaml}"
+
+runtime:
+  backend: portal
+  timeout: 82800
+  extra:
+    region: ${SANDBOX_GATEWAY_REGION}
+    sandbox_psm: ${SANDBOX_PSM:-}
+    sandbox_id: ${SANDBOX_ID:-}
+    portal_wait_timeout: 120
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+agent:
+  type: search_swe
+  max_steps: 400
+  enable_search: false
+  bash_timeout: 1200
+
+task:
+  type: nl2repo
+  dataset_id: nl2repo
+  data_file: ${DATA_FILE}
+  # agent_run_docker: ""           # optional: single image for the agent side;
+                                   # leave empty to use each row's evaluation_image.
+
+eval:
+  enabled: true
+  timeout: 2400
+
+execution:
+  max_concurrent: 50               # mirrors NL2RepoBench's default max_pool_size=30
+  max_retries: 1
+  output_path: ./results/nl2repo

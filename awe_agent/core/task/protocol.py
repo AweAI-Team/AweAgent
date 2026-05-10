@@ -87,9 +87,42 @@ class Task(ABC):
         Returns ``True`` by default (SWE-bench style tasks where the
         patch is extracted via ``git diff``).  Override to ``False`` for
         tasks that do not use a git repository in the workdir
-        (e.g. Terminal Bench).
+        (e.g. Terminal Bench, NL2Repo, SWE-bench-Pro).
         """
         return True
+
+    def requires_patch_extraction(self) -> bool:
+        """Whether the runner should ``git diff``-extract a patch after the agent.
+
+        Default ``True`` — tasks whose submission is a patch (SWE-Bench
+        family).  Tasks that submit a different artifact (e.g. NL2Repo,
+        which tars the whole workspace) should override this to ``False``
+        so the runner sets ``skip_patch_extraction`` in ``task_info``.
+
+        Decoupled from :meth:`requires_git_snapshot` so that a task can
+        opt out of pre-agent snapshotting (to compute the patch directly
+        against ``base_commit``, matching the official SWE-bench-Pro flow)
+        while still extracting a patch.
+        """
+        return True
+
+    async def collect_artifact(
+        self,
+        instance: Instance,
+        session: RuntimeSession,
+    ) -> bytes | None:
+        """Collect a binary artifact from the agent session before it closes.
+
+        Called by the ``TaskRunner`` after ``loop.run()`` returns but while
+        the agent session is still open.  Tasks that submit something other
+        than a git patch (e.g. a tar.gz of the whole workspace) override
+        this to produce the artifact bytes.  The runner stashes the bytes
+        into ``instance.metadata["_agent_artifact"]`` so the evaluator can
+        retrieve them.
+
+        Default implementation returns ``None`` (no artifact).
+        """
+        return None
 
     def get_search_constraints(self, instance: Instance) -> SearchConstraints | None:
         """Build search constraints for this instance.
