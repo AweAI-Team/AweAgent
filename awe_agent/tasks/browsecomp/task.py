@@ -6,6 +6,7 @@ import base64
 import csv
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from awe_agent.core.task.protocol import Evaluator, Task
 from awe_agent.core.task.types import Instance
 from awe_agent.core.tool.search.constraints import SearchConstraints
 
+logger = logging.getLogger(__name__)
 
 _BROWSECOMP_ANTI_HACK_BLOCKED_PATTERNS: dict[str, list[str]] = {
     "url": [
@@ -118,6 +120,10 @@ class BrowseCompTask(Task):
 
     def requires_agent_result_evaluation(self) -> bool:
         return True
+
+    def requires_runtime(self) -> bool:
+        # Web search / fetch tools run no shell commands; no container needed.
+        return False
 
     def get_search_constraints(self, instance: Instance) -> SearchConstraints:
         # BrowseComp answers are now mirrored in public benchmark traces.
@@ -290,9 +296,25 @@ def _maybe_decrypt(value: str, canary: str) -> str:
     if not value:
         return value
     try:
-        return decrypt(value, canary)
-    except Exception:
+        decrypted = decrypt(value, canary)
+    except ValueError:
+        # Bad base64 or non-UTF-8 bytes (binascii.Error and UnicodeDecodeError
+        # are both ValueError): the field is not canary-encrypted — e.g. a
+        # mirror that ships already-decrypted text but keeps the canary column.
         return value
+    if not _is_plausible_text(decrypted):
+        logger.warning(
+            "Canary decryption produced non-text output for a BrowseComp field; "
+            "keeping the original value (it is likely already plaintext)."
+        )
+        return value
+    return decrypted
+
+
+def _is_plausible_text(text: str) -> bool:
+    # Decryption with a non-matching key tends to yield control characters;
+    # genuine text is printable plus ordinary whitespace.
+    return all(ch in "\t\n\r" or ch >= " " for ch in text)
 
 
 def _prompt_question(prompt: Any) -> str:

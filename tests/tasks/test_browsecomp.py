@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import base64
 import json
-from contextlib import asynccontextmanager
 from typing import Any
 
 import pytest
@@ -17,12 +16,20 @@ from awe_agent.core.config.schema import AweAgentConfig
 from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.llm.types import LLMResponse
 from awe_agent.core.runtime.config import RuntimeConfig
-from awe_agent.core.runtime.types import ExecutionResult
 from awe_agent.core.task.runner import TaskRunner, _build_trajectory_record, runtime_registry
 from awe_agent.core.task.types import Instance, TaskResult
 from awe_agent.core.tool.protocol import Tool
-from awe_agent.tasks.browsecomp.evaluator import GRADER_TEMPLATE, BrowseCompEvaluator
-from awe_agent.tasks.browsecomp.task import BrowseCompTask, derive_key
+from awe_agent.tasks.browsecomp.evaluator import (
+    GRADER_TEMPLATE,
+    BrowseCompEvaluator,
+    _parse_judge_correct,
+)
+from awe_agent.tasks.browsecomp.task import (
+    BrowseCompTask,
+    _is_plausible_text,
+    _maybe_decrypt,
+    derive_key,
+)
 
 REFERENCE_GRADER_TEMPLATE = r"""
 Judge whether the following [response] to [question] is correct or not based on the precise and unambiguous [correct_answer] below.
@@ -357,6 +364,68 @@ async def test_browsecomp_evaluator_rejects_no_or_unparsed(monkeypatch):
     assert bad_result.details["judge_parse_error_reason"] == "missing_correct_yes_no"
 
 
+def test_grader_correct_accepts_bool_and_punctuated():
+    assert _parse_judge_correct('{"correct": true}')[0] == "yes"
+    assert _parse_judge_correct('{"correct": false}')[0] == "no"
+    assert _parse_judge_correct('{"correct": "Yes."}')[0] == "yes"
+    assert _parse_judge_correct('{"correct": "yes, within margin of error"}')[0] == "yes"
+
+
+def test_grader_correct_falls_back_to_regex_when_json_field_unusable():
+    verdict, meta = _parse_judge_correct('{"correct": "maybe"}\ncorrect: yes')
+    assert verdict == "yes"
+    assert meta["judge_parse_method"] == "regex"
+    assert meta["judge_parse_error"] is False
+
+
+def test_grader_correct_unparseable_defaults_to_no():
+    verdict, meta = _parse_judge_correct('{"correct": "maybe"}')
+    assert verdict == "no"
+    assert meta["judge_parse_error"] is True
+    assert meta["judge_parse_error_reason"] == "missing_correct_yes_no"
+
+
+@pytest.mark.asyncio
+async def test_browsecomp_evaluator_flags_grader_error(monkeypatch):
+    class _RaisingLLMClient:
+        def __init__(self, config: LLMConfig) -> None:
+            pass
+
+        async def chat(self, messages, tools=None, **kwargs):
+            raise RuntimeError("grader boom")
+
+    monkeypatch.setattr(
+        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        _RaisingLLMClient,
+    )
+    instance = Instance(
+        id="bc_1",
+        dataset_id="browsecomp",
+        metadata={"question": "Q?", "answer": "A", "_agent_final_answer": "A"},
+    )
+
+    result = await BrowseCompEvaluator().evaluate(instance, "", runtime=object())
+
+    # Grader failure scores 0 like any unaccepted answer, but is flagged — and
+    # still counts in the denominator (no special-casing).
+    assert not result.accepted
+    assert result.score == 0.0
+    assert result.details["grader_error"] is True
+    assert "grader boom" in result.details["error"]
+    assert "judge_correct" not in result.details
+
+
+def test_maybe_decrypt_keeps_plaintext_when_canary_present():
+    # A plaintext answer is not valid canary ciphertext, so it must survive
+    # unchanged even though a canary column is present.
+    assert _maybe_decrypt("Real Answer", "some-canary") == "Real Answer"
+
+
+def test_is_plausible_text_rejects_control_characters():
+    assert _is_plausible_text("Normal answer\nwith tabs\t") is True
+    assert _is_plausible_text("garbled\x00\x07output") is False
+
+
 def test_browsecomp_cli_uses_judge_llm_when_configured(tmp_path):
     data_file = tmp_path / "browsecomp.json"
     data_file.write_text(json.dumps([
@@ -390,30 +459,19 @@ def test_browsecomp_cli_falls_back_to_search_llm(tmp_path):
     assert evaluator._grader_llm_config.model == "search-model"
 
 
-class _FakeSession:
-    async def execute(self, command, cwd=None, timeout=None, env=None):
-        return ExecutionResult(stdout="", stderr="", exit_code=0)
+class _NoSessionRuntime:
+    """A runtime whose session must never be opened — BrowseComp opens none.
 
-    async def upload_file(self, remote_path: str, content: bytes) -> None:
-        pass
+    Isolated evaluation still constructs a runtime (the BrowseComp evaluator
+    ignores it), so the guard is on ``session()``, which only the agent path
+    would call.
+    """
 
-    async def download_file(self, remote_path: str) -> bytes:
-        raise FileNotFoundError(remote_path)
-
-    async def list_files(self, path: str, recursive: bool = False) -> list[str]:
-        return []
-
-    async def close(self) -> None:
-        pass
-
-
-class _FakeRuntime:
     def __init__(self, config: RuntimeConfig) -> None:
         self.config = config
 
-    @asynccontextmanager
-    async def session(self, image=None):
-        yield _FakeSession()
+    def session(self, image=None):
+        raise AssertionError("BrowseComp must not open a runtime session")
 
 
 class _FinalAnswerLoop:
@@ -449,7 +507,7 @@ async def test_runner_passes_final_answer_to_agent_result_evaluator(
     tmp_path,
     monkeypatch,
 ):
-    runtime_registry.register("browsecomp_fake", _FakeRuntime)
+    runtime_registry.register("browsecomp_no_session", _NoSessionRuntime)
     monkeypatch.setattr(
         "awe_agent.tasks.browsecomp.evaluator.LLMClient",
         _FakeLLMClient,
@@ -467,7 +525,7 @@ async def test_runner_passes_final_answer_to_agent_result_evaluator(
         task=task,
         agent_factory=lambda search_constraints=None: _FinalAnswerAgent(),
         llm_config=LLMConfig(model="search"),
-        runtime_config=RuntimeConfig(backend="browsecomp_fake"),
+        runtime_config=RuntimeConfig(backend="browsecomp_no_session"),
         max_retries=1,
         max_concurrent=1,
         save_trajectories=False,
@@ -480,18 +538,18 @@ async def test_runner_passes_final_answer_to_agent_result_evaluator(
     assert "[response]: Answer" in _FakeLLMClient.last_messages[0].content
 
 
-def test_trajectory_record_includes_forced_answer_annotations():
+def test_trajectory_record_includes_answer_provenance():
+    provenance = {
+        "agent_submitted_final_answer": False,
+        "forced_final_answer": True,
+        "forced_final_answer_stage": "current_history",
+        "forced_final_answer_reason": "max_steps",
+    }
     agent_result = AgentResult(
         trajectory=Trajectory(),
         messages=[],
         finish_reason="finish",
-        metadata={
-            "final_answer": "Answer",
-            "agent_submitted_final_answer": False,
-            "forced_final_answer": True,
-            "forced_final_answer_stage": "current_history",
-            "forced_final_answer_reason": "max_steps",
-        },
+        metadata={"final_answer": "Answer", "answer_provenance": provenance},
     )
     record = _build_trajectory_record(TaskResult(
         instance_id="bc",
@@ -500,7 +558,4 @@ def test_trajectory_record_includes_forced_answer_annotations():
 
     assert record is not None
     assert record["final_answer"] == "Answer"
-    assert record["agent_submitted_final_answer"] is False
-    assert record["forced_final_answer"] is True
-    assert record["forced_final_answer_stage"] == "current_history"
-    assert record["forced_final_answer_reason"] == "max_steps"
+    assert record["answer_provenance"] == provenance

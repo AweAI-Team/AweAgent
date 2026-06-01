@@ -7,14 +7,15 @@ from unittest.mock import AsyncMock
 import pytest
 
 from awe_agent.core.agent.context import AgentContext
+from awe_agent.core.agent.loop import AgentLoop
 from awe_agent.core.agent.protocol import Agent
 from awe_agent.core.agent.trajectory import Action
 from awe_agent.core.config.schema import AweAgentConfig
 from awe_agent.core.llm.types import LLMResponse, TokenUsage, ToolCall
 from awe_agent.core.tool.code import FinishWithTextTool, ThinkTool
 from awe_agent.core.tool.protocol import Tool
-from awe_agent.scaffold.deepsearch.agent import DeepSearchAgent
-from awe_agent.scaffold.deepsearch.loop import DeepSearchLoop
+from awe_agent.scaffold.deepsearch.agent import DeepSearchAgent, _resolve_tool_names
+from awe_agent.scaffold.deepsearch.policy import RetryThenForceAnswerPolicy
 from awe_agent.scaffold.deepsearch.prompts import (
     NO_FINAL_ANSWER_FALLBACK,
     OMITTED_TOOL_RESULT,
@@ -30,29 +31,47 @@ def mock_llm():
     return AsyncMock()
 
 
+def _force_answer_loop(
+    agent: Agent,
+    ctx: AgentContext,
+    *,
+    rollout_retries: int = 0,
+    force_final_answer: bool = True,
+) -> AgentLoop:
+    """An AgentLoop carrying the DeepSearch retry/force-answer policy."""
+    return AgentLoop(
+        agent,
+        ctx,
+        policy=RetryThenForceAnswerPolicy(
+            rollout_retries=rollout_retries,
+            force_final_answer=force_final_answer,
+        ),
+    )
+
+
 def test_deepsearch_default_tools_are_search_focused():
     agent = DeepSearchAgent()
 
     assert [tool.name for tool in agent.get_tools()] == [
         "web_search",
         "web_fetch",
-        "think",
         "finish",
     ]
     finish = agent.get_tools()[-1]
     assert finish.parameters["required"] == ["answer"]
 
 
-def test_deepsearch_create_loop_returns_deepsearch_loop(mock_llm, mock_session):
+def test_deepsearch_create_loop_carries_force_answer_policy(mock_llm):
     agent = DeepSearchAgent()
     ctx = AgentContext(
         llm=mock_llm,
-        session=mock_session,
         tools=agent.get_tools(),
         task_info={"skip_patch_extraction": True},
     )
 
-    assert isinstance(agent.create_loop(ctx), DeepSearchLoop)
+    loop = agent.create_loop(ctx)
+    assert isinstance(loop, AgentLoop)
+    assert isinstance(loop.policy, RetryThenForceAnswerPolicy)
 
 
 def test_deepsearch_prompt_registry_default_route():
@@ -87,11 +106,28 @@ def test_deepsearch_system_prompt_includes_current_time():
     )
 
     assert "{tool_names}" not in prompt
-    assert "web_search, web_fetch, think, finish" in prompt
+    assert "web_search, web_fetch, finish" in prompt
     assert re.search(
         r"Current time: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}",
         prompt,
     )
+
+
+def test_resolve_tool_names_defaults_to_toolset_when_unset():
+    names = _resolve_tool_names(AweAgentConfig(agent={"type": "deepsearch"}))
+    assert names == ["web_search", "web_fetch", "finish"]
+
+
+def test_resolve_tool_names_honors_explicit_list():
+    # Any explicit list is honored, including one identical to another
+    # scaffold's default tools.
+    config = AweAgentConfig(
+        agent={
+            "type": "deepsearch",
+            "tools": ["execute_bash", "str_replace_editor", "think"],
+        }
+    )
+    assert _resolve_tool_names(config) == ["execute_bash", "str_replace_editor", "think"]
 
 
 def test_deepsearch_explicit_tools_override_toolset():
@@ -99,7 +135,7 @@ def test_deepsearch_explicit_tools_override_toolset():
         agent={
             "type": "deepsearch",
             "toolset": "default",
-            "tools": ["web_search", "web_fetch_raw", "think", "finish"],
+            "tools": ["web_search", "web_fetch_raw", "finish"],
         }
     )
 
@@ -108,7 +144,6 @@ def test_deepsearch_explicit_tools_override_toolset():
     assert [tool.name for tool in agent.get_tools()] == [
         "web_search",
         "web_fetch_raw",
-        "think",
         "finish",
     ]
 
@@ -138,7 +173,7 @@ def test_deepsearch_web_tools_accept_custom_backend_options(monkeypatch):
     config = AweAgentConfig(
         agent={
             "type": "deepsearch",
-            "tools": ["web_search", "web_fetch", "think", "finish"],
+            "tools": ["web_search", "web_fetch", "finish"],
             "tool_options": {
                 "web_search": {"backend": "private_search", "engine": "google"},
                 "web_fetch": {"reader_backend": "private_reader"},
@@ -147,17 +182,16 @@ def test_deepsearch_web_tools_accept_custom_backend_options(monkeypatch):
     )
 
     agent = DeepSearchAgent.from_config(config)
+    web_search, web_fetch, _finish = agent.get_tools()
 
-    assert [tool.name for tool in agent.get_tools()] == [
-        "web_search",
-        "web_fetch",
-        "think",
-        "finish",
-    ]
+    # The configured backend/engine/reader are actually wired into the tools.
+    assert isinstance(web_search._backend, FakePrivateSearchBackend)  # noqa: SLF001
+    assert web_search._engine == "google"  # noqa: SLF001
+    assert isinstance(web_fetch._reader._backend, FakePrivateReaderBackend)  # noqa: SLF001
 
 
 @pytest.mark.asyncio
-async def test_deepsearch_finish_records_final_answer(mock_llm, mock_session):
+async def test_deepsearch_finish_records_final_answer(mock_llm):
     async def mock_chat(messages, tools=None, **kwargs):
         return LLMResponse(
             content="Submitting.",
@@ -175,7 +209,6 @@ async def test_deepsearch_finish_records_final_answer(mock_llm, mock_session):
     agent = DeepSearchAgent()
     ctx = AgentContext(
         llm=mock_llm,
-        session=mock_session,
         tools=agent.get_tools(),
         task_info={"skip_patch_extraction": True},
         max_steps=3,
@@ -185,8 +218,9 @@ async def test_deepsearch_finish_records_final_answer(mock_llm, mock_session):
 
     assert result.finish_reason == "finish"
     assert result.metadata["final_answer"] == "Paris"
-    assert result.metadata["agent_submitted_final_answer"] is True
-    assert result.metadata["forced_final_answer"] is False
+    provenance = result.metadata["answer_provenance"]
+    assert provenance["agent_submitted_final_answer"] is True
+    assert provenance["forced_final_answer"] is False
 
 
 class _RetryAgent(Agent):
@@ -231,25 +265,23 @@ class _RetryAgent(Agent):
 
 
 @pytest.mark.asyncio
-async def test_rollout_retry_restarts_from_original_prompt(mock_llm, mock_session):
+async def test_rollout_retry_restarts_from_original_prompt(mock_llm):
     agent = _RetryAgent()
     ctx = AgentContext(
         llm=mock_llm,
-        session=mock_session,
         tools=agent.get_tools(),
         task_info={"skip_patch_extraction": True},
         max_steps=1,
     )
 
-    result = await DeepSearchLoop(
-        agent,
-        ctx,
-        rollout_retries=1,
-        force_final_answer=False,
+    result = await _force_answer_loop(
+        agent, ctx, rollout_retries=1, force_final_answer=False,
     ).run("question")
 
     assert result.finish_reason == "finish"
     assert result.metadata["final_answer"] == "retry answer"
+    assert result.metadata["answer_provenance"]["agent_submitted_final_answer"] is True
+    # Each rollout starts fresh: a single user message at the first step.
     assert agent.user_message_counts == [1, 1]
 
 
@@ -284,8 +316,23 @@ class _MalformedFinishAgent(_RetryAgent):
         )
 
 
+class _EmptyAnswerFinishAgent(_RetryAgent):
+    async def step(self, context: AgentContext) -> Action:
+        return Action(
+            type="finish",
+            content="empty answer",
+            tool_calls=[
+                {
+                    "id": "empty_finish",
+                    "name": "finish",
+                    "arguments": '{"answer": "   "}',
+                }
+            ],
+        )
+
+
 @pytest.mark.asyncio
-async def test_force_final_answer_after_all_retries_fail(mock_llm, mock_session):
+async def test_force_final_answer_after_all_retries_fail(mock_llm):
     chat_calls: list[dict[str, Any]] = []
 
     async def mock_chat(messages, tools=None, **kwargs):
@@ -296,30 +343,27 @@ async def test_force_final_answer_after_all_retries_fail(mock_llm, mock_session)
     agent = _AlwaysSearchingAgent()
     ctx = AgentContext(
         llm=mock_llm,
-        session=mock_session,
         tools=agent.get_tools(),
         task_info={"skip_patch_extraction": True},
         max_steps=1,
     )
 
-    result = await DeepSearchLoop(
-        agent,
-        ctx,
-        rollout_retries=1,
-        force_final_answer=True,
+    result = await _force_answer_loop(
+        agent, ctx, rollout_retries=1, force_final_answer=True,
     ).run("question")
 
     assert result.finish_reason == "finish"
     assert result.metadata["final_answer"] == "best guess"
-    assert result.metadata["forced_final_answer"] is True
-    assert result.metadata["agent_submitted_final_answer"] is False
-    assert result.metadata["forced_final_answer_stage"] == "current_history"
+    provenance = result.metadata["answer_provenance"]
+    assert provenance["forced_final_answer"] is True
+    assert provenance["agent_submitted_final_answer"] is False
+    assert provenance["forced_final_answer_stage"] == "current_history"
     assert chat_calls[-1]["tools"] is None
     assert len(result.trajectory.steps) == 2
 
 
 @pytest.mark.asyncio
-async def test_force_final_answer_when_finish_has_no_answer(mock_llm, mock_session):
+async def test_force_final_answer_when_finish_has_no_answer(mock_llm):
     async def mock_chat(messages, tools=None, **kwargs):
         return LLMResponse(content="extracted from malformed finish")
 
@@ -327,34 +371,49 @@ async def test_force_final_answer_when_finish_has_no_answer(mock_llm, mock_sessi
     agent = _MalformedFinishAgent()
     ctx = AgentContext(
         llm=mock_llm,
-        session=mock_session,
         tools=agent.get_tools(),
         task_info={"skip_patch_extraction": True},
         max_steps=1,
     )
 
-    result = await DeepSearchLoop(
-        agent,
-        ctx,
-        rollout_retries=0,
-        force_final_answer=True,
-    ).run("question")
+    result = await _force_answer_loop(agent, ctx).run("question")
 
     assert result.finish_reason == "finish"
     assert result.metadata["final_answer"] == "extracted from malformed finish"
-    assert result.metadata["agent_submitted_final_answer"] is False
-    assert result.metadata["forced_final_answer"] is True
-    assert result.metadata["forced_final_answer_reason"] == "finish"
+    provenance = result.metadata["answer_provenance"]
+    assert provenance["agent_submitted_final_answer"] is False
+    assert provenance["forced_final_answer"] is True
+    assert provenance["forced_final_answer_reason"] == "finish"
 
 
 @pytest.mark.asyncio
-async def test_force_final_answer_falls_back_to_folded_history(
-    mock_llm,
-    mock_session,
-):
+async def test_empty_submitted_answer_triggers_forced_extraction(mock_llm):
     async def mock_chat(messages, tools=None, **kwargs):
-        if len(mock_chat.calls) == 0:
-            mock_chat.calls.append(messages)
+        return LLMResponse(content="recovered answer")
+
+    mock_llm.chat = mock_chat
+    agent = _EmptyAnswerFinishAgent()
+    ctx = AgentContext(
+        llm=mock_llm,
+        tools=agent.get_tools(),
+        task_info={"skip_patch_extraction": True},
+        max_steps=1,
+    )
+
+    result = await _force_answer_loop(agent, ctx).run("question")
+
+    # An empty submission is not a usable answer; extraction recovers one.
+    assert result.metadata["final_answer"] == "recovered answer"
+    provenance = result.metadata["answer_provenance"]
+    assert provenance["agent_submitted_final_answer"] is False
+    assert provenance["forced_final_answer"] is True
+
+
+@pytest.mark.asyncio
+async def test_force_final_answer_falls_back_to_folded_history(mock_llm):
+    async def mock_chat(messages, tools=None, **kwargs):
+        mock_chat.calls.append(messages)
+        if len(mock_chat.calls) == 1:
             return LLMResponse(
                 tool_calls=[
                     ToolCall(
@@ -364,7 +423,6 @@ async def test_force_final_answer_falls_back_to_folded_history(
                     )
                 ]
             )
-        mock_chat.calls.append(messages)
         return LLMResponse(content="folded history answer")
 
     mock_chat.calls = []
@@ -372,36 +430,33 @@ async def test_force_final_answer_falls_back_to_folded_history(
     agent = _AlwaysSearchingAgent()
     ctx = AgentContext(
         llm=mock_llm,
-        session=mock_session,
         tools=agent.get_tools(),
         task_info={"skip_patch_extraction": True},
         max_steps=1,
     )
 
-    result = await DeepSearchLoop(
-        agent,
-        ctx,
-        rollout_retries=0,
-        force_final_answer=True,
-    ).run("question")
+    result = await _force_answer_loop(agent, ctx).run("question")
 
     assert result.metadata["final_answer"] == "folded history answer"
-    assert result.metadata["forced_final_answer"] is True
-    assert result.metadata["forced_final_answer_stage"] == "folded_full_history"
+    provenance = result.metadata["answer_provenance"]
+    assert provenance["forced_final_answer"] is True
+    assert provenance["forced_final_answer_stage"] == "folded_full_history"
     assert len(mock_chat.calls) == 2
+
     folded_messages = mock_chat.calls[1]
     assert any(
         message.content == OMITTED_TOOL_RESULT
         for message in folded_messages
         if message.role == "tool"
     )
+    # The folded view is built from the pre-extraction baseline, so the
+    # first-pass extraction instruction never leaks into it.
+    current_prompt = get_final_answer_prompts("default").current_history
+    assert all(message.content != current_prompt for message in folded_messages)
 
 
 @pytest.mark.asyncio
-async def test_force_final_answer_records_fallback_when_extraction_empty(
-    mock_llm,
-    mock_session,
-):
+async def test_force_final_answer_records_fallback_when_extraction_empty(mock_llm):
     async def mock_chat(messages, tools=None, **kwargs):
         return LLMResponse(content="")
 
@@ -409,19 +464,14 @@ async def test_force_final_answer_records_fallback_when_extraction_empty(
     agent = _AlwaysSearchingAgent()
     ctx = AgentContext(
         llm=mock_llm,
-        session=mock_session,
         tools=agent.get_tools(),
         task_info={"skip_patch_extraction": True},
         max_steps=1,
     )
 
-    result = await DeepSearchLoop(
-        agent,
-        ctx,
-        rollout_retries=0,
-        force_final_answer=True,
-    ).run("question")
+    result = await _force_answer_loop(agent, ctx).run("question")
 
     assert result.metadata["final_answer"] == NO_FINAL_ANSWER_FALLBACK
-    assert result.metadata["forced_final_answer"] is True
-    assert result.metadata["forced_final_answer_stage"] == "no_answer_fallback"
+    provenance = result.metadata["answer_provenance"]
+    assert provenance["forced_final_answer"] is True
+    assert provenance["forced_final_answer_stage"] == "no_answer_fallback"

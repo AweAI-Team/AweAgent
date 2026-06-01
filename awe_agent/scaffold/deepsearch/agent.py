@@ -11,7 +11,7 @@ from awe_agent.core.agent.protocol import Agent
 from awe_agent.core.agent.trajectory import Action
 from awe_agent.core.llm.format import get_tool_format
 from awe_agent.core.llm.format.protocol import ToolCallFormat
-from awe_agent.core.tool.code import FinishWithTextTool, ThinkTool
+from awe_agent.core.tool.code import FinishWithTextTool
 from awe_agent.core.tool.protocol import Tool
 from awe_agent.core.tool.registry import tool_registry
 from awe_agent.core.tool.search import (
@@ -20,6 +20,7 @@ from awe_agent.core.tool.search import (
     WebFetchTool,
     WebSearchTool,
 )
+from awe_agent.scaffold.deepsearch.policy import RetryThenForceAnswerPolicy
 from awe_agent.scaffold.deepsearch.prompts import (
     NO_TOOL_CALL_PROMPT,
     get_system_prompt,
@@ -32,8 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _FINISH_TOOL_NAME = "finish"
-_GLOBAL_DEFAULT_TOOLS = ["execute_bash", "str_replace_editor", "think"]
-_DEEPSEARCH_DEFAULT_TOOLS = ["web_search", "web_fetch", "think", "finish"]
+_DEEPSEARCH_DEFAULT_TOOLS = ["web_search", "web_fetch", "finish"]
 _DEEPSEARCH_TOOLSETS = {
     "default": _DEEPSEARCH_DEFAULT_TOOLS,
 }
@@ -44,9 +44,9 @@ def _format_current_time() -> str:
 
 
 def _resolve_tool_names(config: AweAgentConfig) -> list[str]:
-    """Resolve DeepSearch tools from explicit tools or a named preset."""
+    """Resolve DeepSearch tools from an explicit list or a named toolset preset."""
     agent_config = config.agent
-    if agent_config.tools != _GLOBAL_DEFAULT_TOOLS:
+    if agent_config.tools is not None:
         return list(agent_config.tools)
 
     toolset = agent_config.toolset or "default"
@@ -106,8 +106,6 @@ def _build_tool(
             max_attempts=options.get("max_attempts", 3),
             backend=options.get("backend"),
         )
-    if name == "think":
-        return ThinkTool()
     if name == "finish":
         return FinishWithTextTool()
 
@@ -193,13 +191,8 @@ class DeepSearchAgent(Agent):
     def get_tools(self) -> list[Tool]:
         return list(self._tools)
 
-    def create_loop(self, context: AgentContext) -> Any:
-        from awe_agent.scaffold.deepsearch.loop import DeepSearchLoop
-
-        # Keep retry/forced-answer policy inside DeepSearch instead of AgentLoop.
-        return DeepSearchLoop(
-            self,
-            context,
+    def get_loop_policy(self, context: AgentContext) -> RetryThenForceAnswerPolicy:
+        return RetryThenForceAnswerPolicy(
             rollout_retries=self._rollout_retries,
             force_final_answer=self._force_final_answer,
         )
