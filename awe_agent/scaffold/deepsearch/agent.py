@@ -216,10 +216,21 @@ class DeepSearchAgent(Agent):
 
         api_tools = self._format.prepare_tools(context.get_tool_schemas())
 
+        # RL training mode: pass input_ids for token-level continuation.
+        llm_overrides: dict[str, Any] = {}
+        if context.training is not None:
+            llm_overrides["input_ids"] = context.training.get_input_ids()
+
         response = None
         for attempt in range(1, self._max_empty_retries + 1):
-            response = await context.llm.chat(messages=messages, tools=api_tools)
+            response = await context.llm.chat(
+                messages=messages, tools=api_tools, **llm_overrides,
+            )
             if self._is_valid_response(response):
+                break
+            # In training mode, "length" means the token budget is exhausted —
+            # a valid terminal state, not a transient empty response to retry.
+            if context.training is not None and response.finish_status == "length":
                 break
             logger.warning(
                 "Invalid DeepSearch response (attempt %d/%d): empty=%s, truncated=%s",
