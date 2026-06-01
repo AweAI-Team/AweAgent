@@ -236,10 +236,18 @@ def _build_task(config: Any):
             images_jsonl=config.task.images_jsonl,
             official_repo_root=config.task.official_repo_root,
         )
+    elif task_type == "browsecomp":
+        from awe_agent.tasks.browsecomp.task import BrowseCompTask
+
+        return BrowseCompTask(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+            grader_llm_config=config.eval.judge_llm or config.llm,
+        )
     else:
         raise ValueError(
             f"Unknown task type: {task_type}. "
-            "Available: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro."
+            "Available: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro, browsecomp."
         )
 
 

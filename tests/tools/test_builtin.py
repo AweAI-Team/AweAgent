@@ -282,7 +282,7 @@ def test_web_search_schema():
 async def test_web_search_default():
     tool = WebSearchTool()
     result = await tool.execute({"query": "python asyncio timeout"})
-    # Without bandai_mcp_host, returns no results
+    # Without a configured search backend, returns no results.
     assert "python asyncio timeout" in result
 
 

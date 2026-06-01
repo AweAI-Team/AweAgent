@@ -5,12 +5,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from awe_agent.core.condenser.protocol import Condenser
+from awe_agent.core.condenser.tool_result_omission import ToolResultOmissionCondenser
 from awe_agent.core.condenser.truncation import TruncationCondenser
 
 if TYPE_CHECKING:
     from awe_agent.core.config.schema import CondenserConfig
 
-__all__ = ["Condenser", "TruncationCondenser", "build_condenser"]
+__all__ = [
+    "Condenser",
+    "ToolResultOmissionCondenser",
+    "TruncationCondenser",
+    "build_condenser",
+]
 
 
 def build_condenser(config: CondenserConfig) -> Condenser | None:
@@ -22,4 +28,11 @@ def build_condenser(config: CondenserConfig) -> Condenser | None:
             max_messages=config.max_messages,
             keep_first=config.keep_first,
         )
-    raise ValueError(f"Unknown condenser type: {config.type!r}. Use 'none' or 'truncation'.")
+    if config.type == "tool_result_omission":
+        return ToolResultOmissionCondenser(
+            keep_recent_tool_results=config.keep_recent_tool_results,
+        )
+    raise ValueError(
+        f"Unknown condenser type: {config.type!r}. "
+        "Use 'none', 'truncation', or 'tool_result_omission'."
+    )
