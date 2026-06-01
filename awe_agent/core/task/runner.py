@@ -10,20 +10,22 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from awe_agent.core.agent.context import AgentContext
 from awe_agent.core.agent.loop import AgentResult
 from awe_agent.core.agent.protocol import Agent
+from awe_agent.core.eval.setup import PreAgentSetup
 from awe_agent.core.llm.client import LLMClient
 from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.runtime.config import RuntimeConfig
 from awe_agent.core.runtime.protocol import Runtime
 from awe_agent.core.task.protocol import Evaluator, Task
-from awe_agent.core.eval.setup import PreAgentSetup
 from awe_agent.core.task.types import EvalResult, Instance, TaskResult
 from awe_agent.plugins.registry import Registry
 
@@ -34,10 +36,8 @@ runtime_registry: Registry[type] = Registry("awe_agent.runtime")
 
 # Built-in runtimes (always available, even without pip install -e .)
 from awe_agent.core.runtime.docker import DockerRuntime  # noqa: E402
-from awe_agent.core.runtime.local import LocalRuntime  # noqa: E402
 
 runtime_registry.register("docker", DockerRuntime)
-runtime_registry.register("local", LocalRuntime)
 
 
 # ── Helper functions for run directory management ────────────────────
@@ -132,15 +132,9 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
         "messages": [m.to_full_dict() for m in agent_result.messages],
         "eval_result": asdict(result.eval_result) if result.eval_result else None,
     }
-    if "final_answer" in agent_result.metadata:
-        record["final_answer"] = agent_result.metadata["final_answer"]
-    # DeepSearch-only answer provenance; omitted for tasks that never set it.
-    for key in (
-        "agent_submitted_final_answer",
-        "forced_final_answer",
-        "forced_final_answer_stage",
-        "forced_final_answer_reason",
-    ):
+    # Text-answer scaffolds record their submission and its provenance here;
+    # patch tasks never set these keys, so the record stays scaffold-agnostic.
+    for key in ("final_answer", "answer_provenance"):
         if key in agent_result.metadata:
             record[key] = agent_result.metadata[key]
     return record
@@ -319,15 +313,22 @@ class TaskRunner:
                     }) + "\n")
             return error_result
 
-    async def _run_instance(self, instance: Instance) -> TaskResult:
-        """Run agent + evaluation on a single instance."""
-        start_time = time.monotonic()
-
-        # Create runtime with per-instance overrides.
+    @asynccontextmanager
+    async def _instance_session(self, instance: Instance):
+        """Yield a runtime session for the instance, or ``None`` when the task
+        runs no commands (text-answer tasks open no container)."""
+        if not self.task.requires_runtime():
+            yield None
+            return
         runtime_config = self._instance_runtime_config(instance)
         runtime_cls = runtime_registry.get(runtime_config.backend)
         runtime: Runtime = runtime_cls(runtime_config)
-        image = self.task.get_image(instance)
+        async with runtime.session(self.task.get_image(instance)) as session:
+            yield session
+
+    async def _run_instance(self, instance: Instance) -> TaskResult:
+        """Run agent + evaluation on a single instance."""
+        start_time = time.monotonic()
 
         # Determine if evaluation must happen inside the agent session
         # (e.g. Terminal Bench modifies container state directly).
@@ -339,19 +340,20 @@ class TaskRunner:
         eval_result: EvalResult | None = None
         artifact_bytes: bytes | None = None
 
-        async with runtime.session(image) as session:
-            # Pre-agent setup
-            setup = PreAgentSetup(session, instance.workdir)
-            await setup.run_setup_commands(self.task.get_setup_commands(instance))
-
-            # Git snapshot (only for tasks that use git repos).
+        async with self._instance_session(instance) as session:
+            # Session-backed preparation (skipped when the task needs no runtime).
             pre_agent_commit_id: str | None = None
-            if self.task.requires_git_snapshot():
-                pre_agent_commit_id = await setup.commit_and_get_id()
-                await setup.remove_future_commits()
+            if session is not None:
+                setup = PreAgentSetup(session, instance.workdir)
+                await setup.run_setup_commands(self.task.get_setup_commands(instance))
 
-            # Task-specific session preparation (e.g. upload files, pip freeze)
-            await self.task.prepare_session(instance, session)
+                # Git snapshot (only for tasks that use git repos).
+                if self.task.requires_git_snapshot():
+                    pre_agent_commit_id = await setup.commit_and_get_id()
+                    await setup.remove_future_commits()
+
+                # Task-specific session preparation (e.g. upload files, pip freeze)
+                await self.task.prepare_session(instance, session)
 
             # Create agent
             constraints = self.task.get_search_constraints(instance)
@@ -380,7 +382,7 @@ class TaskRunner:
                 max_context_length=self.max_context_length,
                 condenser=self._condenser,
             )
-            # Let scaffolds choose their lifecycle loop; most agents return AgentLoop.
+            # The agent supplies its loop, carrying any lifecycle policy.
             loop = agent.create_loop(context)
 
             # Run agent (with optional per-instance wall-clock timeout).
@@ -414,21 +416,22 @@ class TaskRunner:
                 )
                 instance.metadata["_agent_finish_reason"] = agent_result.finish_reason
 
-            # Collect a non-patch artifact (e.g. NL2Repo's tarball) while
-            # the agent session is still alive.  Stashed onto the instance
-            # below so the evaluator can read it through ``metadata``.
-            try:
-                artifact_bytes = await self.task.collect_artifact(instance, session)
-            except Exception as e:
-                logger.warning(
-                    "Failed to collect artifact for %s: %s", instance.id, e,
-                )
+            if session is not None:
+                # Collect a non-patch artifact (e.g. NL2Repo's tarball) while
+                # the agent session is still alive.  Stashed onto the instance
+                # below so the evaluator can read it through ``metadata``.
+                try:
+                    artifact_bytes = await self.task.collect_artifact(instance, session)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to collect artifact for %s: %s", instance.id, e,
+                    )
 
-            # Same-session evaluation (must happen before session closes).
-            if same_session_eval:
-                eval_result = await self._evaluate_same_session(
-                    instance, session,
-                )
+                # Same-session evaluation (must happen before session closes).
+                if same_session_eval:
+                    eval_result = await self._evaluate_same_session(
+                        instance, session,
+                    )
 
         # Isolated evaluation (default: agent session already released).
         if not same_session_eval and self.evaluator:

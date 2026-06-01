@@ -13,7 +13,7 @@ from awe_agent.core.runtime.config import RuntimeConfig
 class CondenserConfig(BaseModel):
     """Context condensing configuration."""
 
-    type: str = "none"  # "none" | "truncation"
+    type: str = "none"  # "none" | "truncation" | "tool_result_omission"
     max_messages: int = 50
     keep_first: int = 2
     keep_recent_tool_results: int = 5
@@ -29,7 +29,7 @@ class AgentConfig(BaseModel):
     force_final_answer: bool = True
     enable_search: bool = False
     toolset: str | None = None
-    tools: list[str] = Field(default_factory=lambda: ["execute_bash", "str_replace_editor", "think"])
+    tools: list[str] | None = None  # None = let the scaffold pick its tools
     tool_options: dict[str, dict[str, Any]] = Field(default_factory=dict)
     bash_timeout: int = 180
     bash_max_timeout: int = 600

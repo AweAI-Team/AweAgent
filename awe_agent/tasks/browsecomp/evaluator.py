@@ -72,10 +72,12 @@ def _strip_json_fence(text: str) -> str:
 
 
 def _normalize_correct(value: Any) -> str | None:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
     if not isinstance(value, str):
         return None
-    normalized = value.strip().lower()
-    return normalized if normalized in {"yes", "no"} else None
+    match = re.match(r"\s*(yes|no)\b", value, re.IGNORECASE)
+    return match.group(1).lower() if match else None
 
 
 def _load_json_dict(text: str) -> dict[str, Any] | None:
@@ -114,11 +116,8 @@ def _parse_judge_correct(grading_response: str) -> tuple[str, dict[str, Any]]:
                 "judge_parse_error": False,
                 "judge_parse_method": "json",
             }
-        return "no", {
-            "judge_parse_error": True,
-            "judge_parse_error_reason": "json_missing_valid_correct",
-            "judge_parse_method": "json",
-        }
+        # JSON parsed but `correct` was missing or not a yes/no value; fall
+        # through to the regex net before giving up.
 
     match = _CORRECT_RE.search(grading_response)
     if match:
@@ -185,11 +184,15 @@ class BrowseCompEvaluator(Evaluator):
             grading_response = judge_response.content or ""
         except Exception as exc:
             logger.exception("BrowseComp grading failed for %s", instance.id)
+            # The grader call failed (timeout, rate limit, ...). Score it 0 like
+            # any unaccepted answer, but flag grader_error so a run with many
+            # such failures is visible to whoever inspects the results.
             return EvalResult(
                 accepted=False,
                 score=0.0,
                 details={
                     "error": str(exc),
+                    "grader_error": True,
                     "question": question,
                     "correct_answer": correct_answer,
                     "prediction": response_text,

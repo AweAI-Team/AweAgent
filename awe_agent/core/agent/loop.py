@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from awe_agent.core.agent.context import AgentContext
+from awe_agent.core.agent.policy import LoopPolicy, NoOpPolicy
 from awe_agent.core.agent.stats import RunStats
 from awe_agent.core.agent.trajectory import Action, Trajectory
 from awe_agent.core.llm.types import Message
@@ -59,17 +60,90 @@ class AgentLoop:
             message whenever the LLM responds without calling any tool, instead
             of treating it as a terminal state.
         context: Mutable runtime state shared with the agent.
+        policy: Lifecycle hooks consulted around each rollout (retry / finalize).
+            Defaults to a no-op, so the loop runs one rollout and returns it.
     """
 
     def __init__(
         self,
         agent: Any,  # Agent protocol
         context: AgentContext,
+        policy: LoopPolicy | None = None,
     ) -> None:
         self.agent = agent
         self.ctx = context
+        self.policy = policy or NoOpPolicy()
 
     async def run(self, task_prompt: str) -> AgentResult:
+        """Run rollouts under the loop policy and return the final result.
+
+        Runs one rollout, then lets the policy discard it and retry from
+        scratch (:meth:`LoopPolicy.should_retry`) until it is satisfied, and
+        finally lets the policy transform the kept result
+        (:meth:`LoopPolicy.finalize`). With the default no-op policy this is a
+        single rollout returned unchanged.
+        """
+        attempt = 0
+        while True:
+            result = await self._run_once(task_prompt)
+            if not self.policy.should_retry(attempt, result, self.ctx):
+                break
+            attempt += 1
+        if attempt:
+            result.metadata["rollout_attempts"] = attempt + 1
+        return await self.policy.finalize(self, result, self.ctx)
+
+    async def append_extraction_turn(
+        self,
+        messages: list[Message],
+        instruction: str,
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        commit: bool = True,
+    ) -> Action:
+        """Run one tool-free LLM turn over ``messages`` + ``instruction``.
+
+        Appends ``instruction`` to the caller-owned ``messages`` (never to
+        ``ctx.messages``), records a trajectory step, and — when ``commit`` is
+        set and the model replied — appends the reply to ``ctx.messages`` and,
+        in training mode, records its tokens on the same path a normal step
+        uses. A policy uses this to ask the model a follow-up question without
+        hand-rolling message or trajectory bookkeeping.
+        """
+        view = list(messages)
+        view.append(Message(role="user", content=instruction))
+        response = await self.ctx.llm.chat(messages=view, tools=tools)
+
+        action = Action(
+            type="message",
+            content=response.content,
+            reasoning_text=response.reasoning_text,
+            reasoning_raw=response.reasoning_raw,
+            tool_calls=[tc.to_dict() for tc in response.tool_calls],
+            token_ids=response.completion_token_ids,
+            logprobs=response.logprobs,
+            weight_version=response.weight_version,
+            finish_status=response.finish_status,
+            usage=response.usage,
+            llm_response_raw=response.raw,
+        )
+        self.ctx.trajectory.add_step(
+            step=len(self.ctx.trajectory.steps),
+            action=action,
+            reasoning_text=action.reasoning_text,
+            llm_response_raw=action.llm_response_raw,
+        )
+        if commit and response.content:
+            self.ctx.messages.append(Message(
+                role="assistant",
+                content=response.content,
+                reasoning_raw=response.reasoning_raw,
+            ))
+            if self.ctx.training is not None:
+                self._record_model_tokens(action)
+        return action
+
+    async def _run_once(self, task_prompt: str) -> AgentResult:
         """Run the full agent loop until completion or max_steps.
 
         Termination conditions (in priority order):

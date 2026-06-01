@@ -115,6 +115,16 @@ class Task(ABC):
         """
         return False
 
+    def requires_runtime(self) -> bool:
+        """Whether the agent needs a command-execution runtime (a container).
+
+        Default ``True`` — tasks whose tools run shell commands or read and
+        write files.  Tasks whose tools never touch the session (for example
+        web-search question answering) override this to ``False``; the runner
+        then runs the agent with no container at all.
+        """
+        return True
+
     async def collect_artifact(
         self,
         instance: Instance,

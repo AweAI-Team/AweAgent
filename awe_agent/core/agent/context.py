@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 from awe_agent.core.agent.training import TrainingState
 from awe_agent.core.agent.trajectory import Trajectory
@@ -32,9 +33,10 @@ class AgentContext:
     Agent.step() receives this context and uses it to make decisions.
     """
 
-    # Core dependencies (injected)
+    # Core dependencies (injected). ``session`` is None for tasks that run no
+    # commands (the runner opens no container for them).
     llm: LLMClient
-    session: RuntimeSession
+    session: RuntimeSession | None = None
     tools: list[Tool] = field(default_factory=list)
 
     # Conversation state

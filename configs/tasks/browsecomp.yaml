@@ -1,15 +1,10 @@
 # BrowseComp + DeepSearch configuration
+#
+# DeepSearch answers from web search/fetch and submits text, so it runs no
+# shell commands and needs no container runtime (BrowseCompTask.requires_runtime
+# is False; the runner runs the agent without opening a session).
 
 llm: "!include ../llm/openai.yaml"
-
-runtime:
-  backend: local
-  image: ""
-  timeout: 14400
-  workdir: ${PWD}
-  resource_limits:
-    cpu: "4"
-    memory: "8Gi"
 
 agent:
   type: deepsearch
@@ -19,7 +14,6 @@ agent:
   tools:
     - web_search
     - web_fetch
-    - think
     - finish
   tool_options:
     web_search:

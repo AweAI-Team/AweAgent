@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 reader_backend_registry: Registry[type] = Registry("awe_agent.reader_backend")
 _DEFAULT_BACKEND = "jina"
-_EXPLICIT_ONLY_BACKENDS: set[str] = set()
 
 # Register built-in backends
 try:
@@ -40,7 +39,8 @@ def get_reader_backend(name: str | None = None, **kwargs: Any) -> Any:
     Resolution order:
         1. Explicit ``name`` argument.
         2. ``READER_BACKEND`` environment variable.
-        3. First available backend in the registry.
+        3. The default backend (``jina``) when registered.
+        4. The first registered backend.
 
     Returns:
         A reader backend instance, or ``None`` if no backend is available.
@@ -59,21 +59,12 @@ def get_reader_backend(name: str | None = None, **kwargs: Any) -> Any:
             )
             return None
 
-    # Auto-discover: prefer the public default and skip explicit-only backends
-    # unless requested by name or environment variable.
     available = reader_backend_registry.list_available()
-    if _DEFAULT_BACKEND in available:
-        logger.debug("Auto-selected reader backend: %s", _DEFAULT_BACKEND)
-        cls = reader_backend_registry.get(_DEFAULT_BACKEND)
-        return cls(**kwargs)  # type: ignore[call-arg]
-
-    auto_available = [
-        backend for backend in available if backend not in _EXPLICIT_ONLY_BACKENDS
-    ]
-    if not auto_available:
+    if not available:
         logger.info("No reader backends registered. Link reader tools will be unavailable.")
         return None
 
-    cls = reader_backend_registry.get(auto_available[0])
-    logger.debug("Auto-selected reader backend: %s", auto_available[0])
+    selected = _DEFAULT_BACKEND if _DEFAULT_BACKEND in available else available[0]
+    logger.debug("Auto-selected reader backend: %s", selected)
+    cls = reader_backend_registry.get(selected)
     return cls(**kwargs)  # type: ignore[call-arg]

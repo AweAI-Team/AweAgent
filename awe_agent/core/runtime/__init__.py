@@ -12,15 +12,12 @@ Usage:
 """
 
 from awe_agent.core.runtime.config import RuntimeConfig
-from awe_agent.core.runtime.local import LocalRuntime, LocalRuntimeSession
 from awe_agent.core.runtime.protocol import Runtime, RuntimeSession
 from awe_agent.core.runtime.types import ExecutionResult, FileInfo, RuntimeSessionInfo
 
 __all__ = [
     "ExecutionResult",
     "FileInfo",
-    "LocalRuntime",
-    "LocalRuntimeSession",
     "Runtime",
     "RuntimeConfig",
     "RuntimeSession",

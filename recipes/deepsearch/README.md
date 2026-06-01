@@ -106,22 +106,24 @@ Default config: [configs/tasks/browsecomp.yaml](../../configs/tasks/browsecomp.y
 
 Key fields:
 
-```yaml
-runtime:
-  backend: local
+DeepSearch runs no shell commands, so the task opens no container runtime.
 
+```yaml
 agent:
   type: deepsearch
-  max_steps: 300
+  max_steps: 100
   rollout_retries: 0
   force_final_answer: true
-  tools: [web_search, web_fetch, think, finish]
+  tools: [web_search, web_fetch, finish]
   tool_options:
     web_search:
       backend: serpapi
       engine: google
+      max_attempts: 3
     web_fetch:
       reader_backend: jina
+      max_attempts: 3
+      reader_max_attempts: 3
   condenser:
     type: tool_result_omission
     keep_recent_tool_results: 5
@@ -131,9 +133,9 @@ task:
   data_file: ${BROWSECOMP_DATA_FILE}
 
 execution:
-  max_concurrent: 4
-  max_retries: 1
-  save_trajectories: true
+  max_concurrent: 50
+  max_retries: 3
+  output_path: ./results/browsecomp
 ```
 
 Useful knobs:

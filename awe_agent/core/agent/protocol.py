@@ -14,6 +14,8 @@ from awe_agent.core.agent.trajectory import Action
 from awe_agent.core.tool.protocol import Tool
 
 if TYPE_CHECKING:
+    from awe_agent.core.agent.loop import AgentLoop
+    from awe_agent.core.agent.policy import LoopPolicy
     from awe_agent.core.config.schema import AweAgentConfig
     from awe_agent.core.llm.format.protocol import ToolCallFormat
 
@@ -57,16 +59,24 @@ class Agent(ABC):
         """Return the tools this agent uses."""
         ...
 
-    def create_loop(self, context: AgentContext) -> Any:
-        """Create the execution loop for this agent.
+    def get_loop_policy(self, context: AgentContext) -> LoopPolicy | None:
+        """Return the lifecycle policy for this agent's loop.
 
-        Most agents use the shared :class:`AgentLoop`. Scaffolds with their
-        own lifecycle policy can override this without changing the task runner
-        or the shared loop implementation.
+        A policy shapes the loop's retry / finalize behavior (see
+        :class:`~awe_agent.core.agent.policy.LoopPolicy`). Return ``None`` for
+        a single rollout returned unchanged.
+        """
+        return None
+
+    def create_loop(self, context: AgentContext) -> AgentLoop:
+        """Build the :class:`AgentLoop` that runs this agent.
+
+        The loop carries the agent's :meth:`get_loop_policy`, so an agent
+        customizes its lifecycle through the policy rather than the loop.
         """
         from awe_agent.core.agent.loop import AgentLoop
 
-        return AgentLoop(self, context)
+        return AgentLoop(self, context, policy=self.get_loop_policy(context))
 
     def get_tool_call_format(self) -> ToolCallFormat | None:
         """Return the tool call format used by this agent.
