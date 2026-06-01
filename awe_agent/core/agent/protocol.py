@@ -57,6 +57,17 @@ class Agent(ABC):
         """Return the tools this agent uses."""
         ...
 
+    def create_loop(self, context: AgentContext) -> Any:
+        """Create the execution loop for this agent.
+
+        Most agents use the shared :class:`AgentLoop`. Scaffolds with their
+        own lifecycle policy can override this without changing the task runner
+        or the shared loop implementation.
+        """
+        from awe_agent.core.agent.loop import AgentLoop
+
+        return AgentLoop(self, context)
+
     def get_tool_call_format(self) -> ToolCallFormat | None:
         """Return the tool call format used by this agent.
 

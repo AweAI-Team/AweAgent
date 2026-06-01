@@ -16,6 +16,7 @@ class CondenserConfig(BaseModel):
     type: str = "none"  # "none" | "truncation"
     max_messages: int = 50
     keep_first: int = 2
+    keep_recent_tool_results: int = 5
 
 
 class AgentConfig(BaseModel):
@@ -24,8 +25,12 @@ class AgentConfig(BaseModel):
     type: str = "search_swe"
     max_steps: int = 100
     max_context_length: int | None = None
+    rollout_retries: int = 0
+    force_final_answer: bool = True
     enable_search: bool = False
+    toolset: str | None = None
     tools: list[str] = Field(default_factory=lambda: ["execute_bash", "str_replace_editor", "think"])
+    tool_options: dict[str, dict[str, Any]] = Field(default_factory=dict)
     bash_timeout: int = 180
     bash_max_timeout: int = 600
     max_output_length: int = 32000
@@ -61,6 +66,7 @@ class EvalConfig(BaseModel):
     timeout: int = 3600
     eval_script: str | None = None
     runtime: RuntimeConfig | None = None
+    judge_llm: LLMConfig | None = None
 
 
 class ExecutionConfig(BaseModel):

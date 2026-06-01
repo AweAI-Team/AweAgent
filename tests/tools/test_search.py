@@ -7,11 +7,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from awe_agent.core.tool.search.backends.reader import get_reader_backend
+from awe_agent.core.tool.search.backends.reader.jina import JinaReaderBackend
+from awe_agent.core.tool.search.backends.search import get_search_backend
+from awe_agent.core.tool.search.backends.search.serpapi import SerpAPIBackend
 from awe_agent.core.tool.search.constraints import SearchConstraints
 from awe_agent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
 from awe_agent.core.tool.search.web_fetch_tool import WebFetchTool
 from awe_agent.core.tool.search.web_search_tool import WebSearchTool
-
 
 # ── SearchConstraints ───────────────────────────────────────────────────────
 
@@ -208,6 +211,16 @@ class TestWebSearchTool:
         assert received["start"] == 10
 
 
+class TestBackendAutodiscovery:
+
+    def test_default_backend_autodiscovery_picks_public_defaults(self, monkeypatch):
+        monkeypatch.delenv("SEARCH_BACKEND", raising=False)
+        monkeypatch.delenv("READER_BACKEND", raising=False)
+
+        assert isinstance(get_search_backend(), SerpAPIBackend)
+        assert isinstance(get_reader_backend(), JinaReaderBackend)
+
+
 # ── WebFetchRawTool ─────────────────────────────────────────────────────────
 
 
@@ -270,7 +283,7 @@ class TestWebFetchRawTool:
     @pytest.mark.asyncio
     async def test_reader_fn_raises(self):
         async def failing_reader(url):
-            raise IOError("network error")
+            raise OSError("network error")
 
         tool = WebFetchRawTool(reader_fn=failing_reader, max_attempts=1)
         result = await tool.execute({"url": "https://example.com"})
@@ -429,7 +442,7 @@ class TestWebFetchTool:
     async def test_fetch_error_propagated(self):
         """When reader fails, error should be returned directly."""
         async def failing_reader(url):
-            raise IOError("network error")
+            raise OSError("network error")
 
         reader = WebFetchRawTool(reader_fn=failing_reader, max_attempts=1)
         tool = WebFetchTool(reader=reader)
