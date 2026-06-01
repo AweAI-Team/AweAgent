@@ -144,6 +144,33 @@ class FinishWithIntTool(AbstractFinishTool):
         return int(params["answer"])
 
 
+@_register_finish_tool("submit_text")
+class FinishWithTextTool(AbstractFinishTool):
+    """Finish tool for submitting a free-form text answer."""
+
+    @property
+    def signature(self) -> str:
+        return "Submit your final answer by using the parameter 'answer'."
+
+    def get_tool_params(self) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string",
+                    "description": dedent("""\
+                        The final answer to submit. Include only the answer
+                        required by the task, with concise supporting detail
+                        when the task asks for explanation."""),
+                },
+            },
+            "required": ["answer"],
+        }
+
+    def parse_tool_call(self, params: dict[str, Any]) -> str:
+        return str(params["answer"]).strip()
+
+
 @_register_finish_tool("file_fl")
 class FileFLFinishTool(AbstractFinishTool):
     """Finish tool for file-level fault localization."""

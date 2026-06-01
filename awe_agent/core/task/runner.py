@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.agent.loop import AgentLoop, AgentResult
+from awe_agent.core.agent.loop import AgentResult
 from awe_agent.core.agent.protocol import Agent
 from awe_agent.core.llm.client import LLMClient
 from awe_agent.core.llm.config import LLMConfig
@@ -34,8 +34,10 @@ runtime_registry: Registry[type] = Registry("awe_agent.runtime")
 
 # Built-in runtimes (always available, even without pip install -e .)
 from awe_agent.core.runtime.docker import DockerRuntime  # noqa: E402
+from awe_agent.core.runtime.local import LocalRuntime  # noqa: E402
 
 runtime_registry.register("docker", DockerRuntime)
+runtime_registry.register("local", LocalRuntime)
 
 
 # ── Helper functions for run directory management ────────────────────
@@ -117,7 +119,7 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
         }
         trajectory_steps.append(step_dict)
 
-    return {
+    record = {
         "instance_id": result.instance_id,
         "success": result.success,
         "score": result.eval_result.score if result.eval_result else 0.0,
@@ -130,6 +132,18 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
         "messages": [m.to_full_dict() for m in agent_result.messages],
         "eval_result": asdict(result.eval_result) if result.eval_result else None,
     }
+    if "final_answer" in agent_result.metadata:
+        record["final_answer"] = agent_result.metadata["final_answer"]
+    # DeepSearch-only answer provenance; omitted for tasks that never set it.
+    for key in (
+        "agent_submitted_final_answer",
+        "forced_final_answer",
+        "forced_final_answer_stage",
+        "forced_final_answer_reason",
+    ):
+        if key in agent_result.metadata:
+            record[key] = agent_result.metadata[key]
+    return record
 
 
 class TaskRunner:
@@ -366,7 +380,8 @@ class TaskRunner:
                 max_context_length=self.max_context_length,
                 condenser=self._condenser,
             )
-            loop = AgentLoop(agent, context)
+            # Let scaffolds choose their lifecycle loop; most agents return AgentLoop.
+            loop = agent.create_loop(context)
 
             # Run agent (with optional per-instance wall-clock timeout).
             prompt = self.task.get_prompt(instance)
@@ -392,6 +407,13 @@ class TaskRunner:
             else:
                 agent_result = await loop.run(prompt)
 
+            if self.task.requires_agent_result_evaluation():
+                # Text-answer tasks evaluate metadata["final_answer"] instead of a patch.
+                instance.metadata["_agent_final_answer"] = agent_result.metadata.get(
+                    "final_answer"
+                )
+                instance.metadata["_agent_finish_reason"] = agent_result.finish_reason
+
             # Collect a non-patch artifact (e.g. NL2Repo's tarball) while
             # the agent session is still alive.  Stashed onto the instance
             # below so the evaluator can read it through ``metadata``.
@@ -409,12 +431,14 @@ class TaskRunner:
                 )
 
         # Isolated evaluation (default: agent session already released).
-        if not same_session_eval and self.evaluator and (
-            agent_result.patch or artifact_bytes is not None
-        ):
-            if artifact_bytes is not None:
-                instance.metadata["_agent_artifact"] = artifact_bytes
-            eval_result = await self._evaluate(instance, agent_result.patch)
+        if not same_session_eval and self.evaluator:
+            if self.task.requires_agent_result_evaluation():
+                # No patch is needed; the evaluator reads the answer from instance metadata.
+                eval_result = await self._evaluate(instance, "")
+            elif agent_result.patch or artifact_bytes is not None:
+                if artifact_bytes is not None:
+                    instance.metadata["_agent_artifact"] = artifact_bytes
+                eval_result = await self._evaluate(instance, agent_result.patch)
 
         elapsed = time.monotonic() - start_time
         return TaskResult(

@@ -307,12 +307,12 @@ def test_is_valid_response_with_tool_calls():
     assert SearchSWEAgent._is_valid_response(resp)
 
 
-def test_retry_config_includes_bad_request():
-    """BadRequestError should be in default retry list."""
+def test_retry_config_does_not_retry_bad_request_by_default():
+    """BadRequestError should not be retried by the global default policy."""
     from awe_agent.core.llm.config import RetryConfig
 
     config = RetryConfig()
-    assert "BadRequestError" in config.retry_on
+    assert "BadRequestError" not in config.retry_on
 
 
 # ═══════════════════════════════════════════════════════════════════════
