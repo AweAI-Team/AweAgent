@@ -9,6 +9,7 @@ import pytest
 from awe_agent.core.agent.context import AgentContext
 from awe_agent.core.agent.loop import AgentLoop
 from awe_agent.core.agent.protocol import Agent
+from awe_agent.core.agent.training import TrainingState
 from awe_agent.core.agent.trajectory import Action
 from awe_agent.core.config.schema import AweAgentConfig
 from awe_agent.core.llm.types import LLMResponse, TokenUsage, ToolCall
@@ -221,6 +222,77 @@ async def test_deepsearch_finish_records_final_answer(mock_llm):
     provenance = result.metadata["answer_provenance"]
     assert provenance["agent_submitted_final_answer"] is True
     assert provenance["forced_final_answer"] is False
+
+
+@pytest.mark.asyncio
+async def test_deepsearch_step_passes_training_input_ids(mock_llm):
+    seen: dict[str, Any] = {}
+
+    async def chat(messages, tools=None, **kwargs):
+        seen["input_ids"] = kwargs.get("input_ids")
+        return LLMResponse(
+            content="done",
+            tool_calls=[ToolCall(id="t", name="finish", arguments='{"answer": "a"}')],
+        )
+
+    mock_llm.chat = chat
+    agent = DeepSearchAgent()
+    ctx = AgentContext(
+        llm=mock_llm,
+        tools=agent.get_tools(),
+        task_info={"skip_patch_extraction": True},
+        training=TrainingState(tokenizer=None, prompt_token_ids=[1, 2, 3]),
+    )
+
+    await agent.step(ctx)
+
+    assert seen["input_ids"] == [1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_deepsearch_step_stops_on_length_in_training(mock_llm):
+    calls = 0
+
+    async def chat(messages, tools=None, **kwargs):
+        nonlocal calls
+        calls += 1
+        return LLMResponse(content="", finish_reason="length", finish_status="length")
+
+    mock_llm.chat = chat
+    agent = DeepSearchAgent()
+    ctx = AgentContext(
+        llm=mock_llm,
+        tools=agent.get_tools(),
+        task_info={"skip_patch_extraction": True},
+        training=TrainingState(tokenizer=None, prompt_token_ids=[1]),
+    )
+
+    await agent.step(ctx)
+
+    # An exhausted token budget is terminal in training, so the empty-response
+    # retry loop must not spin.
+    assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_deepsearch_step_omits_input_ids_without_training(mock_llm):
+    seen: dict[str, Any] = {}
+
+    async def chat(messages, tools=None, **kwargs):
+        seen["kwargs"] = kwargs
+        return LLMResponse(content="hi")
+
+    mock_llm.chat = chat
+    agent = DeepSearchAgent()
+    ctx = AgentContext(
+        llm=mock_llm,
+        tools=agent.get_tools(),
+        task_info={"skip_patch_extraction": True},
+    )
+
+    await agent.step(ctx)
+
+    assert "input_ids" not in seen["kwargs"]
 
 
 class _RetryAgent(Agent):
