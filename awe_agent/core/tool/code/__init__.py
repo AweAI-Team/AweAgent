@@ -8,6 +8,7 @@ from awe_agent.core.tool.code.finish import (
     FileFLFinishTool,
     FinishTool,
     FinishWithIntTool,
+    FinishWithTextTool,
     LineFLFinishTool,
     SubmitFileFinishTool,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "AbstractFinishTool",
     "FinishTool",
     "FinishWithIntTool",
+    "FinishWithTextTool",
     "FileFLFinishTool",
     "LineFLFinishTool",
     "SubmitFileFinishTool",

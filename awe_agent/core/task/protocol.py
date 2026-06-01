@@ -106,6 +106,15 @@ class Task(ABC):
         """
         return True
 
+    def requires_agent_result_evaluation(self) -> bool:
+        """Whether evaluation consumes ``AgentResult.metadata`` instead of a patch.
+
+        Text-answer tasks can override this to let the runner pass agent-level
+        submissions (for example ``metadata["final_answer"]``) through the
+        existing evaluator interface without making patch tasks aware of them.
+        """
+        return False
+
     async def collect_artifact(
         self,
         instance: Instance,

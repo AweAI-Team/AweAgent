@@ -397,6 +397,7 @@ def test_minimax_anthropic_preset_no_thinking():
 
 def test_response_api_extracts_previous_response_id():
     """_serialize_input extracts response_id from reasoning_raw."""
+    from awe_agent.core.llm.config import LLMConfig
     from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
@@ -414,6 +415,7 @@ def test_response_api_extracts_previous_response_id():
     ]
 
     backend = object.__new__(OpenAIResponseBackend)
+    backend.config = LLMConfig()
     instructions, items, prev_id = backend._serialize_input(messages)
 
     assert prev_id == "resp_abc123"
@@ -426,6 +428,7 @@ def test_response_api_extracts_previous_response_id():
 
 def test_response_api_continuation_sends_only_new_input():
     """With previous_response_id, only new items after last response are sent."""
+    from awe_agent.core.llm.config import LLMConfig
     from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
@@ -444,6 +447,7 @@ def test_response_api_continuation_sends_only_new_input():
     ]
 
     backend = object.__new__(OpenAIResponseBackend)
+    backend.config = LLMConfig()
     _, items, prev_id = backend._serialize_input(messages)
 
     assert prev_id == "resp_abc"
@@ -455,6 +459,7 @@ def test_response_api_continuation_sends_only_new_input():
 
 def test_response_api_manual_mode_replays_reasoning():
     """Without response_id, reasoning items are replayed in full."""
+    from awe_agent.core.llm.config import LLMConfig
     from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
@@ -473,6 +478,7 @@ def test_response_api_manual_mode_replays_reasoning():
     ]
 
     backend = object.__new__(OpenAIResponseBackend)
+    backend.config = LLMConfig()
     _, items, prev_id = backend._serialize_input(messages)
 
     assert prev_id is None
@@ -486,6 +492,7 @@ def test_response_api_manual_mode_replays_reasoning():
 
 def test_response_api_no_previous_response_id():
     """_serialize_input returns None when no response_id available."""
+    from awe_agent.core.llm.config import LLMConfig
     from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
@@ -493,6 +500,7 @@ def test_response_api_no_previous_response_id():
     ]
 
     backend = object.__new__(OpenAIResponseBackend)
+    backend.config = LLMConfig()
     _, _, prev_id = backend._serialize_input(messages)
     assert prev_id is None
 

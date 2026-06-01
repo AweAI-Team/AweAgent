@@ -1,0 +1,57 @@
+# BrowseComp + DeepSearch configuration
+
+llm: "!include ../llm/openai.yaml"
+
+runtime:
+  backend: local
+  image: ""
+  timeout: 14400
+  workdir: ${PWD}
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+agent:
+  type: deepsearch
+  max_steps: 100
+  rollout_retries: 0
+  force_final_answer: true
+  tools:
+    - web_search
+    - web_fetch
+    - think
+    - finish
+  tool_options:
+    web_search:
+      backend: serpapi
+      engine: google
+      max_attempts: 3
+    web_fetch:
+      reader_backend: jina
+      max_attempts: 3
+      reader_max_attempts: 3
+  condenser:
+    type: tool_result_omission
+    keep_recent_tool_results: 5
+
+task:
+  type: browsecomp
+  dataset_id: browsecomp
+  data_file: ${BROWSECOMP_DATA_FILE}
+
+eval:
+  enabled: true
+  timeout: 3600
+  # Optional: set a separate judge model. If omitted, the search LLM is reused.
+  # judge_llm:
+  #   backend: openai
+  #   model: gpt-4o
+  #   api_key: ${OPENAI_API_KEY}
+  #   params:
+  #     temperature: 0.0
+  #     max_tokens: 1024
+
+execution:
+  max_concurrent: 50
+  max_retries: 3
+  output_path: ./results/browsecomp

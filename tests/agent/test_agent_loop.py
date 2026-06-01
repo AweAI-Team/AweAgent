@@ -14,7 +14,7 @@ from awe_agent.core.agent.trajectory import Action
 from awe_agent.core.llm.client import LLMClient
 from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
-from awe_agent.core.tool.code import ExecuteBashTool, ThinkTool
+from awe_agent.core.tool.code import ExecuteBashTool, FinishWithTextTool, ThinkTool
 from awe_agent.core.tool.protocol import Tool
 from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
 from tests.conftest import MockRuntimeSession
@@ -48,6 +48,27 @@ class _PlainAgent(Agent):
                 tool_calls=[tc.to_dict() for tc in response.tool_calls],
             )
         return Action(type="message", content=response.content)
+
+
+class _TextFinishAgent(Agent):
+    def get_system_prompt(self, task_info: dict[str, Any]) -> str:
+        return "You are a test agent."
+
+    def get_tools(self) -> list[Tool]:
+        return [FinishWithTextTool()]
+
+    async def step(self, context: AgentContext) -> Action:
+        return Action(
+            type="finish",
+            content="Submitting.",
+            tool_calls=[
+                {
+                    "id": "tc1",
+                    "name": "finish",
+                    "arguments": '{"answer": "Paris"}',
+                }
+            ],
+        )
 
 
 @pytest.fixture
@@ -260,6 +281,24 @@ async def test_finish_tool_terminates_loop(mock_llm, mock_session):
     assert result.trajectory.steps[1].action.type == "finish"
     # Verify finish tool was executed (its response is in observations)
     assert len(result.trajectory.steps[1].observations) >= 1
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_does_not_record_text_finish_answer(mock_llm, mock_session):
+    """Text-answer submission is scaffold-specific, not core AgentLoop behavior."""
+    agent = _TextFinishAgent()
+    ctx = AgentContext(
+        llm=mock_llm,
+        session=mock_session,
+        tools=agent.get_tools(),
+        task_info={"skip_patch_extraction": True},
+        max_steps=3,
+    )
+
+    result = await AgentLoop(agent, ctx).run("What is the capital of France?")
+
+    assert result.finish_reason == "finish"
+    assert "final_answer" not in result.metadata
 
 
 # ── Other existing tests ─────────────────────────────────────────────────
