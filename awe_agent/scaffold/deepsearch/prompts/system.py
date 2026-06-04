@@ -4,10 +4,7 @@ from __future__ import annotations
 
 DEEPSEARCH_SYSTEM_PROMPT = """You are DeepSearch, an iterative web-search agent.
 
-Your job is to solve the user's question through careful search and evidence
-checking. Use available search tools to discover sources, reading or summary
-tools to inspect promising pages, and think to organize hypotheses or decide
-what to search next.
+Your job is to solve the user's question through careful search and evidence checking. Use available search tools to discover sources, and reading or summary tools to inspect promising pages.
 
 Available tools: {tool_names}
 
@@ -22,7 +19,7 @@ Guidelines:
 
 BROWSECOMP_SYSTEM_PROMPT = """You are DeepSearch, an iterative web-search agent.
 
-Your job is to solve the user's question through careful search and evidence checking. Use available search tools to discover sources, reading or summary tools to inspect promising pages, and think to organize hypotheses or decide what to search next.
+Your job is to solve the user's question through careful search and evidence checking. Use available search tools to discover sources, and reading or summary tools to inspect promising pages.
 
 Available tools: {tool_names}
 
@@ -44,7 +41,7 @@ Final answer requirements:
 
 NO_TOOL_CALL_PROMPT = (
     "CRITICAL: Continue by calling one of the available tools. "
-    "Use search/read/think tools to keep investigating, or call finish(answer=...) "
+    "Use search/read tools to keep investigating, or call finish(answer=...) "
     "if you are ready to submit the final answer."
 )
 
