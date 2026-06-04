@@ -159,8 +159,26 @@ def test_browsecomp_blocks_known_benchmark_leak_sources(tmp_path):
     assert constraints.is_url_blocked(
         "https://raw.githubusercontent.com/openai/grade-school-math/master/data/train.jsonl"
     )
+    assert constraints.is_url_blocked("https://arxiv.org/html/2504.12516v1")
+    assert constraints.is_url_blocked("https://arxiv.org/pdf/2603.20278")
+    assert constraints.is_url_blocked(
+        "https://infosecwriteups.com/minrlm-a-token-efficient-recursive-language-model-implementation-and-benchmark-bdc6840a3b00"
+    )
+    assert constraints.is_url_blocked(
+        "https://softwaredoug.com/blog/2026/03/23/we-can-learn-from-this-late-interaction-win"
+    )
+    assert constraints.is_url_blocked(
+        "https://www.linkedin.com/posts/example_i-came-across-an-evaluation-test-called-browsecomp"
+    )
+    assert constraints.is_url_blocked("https://openreward.ai/GeneralReasoning/ToolMind-Web-QA")
+    assert constraints.is_url_blocked("https://www.modelscope.cn/datasets/nanbeige/ToolMind-Web-QA")
+    assert constraints.is_url_blocked("http://www.hfdailybriefer.com/")
+    assert constraints.is_url_blocked("https://img1.wsimg.com/blobby/go/example/OpenResearcher.pdf")
     assert constraints.is_url_blocked(
         "https://www.researchgate.net/publication/404627419_Beyond_Semantic_Similarity_Rethinking_Retrieval_for_Agentic_Search_via_Direct_Corpus_Interaction"
+    )
+    assert constraints.is_url_blocked(
+        "https://www.researchgate.net/publication/ordinary_paper"
     )
     assert constraints.is_url_blocked("https://arxiv.org/pdf/2603.20432.pdf")
     assert constraints.is_url_blocked(
@@ -204,6 +222,12 @@ def test_grader_template_keeps_reference_rubric_and_requests_json():
     assert REFERENCE_GRADER_TEMPLATE in GRADER_TEMPLATE
     assert "Return only one JSON object" in GRADER_TEMPLATE
     assert '"correct": "yes or no"' in GRADER_TEMPLATE
+    assert "Answer equivalence policy" in GRADER_TEMPLATE
+    assert "capitalization, accents/diacritics, punctuation" in GRADER_TEMPLATE
+    assert "honorifics and titles such as Dr., Professor" in GRADER_TEMPLATE
+    assert "missing middle names or middle initials" in GRADER_TEMPLATE
+    assert "brand plus the product name is correct" in GRADER_TEMPLATE
+    assert "lists multiple candidates without committing" in GRADER_TEMPLATE
 
 
 class _FakeLLMClient:

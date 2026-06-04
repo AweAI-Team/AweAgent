@@ -54,6 +54,16 @@ correct: Answer 'yes' if extracted_final_answer matches the [correct_answer] giv
 
 confidence: The extracted confidence score between 0|\%| and 100|\%| from [response]. Put 100 if there is no confidence score available.
 
+Answer equivalence policy:
+- Treat answers as semantically correct when they identify the same entity, title, date, number, or phrase as [correct_answer], even if formatting differs.
+- Ignore non-meaningful differences in capitalization, accents/diacritics, punctuation, whitespace, hyphens, apostrophes, thousands separators, and numeric formatting.
+- Ignore honorifics and titles such as Dr., Professor, Mr., Ms., Sir, or Dame when the person identity is otherwise the same.
+- Accept missing middle names or middle initials when the remaining name unambiguously identifies the same person and the response does not point to a different person.
+- Accept harmless descriptors or legal/product qualifiers when the requested core answer is present and the added words do not change the entity. For example, if the correct answer is a brand, a response that gives that brand plus the product name is correct.
+- Accept equivalent numeric/unit formatting, such as "1lb 6oz" vs "1 lb 6 oz", "1,944" vs "1944", and "ODI no. 1880" vs "ODI no #1880".
+- Still answer "no" when the response gives a different number/date/entity, omits a required co-answer, gives only a partial title when the title prefix is needed to identify the work/event, or lists multiple candidates without committing to the correct one.
+- If the response contains the correct answer only as an uncertain possibility but its final answer commits to another answer or says it cannot determine the answer, answer "no".
+
 Return only one JSON object. Do not wrap it in markdown or add any extra text.
 Use exactly this JSON shape:
 {{

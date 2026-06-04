@@ -76,7 +76,7 @@ def test_deepsearch_create_loop_carries_force_answer_policy(mock_llm):
 
 
 def test_deepsearch_prompt_registry_default_route():
-    assert resolve_prompt_keys("browsecomp", "browsecomp") == (
+    assert resolve_prompt_keys("browsecomp") == (
         "browsecomp",
         "raw",
         "default",
@@ -88,6 +88,7 @@ def test_deepsearch_prompt_registry_default_route():
     assert "shortest final answer string" in browsecomp_prompt
     assert "reasoning, evidence, explanations, candidate lists" in browsecomp_prompt
     assert "apologies" in browsecomp_prompt
+    assert "think to organize" not in browsecomp_prompt
     assert get_user_prompt("raw") == "{question}"
     assert get_final_answer_prompts("default").current_history
 
@@ -108,6 +109,7 @@ def test_deepsearch_system_prompt_includes_current_time():
 
     assert "{tool_names}" not in prompt
     assert "web_search, web_fetch, finish" in prompt
+    assert "think" not in prompt.lower()
     assert re.search(
         r"Current time: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}",
         prompt,
