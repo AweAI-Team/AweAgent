@@ -1,17 +1,15 @@
 # SWE-bench Verified Reproduction with Scale-SWE-Agent
 
-This note documents a local reproduction run for `AweAI-Team/Scale-SWE-Agent` on the SWE-bench Verified test split with AweAgent inference and the public SWE-bench harness.
+This note documents a local run that reproduces the published **Scale-SWE-Agent** result on SWE-bench Verified ([paper](https://arxiv.org/abs/2602.09892)) with AweAgent inference and the public SWE-bench harness.
 
-The reproduced run resolved `307 / 500` instances, or `61.4%`.
+The paper reports **64%** and is stably reproducible in our full setup. The materials here reach **61.4%** (`307 / 500`) — slightly below, most likely because a few setup details are not yet fully aligned in this public pipeline — and are provided as a runnable reference.
+
+> The `61.4%` depends on **evaluation-side compatibility patches** to the public `swebench==4.1.0` harness (documented below) and on **runtime/prompt settings not included in this PR**, so it is not the score produced by unmodified upstream `main` or the stock official harness alone.
 
 This document and the helper scripts are intentionally scoped as reproduction materials. They do not change AweAgent's default runtime behavior. Runtime,
 prompt, and tool-call behavior changes used during the run should be reviewed separately from these reproduction notes.
 
 This directory lives under `recipes/scale_swe/` because the run uses the existing AweAgent ScaleSWE recipe with a converted SWE-bench Verified dataset.
-
-This directory is not intended to claim that unmodified upstream `main` reproduces `61.4%` by itself. It records the reproduction pipeline, helper
-scripts, and result summary from one local run. The code behavior changes used during that run should be reviewed separately if maintainers want to
-incorporate them into AweAgent.
 
 ## Scope
 
@@ -67,6 +65,14 @@ pydantic==2.12.5
 tenacity==9.1.4
 httpx==0.28.1
 ```
+
+> **`swebench` is not an AweAgent dependency** (we don't add it to the default install). Install the exact harness version these scripts target into the same environment:
+>
+> ```bash
+> uv pip install swebench==4.1.0
+> ```
+>
+> The compatibility patches below are written against `swebench==4.1.0`; on other versions their patch anchors won't match and the patch scripts exit with an error.
 
 The vLLM service environment was recorded as:
 
