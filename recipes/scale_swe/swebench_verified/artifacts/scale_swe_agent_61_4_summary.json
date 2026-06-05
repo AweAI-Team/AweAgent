@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "name": "swebench_verified_scale_swe_agent_61_4",
+  "model": "AweAI-Team/Scale-SWE-Agent",
+  "agent_framework": "AweAgent",
+  "dataset": "SWE-bench/SWE-bench_Verified",
+  "split": "test",
+  "run_id": "scaleswe_C_userobs_sortedview_official_verified_20260518",
+  "result": {
+    "total_instances": 500,
+    "submitted_instances": 500,
+    "completed_instances": 498,
+    "resolved_instances": 307,
+    "unresolved_instances": 191,
+    "empty_patch_instances": 2,
+    "error_instances": 0,
+    "score": 0.614
+  },
+  "inference": {
+    "temperature": 1.0,
+    "max_steps": 200,
+    "max_context_length": 220000,
+    "max_tokens": 16384,
+    "max_concurrent": 24
+  },
+  "evaluation": {
+    "harness": "swebench==4.1.0",
+    "max_workers": 96,
+    "cache_level": "instance",
+    "clean": false,
+    "compatibility_patches": [
+      "recipes/scale_swe/swebench_verified/patch_swebench_pytest_parser.py",
+      "recipes/scale_swe/swebench_verified/patch_swebench_container_resources.py"
+    ]
+  },
+  "prediction_cleaning": {
+    "rows": 500,
+    "changed_rows": 491,
+    "empty_before": 2,
+    "empty_after": 2,
+    "dropped_blocks": {
+      "agent_gitignore": 498,
+      "new_temp_script": 2283,
+      "preserved_nonempty_fallback": 7
+    }
+  }
+}
