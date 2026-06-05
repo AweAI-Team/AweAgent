@@ -51,7 +51,7 @@ agent:
     - python_interpreter      # remove this line to run search+fetch only (no sandbox)
   tool_options:
     # Backends are env-driven (SEARCH_BACKEND / READER_BACKEND): serpapi+jina,
-    # or the internal bandai relay, etc. Pin a backend here only to override.
+    # or a custom backend, etc. Pin a backend here only to override.
     web_search:
       max_attempts: 3
     web_fetch:

@@ -46,7 +46,7 @@ export DEEPSEEK_API_KEY="..."
 export DEEPSEEK_BASE_URL="https://api.deepseek.com/v1"   # default
 export DEEPSEEK_MODEL="deepseek-v4-pro"                  # default
 
-# Tool backends — env-driven (serpapi/jina, or internal bandai, etc.)
+# Tool backends — env-driven (serpapi/jina, or a custom backend, etc.)
 export SEARCH_BACKEND="serpapi"; export SERPAPI_API_KEY="..."
 export READER_BACKEND="jina";    export JINA_API_KEY="..."
 

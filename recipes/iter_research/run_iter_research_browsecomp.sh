@@ -50,8 +50,8 @@ Environment variables:
   DEEPSEEK_API_KEY                   API key for the DeepSeek endpoint
   DEEPSEEK_BASE_URL                  LLM base URL (default: https://api.deepseek.com/v1)
   DEEPSEEK_MODEL                     DeepSeek served model id (default: deepseek-v4-pro)
-  SEARCH_BACKEND                     Search backend name (default: serpapi; e.g. bandai)
-  READER_BACKEND                     Reader backend name (default: jina; e.g. bandai)
+  SEARCH_BACKEND                     Search backend name (default: serpapi)
+  READER_BACKEND                     Reader backend name (default: jina)
   SERPAPI_API_KEY                    Required when using the serpapi search backend
   JINA_API_KEY                       Optional key for the jina reader backend
   SANDBOX_FUSION_ENDPOINTS           Comma-separated SandboxFusion endpoints for PythonInterpreter

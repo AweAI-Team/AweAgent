@@ -61,7 +61,7 @@ class OpenAIResponseBackend:
         """Create the appropriate async client.
 
         Uses AsyncAzureOpenAI when ``extra.api_version`` is set (Azure-
-        compatible endpoints like ByteDance GPT proxy), otherwise plain
+        compatible endpoints), otherwise plain
         AsyncOpenAI.
         """
         api_version = config.extra.get("api_version")
