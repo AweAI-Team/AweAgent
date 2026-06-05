@@ -1,7 +1,7 @@
 [project]
 name = "awe-agent"
 version = "0.1.0"
-description = "A high-quality, extensible agent scaffold for code and search tasks"
+description = "A unified, composable framework to build, evaluate, and train agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
@@ -14,11 +14,15 @@ dependencies = [
     "tiktoken>=0.7.0",
     "structlog>=24.0",
     "docker>=7.0",
+    "anthropic>=0.30.0",           # Anthropic (Claude) LLM backend
+    "sandbox_fusion",              # IterResearch PythonInterpreter tool (SandboxFusion client)
+    "json5",                       # lenient parsing of string-encoded tool args
+    "huggingface_hub",             # benchmark dataset downloads (BeyondSWE / ScaleSWE)
 ]
 
 [project.optional-dependencies]
+# Volcengine Ark LLM backend — heavy / region-specific SDK, kept optional.
 ark = ["volcengine-python-sdk[ark]"]
-anthropic = ["anthropic>=0.30.0"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -39,12 +43,12 @@ openai_response = "awe_agent.core.llm.backends.openai_response:OpenAIResponseBac
 
 [project.entry-points."awe_agent.runtime"]
 docker = "awe_agent.core.runtime.docker:DockerRuntime"
-local = "awe_agent.core.runtime.local:LocalRuntime"
 
 [project.entry-points."awe_agent.agent"]
 search_swe = "awe_agent.scaffold.search_swe.agent:SearchSWEAgent"
 deepsearch = "awe_agent.scaffold.deepsearch.agent:DeepSearchAgent"
 terminus_2 = "awe_agent.scaffold.terminus_2.agent:Terminus2Agent"
+iter_research = "awe_agent.scaffold.iter_research.agent:IterResearchAgent"
 
 [project.entry-points."awe_agent.evaluator"]
 beyond_swe = "awe_agent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"
@@ -65,6 +69,7 @@ finish = "awe_agent.core.tool.code.finish:FinishTool"
 web_search = "awe_agent.core.tool.search:WebSearchTool"
 web_fetch = "awe_agent.core.tool.search:WebFetchTool"
 web_fetch_raw = "awe_agent.core.tool.search:WebFetchRawTool"
+python_interpreter = "awe_agent.core.tool.public.python_interpreter:PythonInterpreterTool"
 
 [build-system]
 requires = ["hatchling"]
@@ -76,6 +81,11 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Prompt modules hold verbatim, model-facing text that must not be reflowed.
+"awe_agent/scaffold/*/prompts.py" = ["E501"]
+"awe_agent/scaffold/*/prompts/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

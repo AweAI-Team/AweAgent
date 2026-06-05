@@ -31,7 +31,9 @@ agent:
 task:
   type: browsecomp
   dataset_id: browsecomp
-  data_file: ${BROWSECOMP_DATA_FILE}
+  # Defaults to the downloaded set (datasets/download.sh browsecomp). Override
+  # with BROWSECOMP_DATA_FILE to point at a subset, e.g. a 200-record jsonl.
+  data_file: ${BROWSECOMP_DATA_FILE:-datasets/browsecomp/browse_comp_test_set.csv}
 
 eval:
   enabled: true

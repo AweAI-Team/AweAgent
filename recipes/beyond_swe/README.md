@@ -149,7 +149,7 @@ python recipes/beyond_swe/run.py --data-file data.jsonl --mode batch \
 
 Each LLM preset reads its API key from an environment variable (e.g., `ANTHROPIC_API_KEY`, `MOONSHOT_API_KEY`, `DASHSCOPE_API_KEY`). See the corresponding YAML file for required variables.
 
-Available presets: `configs/llm/` (production) and `configs/llm/examples/` (model-specific). For full details on reasoning modes and configuration, see [`doc/llm_client/README.md`](../../doc/llm_client/README.md).
+Available presets: `configs/llm/` (production) and `configs/llm/examples/` (model-specific). For full details on reasoning modes and configuration, see [`docs/llm_client/README.md`](../../docs/llm_client/README.md).
 
 ## Modes
 

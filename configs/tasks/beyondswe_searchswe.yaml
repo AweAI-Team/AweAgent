@@ -22,7 +22,8 @@ agent:
 task:
   type: beyond_swe
   dataset_id: beyond_swe
-  data_file: ${DATA_FILE}
+  # Defaults to the downloaded set (bash datasets/download.sh beyond_swe).
+  data_file: ${DATA_FILE:-datasets/beyond_swe/beyond_swe.jsonl}
   # test_suite_dir: /path/to/doc2repo_test_suite  # or set BEYONDSWE_TEST_SUITE_DIR env var
 
 eval:

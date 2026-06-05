@@ -1,0 +1,28 @@
+# DeepSeek V4 Pro for WebFetchTool (the IterResearch "Visit" tool).
+#
+# WebFetchTool summarizes fetched pages with a single one-shot LLM call.
+# Point WEB_FETCH_CONFIG_PATH at this file so summaries use DeepSeek instead of
+# returning raw page content (which floods the 32k observation truncation).
+#
+#   export WEB_FETCH_CONFIG_PATH=configs/llm/web_fetch/deepseek_v4_pro.yaml
+#   export DEEPSEEK_API_KEY=...
+#
+# No parallel_tool_calls — _summarize_content issues a single chat call with no
+# tools. max_completion_tokens trimmed vs the main agent (a focused summary).
+
+backend: openai
+base_url: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+api_key: ${DEEPSEEK_API_KEY}
+model: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+
+params:
+  max_completion_tokens: 16384
+  reasoning_effort: high
+
+extra:
+  thinking:
+    type: enabled
+
+reasoning:
+  preserve: false
+  format: reasoning_content

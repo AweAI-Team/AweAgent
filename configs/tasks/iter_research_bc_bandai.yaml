@@ -1,0 +1,78 @@
+# IterResearch on BrowseComp, via the internal Bandai search/reader backend.
+#
+#   Agent  LLM : DeepSeek V4 Pro, reasoning_effort=high   (== "Pro, max performance")
+#   Judge  LLM : DeepSeek V4 Flash                          (override id via DEEPSEEK_JUDGE_MODEL)
+#   Search/Read: Bandai   (SEARCH_BACKEND=bandai READER_BACKEND=bandai;
+#                          requires awe-agent-internal installed in this venv)
+#   Data       : a subset via BROWSECOMP_DATA_FILE (e.g. BrowseComp_Lite_185.json)
+#   Tools      : web_search + web_fetch only (no Python sandbox)
+#
+# Launch with: recipes/iter_research/run_iter_research_bc_bandai.sh
+# Output: the runner appends "{model}_{timestamp}/" to execution.output_path, so
+# different models land in separate, self-labelled dirs automatically.
+
+# ── Agent LLM: DeepSeek V4 Pro (max performance = reasoning_effort high) ──────
+llm:
+  backend: openai
+  base_url: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+  api_key: ${DEEPSEEK_API_KEY}
+  model: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+  params:
+    max_completion_tokens: 65536    # full <report> + <answer>, never truncate mid-tag
+    reasoning_effort: high          # "max" performance (slower per turn)
+  extra:
+    thinking:
+      type: enabled
+  reasoning:
+    preserve: false                 # moot for the Markovian loop (no turn round-trip)
+    format: reasoning_content
+
+agent:
+  type: iter_research
+  max_steps: 256                    # max_turn for the Markovian loop (BrowseComp = 256)
+  tools:
+    - web_search                    # → google_search, served by the Bandai search backend
+    - web_fetch                     # → Visit, served by the Bandai reader backend
+  tool_options:
+    web_search:
+      max_attempts: 3
+      # engine: google              # Bandai engines: google/you/brave/bing/github/wiki/arxiv
+    web_fetch:
+      max_attempts: 3
+      reader_max_attempts: 3
+  extra:
+    iter_research:
+      sampling:
+        temperature: 0.6
+        top_p: 0.95
+        presence_penalty: 1.5
+      max_format_retries: 5
+      observation_max_tokens: 32000
+      tokenizer_encoding: o200k_base
+
+task:
+  type: browsecomp
+  dataset_id: browsecomp
+  # The recipe points this at the subset; defaults to the full downloaded set.
+  data_file: ${BROWSECOMP_DATA_FILE:-datasets/browsecomp/browse_comp_test_set.csv}
+
+eval:
+  enabled: true
+  timeout: 3600
+  # Grader: DeepSeek V4 Flash — fast/cheap for the single yes/no JSON verdict.
+  # Non-thinking (no extra.thinking block) keeps it quick; the grader is a simple
+  # extract-and-compare. Set DEEPSEEK_JUDGE_MODEL to the exact served id if needed.
+  judge_llm:
+    backend: openai
+    base_url: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+    api_key: ${DEEPSEEK_API_KEY}
+    model: ${DEEPSEEK_JUDGE_MODEL:-deepseek-v4-flash}
+    params:
+      max_completion_tokens: 8192
+
+execution:
+  # The runner appends "{sanitized_model}_{timestamp}/" here automatically, so
+  # the model name is always in the path. Override the base via OUTPUT_DIR / --output.
+  output_path: ${OUTPUT_DIR:-/data03/chenguoxin.cgx/wksp/aweagent_wksp/output_dir/aweagent/bc/iterResearch}
+  max_concurrent: 20
+  max_retries: 3

@@ -19,8 +19,11 @@ agent:
 task:
   type: terminal_bench_v2
   dataset_id: terminal_bench_v2
-  task_data_dir: ${TASK_DATA_DIR}
-  data_file: ${DATA_FILE}
+  # Defaults to the downloaded checkout (bash datasets/download.sh terminal_bench_v2).
+  task_data_dir: ${TASK_DATA_DIR:-datasets/terminal_bench_v2/tasks}
+  # JSON array of instance ids to run; the downloader writes the full list.
+  # Edit instance_ids.json (or point DATA_FILE elsewhere) to run a subset.
+  data_file: ${DATA_FILE:-datasets/terminal_bench_v2/instance_ids.json}
 
 eval:
   enabled: true

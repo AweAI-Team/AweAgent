@@ -37,7 +37,7 @@ Usage: $(basename "$0") [OPTIONS]
 
 Run Terminal Bench 2.0 benchmark.
 
-Required:
+Data (optional — defaults to the downloaded dataset; see datasets/download.sh):
   --task-data-dir DIR    Root directory of task folders
   --data-file PATH       JSON file with instance ID array
 
@@ -131,26 +131,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ── Defaults: fall back to the downloaded dataset ─────────────────────
+# (bash datasets/download.sh terminal_bench_v2)
+TASK_DATA_DIR="${TASK_DATA_DIR:-${PROJECT_ROOT}/datasets/terminal_bench_v2/tasks}"
+DATA_FILE="${DATA_FILE:-${PROJECT_ROOT}/datasets/terminal_bench_v2/instance_ids.json}"
+
 # ── Validate ──────────────────────────────────────────────────────────
-if [[ -z "${TASK_DATA_DIR}" ]]; then
-    echo "Error: --task-data-dir is required." >&2
-    usage
-    exit 1
-fi
-
-if [[ -z "${DATA_FILE}" ]]; then
-    echo "Error: --data-file is required." >&2
-    usage
-    exit 1
-fi
-
 if [[ ! -d "${TASK_DATA_DIR}" ]]; then
     echo "Error: Task data dir not found: ${TASK_DATA_DIR}" >&2
+    echo "Run:   bash datasets/download.sh terminal_bench_v2" >&2
     exit 1
 fi
 
 if [[ ! -f "${DATA_FILE}" ]]; then
     echo "Error: Data file not found: ${DATA_FILE}" >&2
+    echo "Run:   bash datasets/download.sh terminal_bench_v2" >&2
     exit 1
 fi
 

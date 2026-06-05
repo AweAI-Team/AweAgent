@@ -109,7 +109,7 @@ def _cmd_info() -> None:
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nTasks: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro")
+    print("\nTasks: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro, browsecomp")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:

@@ -96,15 +96,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# ── Validate ──────────────────────────────────────────────────────────
-if [[ -z "${DATA_FILE}" ]]; then
-    echo "Error: --data-file is required." >&2
-    usage
-    exit 1
-fi
+# ── Default: fall back to the downloaded dataset ──────────────────────
+# (bash datasets/download.sh beyond_swe)
+DATA_FILE="${DATA_FILE:-${PROJECT_ROOT}/datasets/beyond_swe/beyond_swe.jsonl}"
 
+# ── Validate ──────────────────────────────────────────────────────────
 if [[ ! -f "${DATA_FILE}" ]]; then
     echo "Error: Data file not found: ${DATA_FILE}" >&2
+    echo "Run:   bash datasets/download.sh beyond_swe" >&2
     exit 1
 fi
 

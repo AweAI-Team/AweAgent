@@ -33,6 +33,15 @@ Thumbs.db
 results/
 *.jsonl
 
+# Benchmark data downloaded by datasets/<task>/download.sh
+# (the download scripts + README are tracked; the data payloads are not)
+/datasets/**/*.csv
+/datasets/**/*.json
+/datasets/**/*.parquet
+/datasets/terminal_bench_v2/terminal-bench-2/
+/datasets/terminal_bench_v2/tasks
+/datasets/beyond_swe/BeyondSWE/
+
 # Logs
 *.log
 

@@ -2,7 +2,9 @@
 
 # AweAgent
 
-**A general-purpose agent framework with pluggable scaffolds and reproducible evaluation.**
+### Make Agent Research Systematic.
+
+A unified, composable framework to build, evaluate, and train agents.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -10,169 +12,143 @@
 
 </div>
 
-AweAgent provides two core capabilities:
+Agent research is **fragmented across domains and stages**: each task type tends to come with its own agent stack — code, search, terminal — and moving to RL usually requires rebuilding the rollout pipeline. Nothing carries over. AweAgent brings these pieces into **one composable framework** for building, evaluating, and training agents.
 
-- **Pluggable Agent Scaffolds** — Modular agent loop with extensible tools (bash, editor, search, think), pluggable LLM backends (OpenAI, Azure, Ark, SGLang), and configurable context management.
-- **Reproducible Evaluation** — Docker-isolated execution, built-in evaluators, batch runner with concurrent execution, and structured result / trajectory output.
+AweAgent's core capabilities:
 
-AweAgent currently ships with [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE) (training data), [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE), and [Terminal Bench 2.0](https://github.com/laude-institute/terminal-bench-2) benchmarks support.
+- **Unified across task types** — search, code, and terminal agents run on the **same execution core**, with task-specific behavior composed through reusable interfaces instead of separate stacks.
+- **Composable agent harnesses** — an agent is split into a `step(ctx) -> action` policy, the loop that runs it, and a context bus that carries state and dependencies; build new agents by recomposing these parts instead of forking the engine.
+- **Protocol-centered extensibility** — LLM backends, tools, runtime sandboxes, agent scaffolds, tool backends, and evaluators are exposed through small protocols and entry-point registries; register a new component instead of patching the core engine.
+- **Evaluation & trajectories as first-class data** — every run emits a structured result plus the full trajectory; code tasks can be evaluated in isolated Docker runtimes, and the experimental training path can collect token-level rollout data (loss mask · logprobs · weight versions).
 
 ## :newspaper: News
 
-- `[2026-03-16]` 🎉 Unified LLM backend (openai/azure/response/ark/anthropic/...) with multi-provider reasoning support ([docs](doc/llm_client/README.md))
-- `[2026-03-15]` 🎉 Terminus-2 agent scaffold with [Terminal Bench 2.0](https://github.com/laude-institute/terminal-bench-2) benchmark support
-- `[2026-03-11]` 🎉 Sync codebase with internal version for BeyondSWE + SearchSWE
-- `[2026-03-01]` 🎉 Initial release — SearchSWE agent scaffold with [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE) & [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE) support
+- `[2026-06-04]` 🎉 Added DeepSearch & [IterResearch](https://arxiv.org/pdf/2511.07327) scaffolds + [BrowseComp](https://arxiv.org/pdf/2504.12516) support.
+- `[2026-05-10]` 🎉 Added [NL2Repo](https://arxiv.org/pdf/2512.12730) and [SWE-bench Pro](https://arxiv.org/pdf/2509.16941) task support.
+- `[2026-03-16]` 🎉 Added unified **LLM backends** (openai/azure/response/ark/anthropic/sglang) with multi-provider reasoning support ([docs](docs/llm_client/README.md)).
+- `[2026-03-15]` 🎉 Added Terminus-2 scaffold with [Terminal-Bench 2.0](https://github.com/laude-institute/terminal-bench-2) support.
+- `[2026-03-01]` 🎉 Initial release with SearchSWE scaffold with [BeyondSWE](https://github.com/AweAI-Team/BeyondSWE) & [ScaleSWE](https://github.com/AweAI-Team/ScaleSWE).
 
-## :building_construction: Architecture
+## :jigsaw: Scaffolds
 
-```
-awe_agent/
-  core/              # Framework internals
-    agent/           #   Agent loop, context, trajectory, protocol
-    condenser/       #   Context window management
-    config/          #   YAML config loading & schema
-    eval/            #   Evaluation (PatchTestEvaluator, isolation)
-    llm/             #   LLM backends + tool-call formatting
-      format/        #     Three modes: openai_function, codeact_xml, terminus_json
-    runtime/         #   Container runtimes (Docker)
-    task/            #   Task protocol, TaskRunner (unified batch engine)
-    tool/            #   Tool registry (bash, editor, search, think, finish)
-  scaffold/          # Agent implementations
-    search_swe/      #   SearchSWE agent with optional web search
-    terminus_2/      #   Terminus-2 agent (tmux + JSON keystrokes)
-  tasks/             # Benchmark-specific task & evaluator
-    beyond_swe/      #   BeyondSWE
-    scale_swe/       #   ScaleSWE
-    terminal_bench_v2/  #   Terminal Bench 2.0
+Reference agents shipped in-tree, all on the shared core.
 
-configs/             # YAML configurations (LLM, task, runtime)
-recipes/             # Reproducible entry points
-  beyond_swe/        #   BeyondSWE runner
-  scale_swe/         #   ScaleSWE runner
-  terminal_bench_v2/ #   Terminal Bench 2.0 runner
-```
+| Scaffold | Type | Highlight | Resources |
+|:--|:--|:--|:--|
+| **OpenHands-style** | coding | CodeAct-XML coding agent, behavior-compatible with OpenHands (search off) | [code](awe_agent/scaffold/search_swe) |
+| **SearchSWE** | coding | SWE coding agent with web search & fetch — fixes repo issues, pulls in external docs | [code](awe_agent/scaffold/search_swe) |
+| **DeepSearch** | deep search | Base web-research QA agent; retry-until-answerable loop policy | [code](awe_agent/scaffold/deepsearch) |
+| **IterResearch** | deep search | Deep search + **interaction scaling** for long, multi-step research | [code](awe_agent/scaffold/iter_research) |
+| **Terminus-2** | terminal | tmux terminal agent driven by raw JSON keystrokes, on the standard loop | [code](awe_agent/scaffold/terminus_2) |
 
-## :jigsaw: Supported Scaffolds
+<sub>**OpenHands-style** and **SearchSWE** are the same scaffold (`search_swe`), one `enable_search` flag apart — listed separately because they behave differently.</sub>
 
-### SearchSWE
+## :clipboard: Benchmarks
 
-The built-in **SearchSWE** agent scaffold (`awe_agent/scaffold/search_swe/`) is a modular agent loop that can operate in two modes — switch between them with a single config flag:
+| Benchmark | Description | Scaffold | Evaluation | Resources |
+|:--|:--|:--|:--|:--|
+| **BeyondSWE** | Doc2Repo · CrossRepo · DepMigrate · DomainFix | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/BeyondSWE) · [guide](recipes/beyond_swe/) |
+| **ScaleSWE** | large-scale SWE-bench-style data | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/Scale-SWE) · [guide](recipes/scale_swe/) |
+| **SWE-bench-Pro** | extended SWE-bench code tasks | SearchSWE / OpenHands | isolated Docker patch test | [guide](recipes/swe_bench_pro/) |
+| **NL2Repo** | build a repo from a natural-language spec | SearchSWE / OpenHands | isolated Docker (artifact + golden tests) | [guide](recipes/nl2repo/) |
+| **Terminal-Bench 2.0** | terminal tasks in containers | Terminus-2 | same-container reward | [repo](https://github.com/laude-institute/terminal-bench-2) · [guide](recipes/terminal_bench_v2/) |
+| **BrowseComp** | web-search QA | DeepSearch / IterResearch | LLM-as-Judge | [guide](recipes/deepsearch/) |
 
-| Mode | `enable_search` | `tool_call_format` | Description |
-|------|:---:|---|---|
-| **SearchSWE** | `true` | `openai_function` | Full tool set including web search & web fetch |
-| **OpenHands-style** | `false` | `codeact_xml` | CodeAct XML format, compatible with OpenHands agent behavior |
+## :world_map: Roadmap
 
-**Tool Blocks.** The agent composes its tool set from independent, self-contained tool blocks. Each block implements a unified `Tool` protocol (name, JSON Schema parameters, async execute) and is registered via a plugin registry with entry-point discovery:
+Long-term goal: practical, general-purpose agents optimized with reinforcement learning. Shipped so far — the four scaffolds and six benchmarks above. Next:
 
-| Tool | Name | Description |
-|------|------|-------------|
-| Bash | `execute_bash` | Persistent shell session inside Docker with output truncation, timeout control, and regex-based command blocklist |
-| Editor | `str_replace_editor` | File viewer/editor with `view`, `create`, `str_replace`, and `insert` sub-commands |
-| Web Search | `web_search` | Web search with anti-leak filtering (auto-blocks target repo URLs). Only active when `enable_search: true` |
-| Web Fetch | `web_fetch` | Fetch a URL and run a prompt against its content via a dedicated LLM. Only active when `enable_search: true` |
-| Think | `think` | Reasoning scratchpad — no environment side-effects, helps the agent plan before acting |
-| Finish | `finish` | Signals task completion and triggers evaluation |
-
-Adding a custom tool is as simple as implementing the `Tool` protocol and registering it via a Python entry-point — no changes to the agent loop required.
-
-### Terminus-2
-
-The **Terminus-2** agent scaffold (`awe_agent/scaffold/terminus_2/`) is a terminal agent that uses tmux for persistent shell sessions. The LLM outputs raw JSON with keystrokes; the framework translates this into actions via `TerminusJSONFormat` (the third `ToolCallFormat` alongside `openai_function` and `codeact_xml`). This allows Terminus-2 to run inside the standard `AgentLoop`, inheriting RL training, context condensing, stats tracking, and step callbacks — without changing the LLM-facing prompt.
-
-Designed for [Terminal Bench 2.0](https://github.com/laude-institute/terminal-bench-2) evaluation, aligned with the official Harbor framework. Evaluation runs in the **same container** as the agent (no patch — the agent modifies container state directly).
-
-### Evaluation
-
-**SWE-bench style (BeyondSWE / ScaleSWE).** After the agent finishes, evaluation runs in a **separate Docker container** to ensure a clean, tamper-proof environment:
-
-1. Check out the base commit in a fresh container
-2. Apply the agent-generated patch (6 auto-fallback strategies)
-3. Restore original test files (prevents the agent from gaming tests)
-4. Run fail-to-pass & pass-to-pass test suites via an injected pytest runner
-5. Report structured results (score, pass/fail details, trajectory)
-
-**Terminal Bench 2.0.** Evaluation runs in the **same container** — the evaluator uploads test scripts, executes `bash /tests/test.sh`, and reads the reward file. This is controlled by the `Evaluator.requires_same_session` protocol property.
+- [ ] **Multi-agent** — multi-agent collaboration and orchestration on the shared core
+- [ ] **RL training** — reinforcement-learning rollouts via [Slime](https://github.com/THUDM/slime) with an SGLang rollout engine *(experimental today)*
 
 ## :rocket: Installation
 
-### uv (Recommended)
+Requires **Python 3.11+** and **Docker** (for sandboxed execution and isolated evaluation).
+
+### uv (recommended)
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 git clone https://github.com/AweAI-Team/AweAgent.git && cd AweAgent
-uv venv --python 3.11
-uv pip install -e ".[dev]"
+uv venv --python 3.11 && source .venv/bin/activate
+uv pip install -e .
 ```
 
 ### pip
 
 ```bash
 git clone https://github.com/AweAI-Team/AweAgent.git && cd AweAgent
-pip install -e ".[dev]"
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
 ```
 
-> **Why editable install?** AweAgent uses entry-points for plugin discovery. Without `-e`, the plugin registry cannot find LLM backends, agents, or tools.
+A single `pip install -e .` runs every scaffold and benchmark, and all LLM backends except Volcengine Ark, out of the box. Optional extras: `".[ark]"` (Volcengine Ark backend) · `".[dev]"` (pytest · ruff · mypy).
 
-## :clipboard: Supported Benchmarks
+> **Why editable (`-e`)?** You're installing from source and will likely tweak agents, tools, or configs — `-e` makes changes take effect without reinstalling. Verify everything is registered with `awe-agent info`.
 
-| Benchmark | Description | Agent | Dataset | Guide |
-|-----------|-------------|-------|---------|-------|
-| BeyondSWE | Doc2Repo, CrossRepo, DepMigrate, DomainFix | SearchSWE (with web search) | [Hugging Face](https://huggingface.co/datasets/AweAI-Team/BeyondSWE) | [README](recipes/beyond_swe/) |
-| ScaleSWE | Large-scale SWE-bench style training datasets (20k instances) | SearchSWE (CodeAct XML) | [Hugging Face](https://huggingface.co/datasets/AweAI-Team/Scale-SWE) | [README](recipes/scale_swe/) |
-| Terminal Bench 2.0 | Terminal tasks in containerized environments | Terminus-2 | [GitHub](https://github.com/laude-institute/terminal-bench-2) (commit `69671fbaac6d67a7ef0dfec016cc38a64ef7a77c`) | [README](recipes/terminal_bench_v2/README.md) |
+## :arrow_forward: Running a Benchmark
 
-### Download Data
+### Download data
+
+Datasets download through one script, run from the repo root. Data lands under `datasets/<task>/` — the path each task config defaults to — so afterward you can run with no extra env vars.
 
 ```bash
-# BeyondSWE
-from huggingface_hub import snapshot_download
-
-snapshot_download(
-    repo_id="AweAI-Team/BeyondSWE",
-    repo_type="dataset",
-    local_dir="<your_path>/BeyondSWE",
-)
-
-# ScaleSWE — see the Hugging Face collection for available splits
-# https://huggingface.co/datasets/AweAI-Team/Scale-SWE
-
-# Terminal Bench 2.0 — clone and checkout commit for reproducibility
-git clone https://github.com/laude-institute/terminal-bench-2.git
-cd terminal-bench-2
-git checkout 69671fbaac6d67a7ef0dfec016cc38a64ef7a77c
-# Each task folder contains instruction.md, task.toml, environment/, tests/
+bash datasets/download.sh beyond_swe              # one task
+bash datasets/download.sh all                     # everything wired
+FORCE=true bash datasets/download.sh beyond_swe   # re-download
 ```
 
-### Quick Example
+Wired today: **BeyondSWE · BrowseComp · Terminal-Bench 2.0**. See [`datasets/`](datasets/) for HF token / mirror options and per-task notes; other datasets are covered in each benchmark's guide.
+
+### Run
 
 ```bash
-# Configure LLM
+# point at your LLM
 export OPENAI_API_KEY="sk-..."
 
-# List instances (no Docker needed)
-python recipes/beyond_swe/run.py \
-    --data-file /path/to/beyondswe.jsonl --mode dry-run
+# sanity-check what's registered (backends, runtimes, agents, tools)
+awe-agent info
 
-# Batch run
-python recipes/beyond_swe/run.py \
-    --data-file /path/to/beyondswe.jsonl --mode batch
+# list instances — no Docker needed
+python recipes/beyond_swe/run.py --data-file datasets/beyond_swe/beyond_swe.jsonl --mode dry-run
+
+# batch run
+python recipes/beyond_swe/run.py --data-file datasets/beyond_swe/beyond_swe.jsonl --mode batch
 ```
 
-See each benchmark's guide above for full setup, CLI arguments, and output format.
+See each benchmark's guide for full setup, CLI arguments, and output format.
+
+## :building_construction: Architecture
+
+<div align="center">
+  <img src="assets/architecture.png" width="75%" alt="AweAgent architecture">
+</div>
+
+Four layers driven by a shared core — the figure maps 1:1 onto the modules below.
+
+**Module descriptions**
+
+- **TaskRunner** (`core/task`) — the batch engine: loads a `Task`, provisions its runtime, drives each instance through the loop, routes the result to an evaluator, and writes structured output (concurrency · retries · per-instance isolation).
+- **AgentContext** (`core/agent`) — the shared bus: all rollout state (messages, trajectory, stats) plus every injected dependency (LLM, tools, tool-call format, runtime) and an optional `training` field. The single seam between the agent and the outside world.
+- **AgentLoop** (`core/agent`) — the rollout engine: runs the step loop, branches only on the *kind* of action (finish · message · tool call), dispatches tools by name, and records the trajectory + RL tokens — agnostic to whether it's driving a search, code, or terminal agent.
+- **Agent scaffold** (`scaffold/`) — the policy: a near-stateless `step(ctx) → action`. Built-ins: SearchSWE · DeepSearch · Terminus-2 · IterResearch.
+- **Interaction layer** (`core/llm` · `core/tool` · `core/runtime`) — the pluggable dependencies the loop injects: LLM backends, tools, tool-call formats, and runtime sandboxes.
+- **Evaluation & Data** (`core/eval` · `tasks/` · `integrations/`) — turns a finished run into a score (isolated Docker patch test · LLM-as-judge · in-container reward) **or** token-level RL rollout data (Slime bridge).
+- **Config / Registry** (`core/config` · `plugins/`) — layered YAML config + entry-point registries that wire every part by name.
 
 ## :gear: Configuration
 
-Configs are YAML files with environment variable substitution (`${VAR}`, `${VAR:-default}`) and `!include` support.
+Configs are YAML files with environment-variable substitution (`${VAR}`, `${VAR:-default}`) and `!include` support.
 
 ### LLM Backends
 
 | Backend | Config File | Required Env Vars |
 |---------|-------------|-------------------|
 | OpenAI | `configs/llm/openai.yaml` | `OPENAI_API_KEY` |
+| OpenAI (Responses) | `configs/llm/openai_response.yaml` | `OPENAI_API_KEY` |
 | Azure OpenAI | `configs/llm/azure.yaml` | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT` |
+| Anthropic | `configs/llm/anthropic.yaml` | `ANTHROPIC_API_KEY` |
 | Volcengine Ark | `configs/llm/ark.yaml` | `ARK_API_KEY`, `ARK_MODEL_ID` |
 | SGLang | `configs/llm/sglang.yaml` | (self-hosted endpoint) |
 
@@ -184,51 +160,29 @@ Copy [`.env.example`](.env.example) to `.env` and fill in your values:
 cp .env.example .env
 ```
 
-The `.env.example` is organized into three sections:
+Sections: **LLM Backend** (pick one — API key + endpoint), **Task Data** (`DATA_FILE`), and **Search Tools** (optional — `SERPAPI_API_KEY`, `JINA_API_KEY`, only for search mode). See each benchmark's recipe guide (linked in the table above) for the full list.
 
-1. **LLM Backend** (pick one) — set the API key and endpoint for your chosen backend:
-   ```bash
-   # OpenAI
-   OPENAI_API_KEY=sk-...
+## :handshake: Contributing
 
-   # Or Azure OpenAI
-   AZURE_OPENAI_API_KEY=your-key
-   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
-   ```
+Issues and PRs are welcome. AweAgent is built to be extended — adding an LLM backend, tool, runtime, agent scaffold, or evaluator means implementing a small protocol and registering one entry point, with no changes to the core engine. For development tooling, install with `pip install -e ".[dev]"` (pytest · ruff · mypy).
 
-2. **Task Data** — path to your benchmark JSONL file:
-   ```bash
-   DATA_FILE=/path/to/data.jsonl
-   ```
+## :scroll: Citation
 
-3. **Search Tools** (optional, BeyondSWE search mode only) — required when running with `enable_search: true`:
-   ```bash
-   SERPAPI_API_KEY=your-serpapi-key
-   JINA_API_KEY=your-jina-key          # optional, 20 RPM free without key
-   ```
+If AweAgent is useful in your work, please consider citing it and giving the repo a ⭐.
 
-See each [benchmark guide](#clipboard-supported-benchmarks) for the full list of variables.
-
-## :world_map: Roadmap
-
-Our long-term goal is to build practical, general-purpose agents and optimize them with reinforcement learning.
-
-**Agent Scaffolds & Capabilities**
-- [x] SearchSWE — coding agent with optional web search augmentation
-- [x] Terminus-2 — terminal agent for Terminal Bench 2.0
-- [ ] deep research Agent
-
-**Evaluation & Optimization**
-- [x] BeyondSWE & ScaleSWE benchmark support
-- [x] Terminal Bench 2.0 benchmark support
-- [ ] More benchmarks — wider task coverage and domain diversity
-- [ ] Agentic RL — scalable reinforcement learning infrastructure for agent optimization
-
+```bibtex
+@misc{aweagent2026,
+  title        = {AweAgent: A Unified, Composable Framework to Build, Evaluate, and Train Agents},
+  author       = {AweAI Team},
+  year         = {2026},
+  howpublished = {\url{https://github.com/AweAI-Team/AweAgent}}
+}
+```
 
 ## 📄 License
-This project is released under the [Apache-2.0 License](LICENSE).
+
+Released under the [Apache-2.0 License](LICENSE).
 
 ## 📨 Contact
 
-For any questions or feedback, please reach out to us at `gx.chen.chn@gmail.com`.
-
+Questions or feedback? Open an [issue](https://github.com/AweAI-Team/AweAgent/issues) or email `gx.chen.chn@gmail.com`.

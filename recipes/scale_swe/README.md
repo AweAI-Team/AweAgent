@@ -113,7 +113,7 @@ python recipes/scale_swe/run.py --data-file data.jsonl --mode batch \
     --llm-config configs/llm/anthropic.yaml --model claude-opus-4-6
 ```
 
-Available presets: `configs/llm/` and `configs/llm/examples/`. See [`doc/llm_client/README.md`](../../doc/llm_client/README.md) for details.
+Available presets: `configs/llm/` and `configs/llm/examples/`. See [`docs/llm_client/README.md`](../../docs/llm_client/README.md) for details.
 
 ## Config
 

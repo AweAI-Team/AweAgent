@@ -1,0 +1,109 @@
+# IterResearch + BrowseComp configuration (DeepSeek V4 Pro)
+#
+# IterResearch is a long-horizon research agent that rebuilds its context every
+# turn from a self-written <report> (Markovian state reconstruction), so it runs
+# no shell commands and needs no container runtime. It answers from web tools
+# (+ an optional remote Python sandbox) and submits text via
+# metadata["final_answer"], graded by the BrowseComp LLM judge.
+
+# ── LLM: DeepSeek V4 Pro ─────────────────────────────────────────────────────
+# Authored inline (NOT `!include`) so the token budget and DeepSeek specifics
+# are explicit. Note:
+#  * No `parallel_tool_calls`: IterResearch uses TEXT tool-calls (the schema is
+#    in the prompt, requests go out with tools=None), so native-FC flags would
+#    be spurious.
+#  * `extra.thinking.type: enabled` runs V4 Pro in thinking mode. In thinking
+#    mode DeepSeek IGNORES temperature/top_p/presence_penalty — they're harmless
+#    but inert. To run closer to the original IterResearch (Qwen, non-thinking,
+#    sampling load-bearing) set thinking off and rely on extra.iter_research.sampling.
+#  * `reasoning.preserve` is moot here: the Markovian loop never sends an
+#    assistant turn back, so reasoning_content is never round-tripped.
+#  * The <report>/<tool_call> tags must appear in the message CONTENT; the loop
+#    falls back to the reasoning channel only if content carries no tags.
+llm:
+  backend: openai
+  base_url: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+  api_key: ${DEEPSEEK_API_KEY}
+  model: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+  params:
+    # Generous ceiling, not the dangerous 4096 default: a full <report> plus a
+    # long <answer> must never be truncated mid-tag (that fails format checks).
+    max_completion_tokens: 65536
+    reasoning_effort: high          # "max" for hardest tasks (slower per turn)
+  extra:
+    thinking:
+      type: enabled
+  reasoning:
+    preserve: false                 # moot for the Markovian loop (no turn round-trip)
+    format: reasoning_content
+
+agent:
+  type: iter_research
+  # max_turn for the Markovian loop. BrowseComp uses 256.
+  max_steps: 256
+  # Enabled tools. The model sees them under their IterResearch names
+  # (web_search→google_search, web_fetch→Visit, python_interpreter→PythonInterpreter).
+  # To DISABLE the Python sandbox, just remove the python_interpreter line — the
+  # prompt's tool schema and dispatch are built only from this list.
+  tools:
+    - web_search
+    - web_fetch
+    - python_interpreter      # remove this line to run search+fetch only (no sandbox)
+  tool_options:
+    # Backends are env-driven (SEARCH_BACKEND / READER_BACKEND): serpapi+jina,
+    # or the internal bandai relay, etc. Pin a backend here only to override.
+    web_search:
+      max_attempts: 3
+    web_fetch:
+      max_attempts: 3
+      reader_max_attempts: 3
+    python_interpreter:
+      # Endpoints come from SANDBOX_FUSION_ENDPOINTS (comma-separated) or
+      # SANDBOX_FUSION_ENDPOINT. Pin here only to override:
+      # endpoints: "http://host-a:8080,http://host-b:8080"
+      timeout: 50
+      run_timeout: 50
+      max_attempts: 8
+
+task:
+  type: browsecomp
+  dataset_id: browsecomp
+  # Defaults to the downloaded set (datasets/download.sh browsecomp). Override
+  # with BROWSECOMP_DATA_FILE to point at a subset, e.g. a 200-record jsonl.
+  data_file: ${BROWSECOMP_DATA_FILE:-datasets/browsecomp/browse_comp_test_set.csv}
+
+eval:
+  enabled: true
+  timeout: 3600
+  # Grader: DeepSeek with a tighter output budget (single yes/no JSON verdict).
+  judge_llm:
+    backend: openai
+    base_url: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+    api_key: ${DEEPSEEK_API_KEY}
+    model: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+    params:
+      max_completion_tokens: 16384
+    extra:
+      thinking:
+        type: enabled
+    reasoning:
+      preserve: false
+      format: reasoning_content
+
+execution:
+  max_concurrent: 80
+  max_retries: 3
+  output_path: ./results/iter_research_browsecomp
+
+# IterResearch-specific knobs (faithful defaults shown). Override here to tune.
+# Sampling is supplied by the loop; under DeepSeek thinking mode it is ignored,
+# but it takes effect if you switch the LLM to a non-thinking model.
+extra:
+  iter_research:
+    sampling:
+      temperature: 0.6
+      top_p: 0.95
+      presence_penalty: 1.5
+    max_format_retries: 5
+    observation_max_tokens: 32000
+    tokenizer_encoding: o200k_base
