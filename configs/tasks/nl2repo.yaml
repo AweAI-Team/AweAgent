@@ -29,7 +29,8 @@ agent:
 task:
   type: nl2repo
   dataset_id: nl2repo
-  data_file: ${DATA_FILE}
+  # Defaults to the downloaded set (bash datasets/download.sh nl2repo).
+  data_file: ${DATA_FILE:-datasets/nl2repo/nl2repo.jsonl}
   # agent_run_docker: ""           # optional: single image for the agent side;
                                    # leave empty to use each row's evaluation_image.
 

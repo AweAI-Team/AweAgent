@@ -64,17 +64,23 @@ def load_icm_image_index(jsonl_path: str | Path) -> dict[str, str]:
 
 
 def resolve_image(raw: dict[str, Any], image_index: Mapping[str, str] | None = None) -> str:
-    """Resolve the runtime image for a SWE-bench-Pro row from the images.jsonl index."""
+    """Resolve the runtime image for a SWE-bench-Pro row.
+
+    Order: explicit ``oci_image`` / ``image`` / ``image_url`` → the
+    ``images.jsonl`` index (internal-mirror override, when provided) → the
+    row's own ``source_image`` (shipped by the public
+    ``AweAI-Team/AweAgent-Meta-SWE-Bench-Pro`` dataset).
+    """
     explicit_image = raw.get("oci_image") or raw.get("image") or raw.get("image_url")
     if explicit_image:
         return str(explicit_image)
 
-    if not image_index:
-        return ""
     instance_id = str(raw.get("instance_id") or "").strip()
-    if not instance_id:
-        return ""
-    return image_index.get(instance_id, "")
+    if image_index and instance_id:
+        mapped = image_index.get(instance_id, "")
+        if mapped:
+            return mapped
+    return str(raw.get("source_image") or "")
 
 
 def has_prebuilt_eval_assets(raw: dict[str, Any]) -> bool:

@@ -41,6 +41,8 @@ results/
 /datasets/terminal_bench_v2/terminal-bench-2/
 /datasets/terminal_bench_v2/tasks
 /datasets/beyond_swe/BeyondSWE/
+/datasets/nl2repo/AweAgent-Meta-NL2Repo/
+/datasets/swe_bench_pro/AweAgent-Meta-SWE-Bench-Pro/
 
 # Logs
 *.log

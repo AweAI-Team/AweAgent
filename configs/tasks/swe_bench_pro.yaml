@@ -31,7 +31,8 @@ agent:
 task:
   type: swe_bench_pro
   dataset_id: swe_bench_pro
-  data_file: ${DATA_FILE}
+  # Defaults to the downloaded set (bash datasets/download.sh swe_bench_pro).
+  data_file: ${DATA_FILE:-datasets/swe_bench_pro/swe_bench_pro.jsonl}
   images_jsonl: ${SWEBENCH_PRO_IMAGES_JSONL:-/path/to/data/swe_bench_pro/images.jsonl}
   official_repo_root: ${SWEBENCH_PRO_OFFICIAL_REPO_ROOT:-/path/to/SWE-bench_Pro-os}
 

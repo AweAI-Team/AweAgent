@@ -14,7 +14,7 @@ DATASETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export FORCE="${FORCE:-false}"
 
 # Task ids that have a downloader. Keep in sync with datasets/<task>/download.sh.
-KNOWN_TASKS=(browsecomp terminal_bench_v2 beyond_swe)
+KNOWN_TASKS=(browsecomp terminal_bench_v2 beyond_swe nl2repo swe_bench_pro)
 
 usage() {
     cat <<EOF

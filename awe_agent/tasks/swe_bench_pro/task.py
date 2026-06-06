@@ -112,8 +112,8 @@ class SWEBenchProTask(Task):
         jsonl_path = self._resolve_images_jsonl_path()
         if jsonl_path is None:
             self._image_index = {}
-            logger.warning(
-                "SWE-bench-Pro images.jsonl not configured; instance images will be empty"
+            logger.info(
+                "SWE-bench-Pro images.jsonl not configured; using each row's source_image"
             )
             return self._image_index
 
