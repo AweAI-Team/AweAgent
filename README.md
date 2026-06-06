@@ -43,20 +43,28 @@ Reference agents shipped in-tree, all on the shared core.
 
 <sub>**OpenHands-style** and **SearchSWE** are the same scaffold (`search_swe`), one `enable_search` flag apart — listed separately because they behave differently.</sub>
 
-## :clipboard: Benchmarks
+## :clipboard: Datasets & Benchmarks
+
+**Training sets** — large-scale data for training / distilling agents:
+
+| Dataset | Description | Scaffold | Resources |
+|:--|:--|:--|:--|
+| **ScaleSWE** | large-scale SWE-bench-style data | SearchSWE / OpenHands | [data](https://huggingface.co/datasets/AweAI-Team/Scale-SWE) · [guide](recipes/scale_swe/) |
+| **DeNovoSWE** | doc2repo — implement a package from a natural-language spec | SearchSWE / OpenHands | [guide](recipes/denovo_swe/) |
+
+**Test sets** — evaluation benchmarks:
 
 | Benchmark | Description | Scaffold | Evaluation | Resources |
 |:--|:--|:--|:--|:--|
 | **BeyondSWE** | Doc2Repo · CrossRepo · DepMigrate · DomainFix | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/BeyondSWE) · [guide](recipes/beyond_swe/) |
-| **ScaleSWE** | large-scale SWE-bench-style data | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/Scale-SWE) · [guide](recipes/scale_swe/) |
-| **SWE-bench-Pro** | extended SWE-bench code tasks | SearchSWE / OpenHands | isolated Docker patch test | [guide](recipes/swe_bench_pro/) |
-| **NL2Repo** | build a repo from a natural-language spec | SearchSWE / OpenHands | isolated Docker (artifact + golden tests) | [guide](recipes/nl2repo/) |
+| **SWE-bench-Pro** | extended SWE-bench code tasks | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro) · [guide](recipes/swe_bench_pro/) |
+| **NL2Repo** | build a repo from a natural-language spec | SearchSWE / OpenHands | isolated Docker (artifact + golden tests) | [data](https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-NL2Repo) · [guide](recipes/nl2repo/) |
 | **Terminal-Bench 2.0** | terminal tasks in containers | Terminus-2 | same-container reward | [repo](https://github.com/laude-institute/terminal-bench-2) · [guide](recipes/terminal_bench_v2/) |
 | **BrowseComp** | web-search QA | DeepSearch / IterResearch | LLM-as-Judge | [guide](recipes/deepsearch/) |
 
 ## :world_map: Roadmap
 
-Long-term goal: practical, general-purpose agents optimized with reinforcement learning. Shipped so far — the four scaffolds and six benchmarks above. Next:
+Long-term goal: practical, general-purpose agents optimized with reinforcement learning. Shipped so far — the four scaffolds plus the datasets & benchmarks above. Next:
 
 - [ ] **Multi-agent** — multi-agent collaboration and orchestration on the shared core
 - [ ] **RL training** — reinforcement-learning rollouts via [Slime](https://github.com/THUDM/slime) with an SGLang rollout engine *(experimental today)*
