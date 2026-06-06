@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from awe_agent.core.condenser import build_condenser
-from awe_agent.core.condenser.tool_result_omission import OMITTED_TOOL_RESULT
-from awe_agent.core.config.schema import CondenserConfig
-from awe_agent.core.llm.types import Message, ToolCall
+from aweagent.core.condenser import build_condenser
+from aweagent.core.condenser.tool_result_omission import OMITTED_TOOL_RESULT
+from aweagent.core.config.schema import CondenserConfig
+from aweagent.core.llm.types import Message, ToolCall
 
 
 @pytest.mark.asyncio

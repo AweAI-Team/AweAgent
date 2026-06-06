@@ -26,7 +26,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from awe_agent.core.config.loader import load_config
+from aweagent.core.config.loader import load_config
 
 
 def parse_args() -> argparse.Namespace:
@@ -75,7 +75,7 @@ def _load_config(args: argparse.Namespace):
 
 
 def _build_task(config):
-    from awe_agent.tasks.terminal_bench_v2.task import TerminalBenchV2Task
+    from aweagent.tasks.terminal_bench_v2.task import TerminalBenchV2Task
 
     task_data_dir = config.task.task_data_dir
     data_file = config.task.data_file
@@ -110,9 +110,9 @@ async def main() -> None:
     print(f"Agent:  type={config.agent.type}, max_steps={config.agent.max_steps}")
     print(f"Task:   task_data_dir={config.task.task_data_dir}")
 
-    from awe_agent.core.condenser import build_condenser
-    from awe_agent.core.task.runner import TaskRunner
-    from awe_agent.scaffold.registry import agent_registry
+    from aweagent.core.condenser import build_condenser
+    from aweagent.core.task.runner import TaskRunner
+    from aweagent.scaffold.registry import agent_registry
 
     agent_cls = agent_registry.get(config.agent.type)
 

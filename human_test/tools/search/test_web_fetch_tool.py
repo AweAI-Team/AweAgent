@@ -19,9 +19,9 @@ from pathlib import Path
 
 import aiohttp
 
-from awe_agent.core.tool.search.constraints import SearchConstraints
-from awe_agent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
-from awe_agent.core.tool.search.web_fetch_tool import WebFetchTool
+from aweagent.core.tool.search.constraints import SearchConstraints
+from aweagent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
+from aweagent.core.tool.search.web_fetch_tool import WebFetchTool
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────

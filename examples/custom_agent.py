@@ -8,12 +8,12 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from awe_agent.core.agent import Action, Agent, AgentContext, AgentLoop
-from awe_agent.core.llm import LLMClient, LLMConfig, Message
-from awe_agent.core.runtime import RuntimeConfig
-from awe_agent.core.runtime.docker import DockerRuntime
-from awe_agent.core.tool.code import ExecuteBashTool
-from awe_agent.core.tool.protocol import Tool
+from aweagent.core.agent import Action, Agent, AgentContext, AgentLoop
+from aweagent.core.llm import LLMClient, LLMConfig, Message
+from aweagent.core.runtime import RuntimeConfig
+from aweagent.core.runtime.docker import DockerRuntime
+from aweagent.core.tool.code import ExecuteBashTool
+from aweagent.core.tool.protocol import Tool
 
 
 class MySimpleAgent(Agent):

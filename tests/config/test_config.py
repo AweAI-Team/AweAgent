@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from awe_agent.core.config.loader import load_config
-from awe_agent.core.config.schema import (
+from aweagent.core.config.loader import load_config
+from aweagent.core.config.schema import (
     AgentConfig,
     AweAgentConfig,
     EvalConfig,
@@ -19,8 +19,8 @@ from awe_agent.core.config.schema import (
     SecurityConfig,
     TaskConfig,
 )
-from awe_agent.core.llm.config import LLMConfig
-from awe_agent.core.runtime.config import RuntimeConfig
+from aweagent.core.llm.config import LLMConfig
+from aweagent.core.runtime.config import RuntimeConfig
 
 
 def test_default_config():

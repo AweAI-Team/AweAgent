@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from awe_agent.plugins.registry import Registry
+from aweagent.plugins.registry import Registry
 
 
 class DummyBase:
@@ -59,7 +59,7 @@ def test_list_available():
 
 def test_entry_points_discovery():
     """Verify that built-in entry points are discoverable."""
-    reg: Registry[type] = Registry("awe_agent.runtime")
+    reg: Registry[type] = Registry("aweagent.runtime")
     # The docker runtime should be registered via entry_points
     docker_cls = reg.get("docker")
     assert docker_cls is not None

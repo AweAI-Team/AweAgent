@@ -7,16 +7,16 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.agent.loop import AgentLoop, AgentResult
-from awe_agent.core.agent.protocol import Agent
-from awe_agent.core.agent.trajectory import Action
-from awe_agent.core.llm.client import LLMClient
-from awe_agent.core.llm.config import LLMConfig
-from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
-from awe_agent.core.tool.code import ExecuteBashTool, FinishWithTextTool, ThinkTool
-from awe_agent.core.tool.protocol import Tool
-from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+from aweagent.core.agent.context import AgentContext
+from aweagent.core.agent.loop import AgentLoop, AgentResult
+from aweagent.core.agent.protocol import Agent
+from aweagent.core.agent.trajectory import Action
+from aweagent.core.llm.client import LLMClient
+from aweagent.core.llm.config import LLMConfig
+from aweagent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
+from aweagent.core.tool.code import ExecuteBashTool, FinishWithTextTool, ThinkTool
+from aweagent.core.tool.protocol import Tool
+from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 from tests.conftest import MockRuntimeSession
 
 

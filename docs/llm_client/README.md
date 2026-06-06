@@ -480,11 +480,11 @@ extra: {}                         # dict[str, Any] — api_version triggers Azur
 
 ## Adding a New Backend
 
-1. Create `awe_agent/core/llm/backends/your_backend.py` implementing the `LLMBackend` protocol:
+1. Create `aweagent/core/llm/backends/your_backend.py` implementing the `LLMBackend` protocol:
 
 ```python
-from awe_agent.core.llm.config import LLMConfig
-from awe_agent.core.llm.types import LLMResponse, Message
+from aweagent.core.llm.config import LLMConfig
+from aweagent.core.llm.types import LLMResponse, Message
 
 class YourBackend:
     def __init__(self, config: LLMConfig) -> None:
@@ -512,8 +512,8 @@ class YourBackend:
 1. Register the entry point in `pyproject.toml`:
 
 ```toml
-[project.entry-points."awe_agent.llm_backend"]
-your_backend = "awe_agent.core.llm.backends.your_backend:YourBackend"
+[project.entry-points."aweagent.llm_backend"]
+your_backend = "aweagent.core.llm.backends.your_backend:YourBackend"
 ```
 
 1. Create a YAML preset at `configs/llm/your_backend.yaml`.
@@ -521,7 +521,7 @@ your_backend = "awe_agent.core.llm.backends.your_backend:YourBackend"
 
 ```python
 import asyncio
-from awe_agent.core.llm import LLMClient, LLMConfig, Message
+from aweagent.core.llm import LLMClient, LLMConfig, Message
 
 async def main():
     config = LLMConfig(backend="your_backend", model="your-model")
@@ -539,10 +539,10 @@ No changes to `LLMClient`, middleware, or any existing backend are needed.
 
 ```python
 import asyncio
-from awe_agent.core.llm import LLMClient, LLMConfig, Message
+from aweagent.core.llm import LLMClient, LLMConfig, Message
 
 # Load from YAML
-from awe_agent.core.config.loader import load_yaml
+from aweagent.core.config.loader import load_yaml
 config = LLMConfig(**load_yaml("configs/llm/anthropic.yaml"))
 
 # Or construct directly

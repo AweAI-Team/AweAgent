@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from awe_agent.core.task.types import Instance
-from awe_agent.tasks.beyond_swe.prompts import get_beyond_swe_prompt
-from awe_agent.tasks.beyond_swe.task import BeyondSWETask
-from awe_agent.tasks.scale_swe.task import ScaleSWETask
+from aweagent.core.task.types import Instance
+from aweagent.tasks.beyond_swe.prompts import get_beyond_swe_prompt
+from aweagent.tasks.beyond_swe.task import BeyondSWETask
+from aweagent.tasks.scale_swe.task import ScaleSWETask
 
 
 def _write_jsonl(data: list[dict], path: str) -> None:
@@ -140,7 +140,7 @@ def test_beyond_swe_from_jsonl():
 
 def test_prompt_routing_beyond_swe():
     """BeyondSWE routes resolve correctly for all task types."""
-    from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
+    from aweagent.scaffold.search_swe.prompts.config import resolve_prompt_keys
 
     sys_key, usr_key = resolve_prompt_keys("beyond_swe", "doc2repo", False)
     assert sys_key == "beyondswe"
@@ -153,7 +153,7 @@ def test_prompt_routing_beyond_swe():
 
 def test_prompt_routing_fallback():
     """Unknown dataset falls back to default route."""
-    from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
+    from aweagent.scaffold.search_swe.prompts.config import resolve_prompt_keys
 
     sys_key, usr_key = resolve_prompt_keys("unknown_dataset", None, False)
     assert sys_key == "beyondswe"
@@ -282,7 +282,7 @@ def test_scale_swe_from_jsonl():
 
 def test_prompt_routing_scale_swe():
     """ScaleSWE route table resolves to (openhands, scaleswe)."""
-    from awe_agent.scaffold.search_swe.prompts.config import resolve_prompt_keys
+    from aweagent.scaffold.search_swe.prompts.config import resolve_prompt_keys
 
     sys_key, usr_key = resolve_prompt_keys("scale_swe", None, False)
     assert sys_key == "openhands"
@@ -291,7 +291,7 @@ def test_prompt_routing_scale_swe():
 
 def test_scale_swe_prompt_from_own_module():
     """ScaleSWE prompt is defined in scale_swe/prompt.py, registered via scaffold."""
-    from awe_agent.tasks.scale_swe.prompt import SCALESWE_PROMPT
+    from aweagent.tasks.scale_swe.prompt import SCALESWE_PROMPT
 
     task = ScaleSWETask(instances=_SCALE_SWE_INSTANCES)
     inst = task.get_instances(instance_ids=["auth0__auth0-python-001"])[0]

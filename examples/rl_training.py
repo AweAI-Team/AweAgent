@@ -14,7 +14,7 @@ This file shows two layers:
    ``AgentContext`` with a ``TrainingState`` and read back ``to_rl_data()``.
    This is what makes "develop == deploy == train" hold.
 2. ``production_entry_point()`` — how the Slime post-training framework drives
-   real rollouts via :func:`awe_agent.integrations.slime.generate_rollout_fully_async`.
+   real rollouts via :func:`aweagent.integrations.slime.generate_rollout_fully_async`.
 
 Running an actual rollout needs an SGLang server (for token ids + logprobs), a
 container runtime (Docker), and a Slime checkout, so ``main()`` only prints the
@@ -25,11 +25,11 @@ from __future__ import annotations
 
 import asyncio
 
-from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.agent.training import TrainingState
-from awe_agent.core.llm.client import LLMClient
-from awe_agent.core.llm.config import LLMConfig
-from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+from aweagent.core.agent.context import AgentContext
+from aweagent.core.agent.training import TrainingState
+from aweagent.core.llm.client import LLMClient
+from aweagent.core.llm.config import LLMConfig
+from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
 
 def build_training_context(tokenizer, session, max_new_tokens: int = 32768) -> AgentContext:
@@ -67,7 +67,7 @@ async def demo_training_seam() -> None:
     The shape of the code that runs a training rollout is exactly the inference
     code, plus reading ``ctx.training.to_rl_data()`` at the end::
 
-        from awe_agent.core.agent.loop import AgentLoop
+        from aweagent.core.agent.loop import AgentLoop
 
         ctx = build_training_context(tokenizer, session)
         loop = AgentLoop(agent, ctx)
@@ -88,10 +88,10 @@ async def demo_training_seam() -> None:
 def production_entry_point() -> None:
     """How Slime drives real rollouts.
 
-    ``awe_agent.integrations.slime`` exposes the rollout function Slime's
+    ``aweagent.integrations.slime`` exposes the rollout function Slime's
     ``RolloutManager`` calls each iteration::
 
-        from awe_agent.integrations.slime import generate_rollout_fully_async
+        from aweagent.integrations.slime import generate_rollout_fully_async
         # def rollout_fn(args, rollout_id, data_buffer, evaluation=False) -> list[list[Sample]]
 
     It is configured entirely through environment variables (no code changes):
@@ -114,7 +114,7 @@ def production_entry_point() -> None:
 async def main() -> None:
     # Importing the Slime bridge does not require Slime itself (it is imported
     # lazily at call time), so this stays safe to run anywhere.
-    from awe_agent.integrations import slime
+    from aweagent.integrations import slime
 
     print("AweAgent RL training: same agent, one switch.\n")
     print("Inference vs training differ by a single AgentContext field:")
@@ -127,11 +127,11 @@ async def main() -> None:
     print("  - logprobs + weight_version (SGLang /generate)")
     print()
     print("Production entry point (called by Slime's RolloutManager):")
-    print(f"  awe_agent.integrations.slime.{slime.generate_rollout_fully_async.__name__}"
+    print(f"  aweagent.integrations.slime.{slime.generate_rollout_fully_async.__name__}"
           "(args, rollout_id, data_buffer)")
     print()
     print("End-to-end training additionally requires: an SGLang server, a Docker")
-    print("runtime, and a Slime checkout. See awe_agent/integrations/slime.py.")
+    print("runtime, and a Slime checkout. See aweagent/integrations/slime.py.")
 
 
 if __name__ == "__main__":

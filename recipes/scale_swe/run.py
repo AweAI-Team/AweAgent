@@ -50,7 +50,7 @@ import sys
 # Ensure project root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from awe_agent.core.config.loader import load_config
+from aweagent.core.config.loader import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ def _load_config(args: argparse.Namespace):
 
 
 def _build_task(config, data_file: str):
-    from awe_agent.tasks.scale_swe.task import ScaleSWETask
+    from aweagent.tasks.scale_swe.task import ScaleSWETask
 
     return ScaleSWETask(
         dataset_id=config.task.dataset_id,
@@ -163,13 +163,13 @@ def _mode_prompt(task, instance_id: str) -> None:
 
 
 async def _mode_debug(config, task, instance_id: str, skip_eval: bool) -> None:
-    from awe_agent.core.agent import AgentContext, AgentLoop
-    from awe_agent.core.condenser import build_condenser
-    from awe_agent.core.eval.setup import PreAgentSetup
-    from awe_agent.core.llm import LLMClient
-    from awe_agent.core.runtime import RuntimeConfig
-    from awe_agent.core.runtime.docker import DockerRuntime
-    from awe_agent.scaffold.search_swe import SearchSWEAgent
+    from aweagent.core.agent import AgentContext, AgentLoop
+    from aweagent.core.condenser import build_condenser
+    from aweagent.core.eval.setup import PreAgentSetup
+    from aweagent.core.llm import LLMClient
+    from aweagent.core.runtime import RuntimeConfig
+    from aweagent.core.runtime.docker import DockerRuntime
+    from aweagent.scaffold.search_swe import SearchSWEAgent
 
     instances = task.get_instances(instance_ids=[instance_id])
     if not instances:
@@ -263,7 +263,7 @@ async def _mode_debug(config, task, instance_id: str, skip_eval: bool) -> None:
 
     # Evaluate (outside agent session)
     if not skip_eval:
-        from awe_agent.tasks.scale_swe.evaluator import ScaleSWEEvaluator
+        from aweagent.tasks.scale_swe.evaluator import ScaleSWEEvaluator
 
         eval_runtime = DockerRuntime(RuntimeConfig(
             backend="docker", image=image, workdir=inst.workdir,
@@ -284,9 +284,9 @@ async def _mode_batch(
     config, task, instance_ids: list[str] | None, skip_eval: bool,
     save_trajectories: bool = True,
 ) -> None:
-    from awe_agent.core.condenser import build_condenser
-    from awe_agent.core.task.runner import TaskRunner
-    from awe_agent.scaffold.registry import agent_registry
+    from aweagent.core.condenser import build_condenser
+    from aweagent.core.task.runner import TaskRunner
+    from aweagent.scaffold.registry import agent_registry
 
     agent_cls = agent_registry.get(config.agent.type)
 

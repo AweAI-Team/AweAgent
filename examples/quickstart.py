@@ -6,11 +6,11 @@ Usage:
 
 import asyncio
 
-from awe_agent.core.agent import AgentContext, AgentLoop
-from awe_agent.core.llm import LLMClient, LLMConfig, Message
-from awe_agent.core.runtime import RuntimeConfig
-from awe_agent.core.runtime.docker import DockerRuntime
-from awe_agent.scaffold.search_swe import SearchSWEAgent
+from aweagent.core.agent import AgentContext, AgentLoop
+from aweagent.core.llm import LLMClient, LLMConfig, Message
+from aweagent.core.runtime import RuntimeConfig
+from aweagent.core.runtime.docker import DockerRuntime
+from aweagent.scaffold.search_swe import SearchSWEAgent
 
 
 async def main() -> None:

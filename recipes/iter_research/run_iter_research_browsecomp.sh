@@ -116,7 +116,7 @@ if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
 fi
 
 CMD=(
-    "${PYTHON_BIN}" -m awe_agent.cli run
+    "${PYTHON_BIN}" -m aweagent.cli run
     --config "${CONFIG}"
     --output "${OUTPUT_DIR}"
     --max-steps "${MAX_STEPS}"

@@ -4,11 +4,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.agent.loop import AgentLoop
-from awe_agent.core.agent.policy import CompositePolicy, LoopPolicy, NoOpPolicy
-from awe_agent.core.agent.trajectory import Trajectory
-from awe_agent.core.llm.types import LLMResponse, Message
+from aweagent.core.agent.context import AgentContext
+from aweagent.core.agent.loop import AgentLoop
+from aweagent.core.agent.policy import CompositePolicy, LoopPolicy, NoOpPolicy
+from aweagent.core.agent.trajectory import Trajectory
+from aweagent.core.llm.types import LLMResponse, Message
 
 
 def _loop(llm) -> AgentLoop:

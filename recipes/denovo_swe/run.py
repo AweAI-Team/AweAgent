@@ -62,7 +62,7 @@ from pathlib import Path
 # Ensure project root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from awe_agent.core.config.loader import load_config
+from aweagent.core.config.loader import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ def _build_task(
     del_done_images: bool = False, clean_snapshot_file: str | None = None,
     prompt_version: str = "v2", eval_iters: int = 1,
 ):
-    from awe_agent.tasks.denovo_swe.task import DeNovoSWETask
+    from aweagent.tasks.denovo_swe.task import DeNovoSWETask
 
     return DeNovoSWETask(
         dataset_id=config.task.dataset_id,
@@ -229,12 +229,12 @@ async def _mode_debug(
     config, task, instance_id: str, skip_eval: bool, validate_run: bool,
     eval_iters: int = 1,
 ) -> None:
-    from awe_agent.core.agent import AgentContext, AgentLoop
-    from awe_agent.core.condenser import build_condenser
-    from awe_agent.core.eval.setup import PreAgentSetup
-    from awe_agent.core.llm import LLMClient
-    from awe_agent.core.task.runner import runtime_registry
-    from awe_agent.scaffold.search_swe import SearchSWEAgent
+    from aweagent.core.agent import AgentContext, AgentLoop
+    from aweagent.core.condenser import build_condenser
+    from aweagent.core.eval.setup import PreAgentSetup
+    from aweagent.core.llm import LLMClient
+    from aweagent.core.task.runner import runtime_registry
+    from aweagent.scaffold.search_swe import SearchSWEAgent
 
     instances = task.get_instances(instance_ids=[instance_id])
     if not instances:
@@ -384,7 +384,7 @@ async def _mode_debug(
 
     eval_data = None
     if not skip_eval:
-        from awe_agent.tasks.denovo_swe.evaluator import DeNovoSWEEvaluator
+        from aweagent.tasks.denovo_swe.evaluator import DeNovoSWEEvaluator
 
         eval_runtime_cls = runtime_registry.get(config.runtime.backend)
         eval_runtime = eval_runtime_cls(config.runtime.model_copy(
@@ -485,9 +485,9 @@ async def _mode_batch(
     config, task, instance_ids: list[str] | None, skip_eval: bool,
     save_trajectories: bool = True,
 ) -> None:
-    from awe_agent.core.condenser import build_condenser
-    from awe_agent.core.task.runner import TaskRunner
-    from awe_agent.scaffold.registry import agent_registry
+    from aweagent.core.condenser import build_condenser
+    from aweagent.core.task.runner import TaskRunner
+    from aweagent.scaffold.registry import agent_registry
 
     agent_cls = agent_registry.get(config.agent.type)
 

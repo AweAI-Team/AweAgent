@@ -92,7 +92,7 @@ Direct CLI (Recommended):
 ```bash
 export BROWSECOMP_DATA_FILE=/path/to/browsecomp.json
 
-python -m awe_agent.cli run \
+python -m aweagent.cli run \
   --config configs/tasks/browsecomp.yaml \
   --instance-ids test_001 \
   --max-steps 300 \

@@ -8,13 +8,13 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from awe_agent.core.config import load_config
-from awe_agent.core.eval.isolation import IsolatedEvaluator
-from awe_agent.core.llm import LLMConfig
-from awe_agent.core.runtime import RuntimeConfig
-from awe_agent.core.task import Evaluator, Instance, Task, TaskRunner
-from awe_agent.core.task.types import EvalResult
-from awe_agent.scaffold.search_swe import SearchSWEAgent
+from aweagent.core.config import load_config
+from aweagent.core.eval.isolation import IsolatedEvaluator
+from aweagent.core.llm import LLMConfig
+from aweagent.core.runtime import RuntimeConfig
+from aweagent.core.task import Evaluator, Instance, Task, TaskRunner
+from aweagent.core.task.types import EvalResult
+from aweagent.scaffold.search_swe import SearchSWEAgent
 
 
 class MyBenchmark(Task):

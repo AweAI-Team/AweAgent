@@ -6,7 +6,7 @@ docker image's original source has been wiped by `clean.sh` before the
 agent runs.  Evaluation re-runs `clean.sh`, applies the agent patch +
 golden `test_patch`, and runs `pytest` per file.
 
-See [`awe_agent/tasks/denovo_swe/README.md`](../../awe_agent/tasks/denovo_swe/README.md)
+See [`aweagent/tasks/denovo_swe/README.md`](../../aweagent/tasks/denovo_swe/README.md)
 for task-level documentation (workflow, data format, anti-hack details).
 
 ## Prerequisites

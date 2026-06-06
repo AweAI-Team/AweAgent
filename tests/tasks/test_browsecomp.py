@@ -7,24 +7,24 @@ from typing import Any
 
 import pytest
 
-from awe_agent.cli import _build_task
-from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.agent.loop import AgentResult
-from awe_agent.core.agent.protocol import Agent
-from awe_agent.core.agent.trajectory import Action, Trajectory
-from awe_agent.core.config.schema import AweAgentConfig
-from awe_agent.core.llm.config import LLMConfig
-from awe_agent.core.llm.types import LLMResponse
-from awe_agent.core.runtime.config import RuntimeConfig
-from awe_agent.core.task.runner import TaskRunner, _build_trajectory_record, runtime_registry
-from awe_agent.core.task.types import Instance, TaskResult
-from awe_agent.core.tool.protocol import Tool
-from awe_agent.tasks.browsecomp.evaluator import (
+from aweagent.cli import _build_task
+from aweagent.core.agent.context import AgentContext
+from aweagent.core.agent.loop import AgentResult
+from aweagent.core.agent.protocol import Agent
+from aweagent.core.agent.trajectory import Action, Trajectory
+from aweagent.core.config.schema import AweAgentConfig
+from aweagent.core.llm.config import LLMConfig
+from aweagent.core.llm.types import LLMResponse
+from aweagent.core.runtime.config import RuntimeConfig
+from aweagent.core.task.runner import TaskRunner, _build_trajectory_record, runtime_registry
+from aweagent.core.task.types import Instance, TaskResult
+from aweagent.core.tool.protocol import Tool
+from aweagent.tasks.browsecomp.evaluator import (
     GRADER_TEMPLATE,
     BrowseCompEvaluator,
     _parse_judge_correct,
 )
-from awe_agent.tasks.browsecomp.task import (
+from aweagent.tasks.browsecomp.task import (
     BrowseCompTask,
     _is_plausible_text,
     _maybe_decrypt,
@@ -247,7 +247,7 @@ class _FakeLLMClient:
 @pytest.mark.asyncio
 async def test_browsecomp_evaluator_accepts_yes(monkeypatch):
     monkeypatch.setattr(
-        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        "aweagent.tasks.browsecomp.evaluator.LLMClient",
         _FakeLLMClient,
     )
     _FakeLLMClient.response_text = "reasoning: ok\ncorrect: yes\nconfidence: 100"
@@ -278,7 +278,7 @@ async def test_browsecomp_evaluator_accepts_yes(monkeypatch):
 @pytest.mark.asyncio
 async def test_browsecomp_evaluator_accepts_json_yes(monkeypatch):
     monkeypatch.setattr(
-        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        "aweagent.tasks.browsecomp.evaluator.LLMClient",
         _FakeLLMClient,
     )
     _FakeLLMClient.response_text = json.dumps({
@@ -307,7 +307,7 @@ async def test_browsecomp_evaluator_accepts_json_yes(monkeypatch):
 @pytest.mark.asyncio
 async def test_browsecomp_evaluator_accepts_fenced_json_yes(monkeypatch):
     monkeypatch.setattr(
-        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        "aweagent.tasks.browsecomp.evaluator.LLMClient",
         _FakeLLMClient,
     )
     _FakeLLMClient.response_text = (
@@ -336,7 +336,7 @@ async def test_browsecomp_evaluator_accepts_fenced_json_yes(monkeypatch):
 @pytest.mark.asyncio
 async def test_browsecomp_evaluator_accepts_markdown_correct_label(monkeypatch):
     monkeypatch.setattr(
-        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        "aweagent.tasks.browsecomp.evaluator.LLMClient",
         _FakeLLMClient,
     )
     _FakeLLMClient.response_text = "**correct**: yes"
@@ -360,7 +360,7 @@ async def test_browsecomp_evaluator_accepts_markdown_correct_label(monkeypatch):
 @pytest.mark.asyncio
 async def test_browsecomp_evaluator_rejects_no_or_unparsed(monkeypatch):
     monkeypatch.setattr(
-        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        "aweagent.tasks.browsecomp.evaluator.LLMClient",
         _FakeLLMClient,
     )
     instance = Instance(
@@ -419,7 +419,7 @@ async def test_browsecomp_evaluator_flags_grader_error(monkeypatch):
             raise RuntimeError("grader boom")
 
     monkeypatch.setattr(
-        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        "aweagent.tasks.browsecomp.evaluator.LLMClient",
         _RaisingLLMClient,
     )
     instance = Instance(
@@ -533,7 +533,7 @@ async def test_runner_passes_final_answer_to_agent_result_evaluator(
 ):
     runtime_registry.register("browsecomp_no_session", _NoSessionRuntime)
     monkeypatch.setattr(
-        "awe_agent.tasks.browsecomp.evaluator.LLMClient",
+        "aweagent.tasks.browsecomp.evaluator.LLMClient",
         _FakeLLMClient,
     )
     _FakeLLMClient.response_text = "correct: yes"

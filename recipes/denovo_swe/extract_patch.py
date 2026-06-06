@@ -70,18 +70,18 @@ _MAX_BINARY_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB raw
 _BINARY_TAR_REMOTE = "/tmp/_awe_extract_binaries.tar.gz"
 
 # Bug E sanitization (``<dir>/TestX.py::<rest>`` → ``<dir>.py::TestX::<rest>``)
-# lives in :mod:`awe_agent.core.eval.utils` so the evaluator can apply the
+# lives in :mod:`aweagent.core.eval.utils` so the evaluator can apply the
 # same rewrite as a safety net.
-from awe_agent.core.eval.utils import sanitize_test_ids as _sanitize_test_ids  # noqa: E402
+from aweagent.core.eval.utils import sanitize_test_ids as _sanitize_test_ids  # noqa: E402
 
 # clean.sh deletion predictor — used by the Bug B whitelist filter so we
 # only ship files clean.sh would actually delete (sibling helper dirs
 # preserve their non-code data files, which don't need to round-trip).
-from awe_agent.tasks.denovo_swe.clean_predict import will_clean_delete  # noqa: E402
+from aweagent.tasks.denovo_swe.clean_predict import will_clean_delete  # noqa: E402
 
 # Package-name extractor (pypi_name / import_names / package_setup_files).
 # Bundled with the denovo_swe task so this recipe stays self-contained.
-from awe_agent.tasks.denovo_swe.package_extractor import (  # noqa: E402
+from aweagent.tasks.denovo_swe.package_extractor import (  # noqa: E402
     get_extractor_script,
 )
 
@@ -678,8 +678,8 @@ async def extract_patch_for_instance(
 
     Returns the raw dict augmented with ``test_patch`` and ``test_files``.
     """
-    from awe_agent.core.runtime import RuntimeConfig
-    from awe_agent.core.task.runner import runtime_registry
+    from aweagent.core.runtime import RuntimeConfig
+    from aweagent.core.task.runner import runtime_registry
 
     instance_id = raw.get("instance_id", "unknown")
 
@@ -1733,7 +1733,7 @@ async def main() -> None:
         datefmt="%H:%M:%S",
     )
 
-    from awe_agent.core.config.loader import load_config
+    from aweagent.core.config.loader import load_config
     config = load_config(args.config)
 
     await run_extraction(

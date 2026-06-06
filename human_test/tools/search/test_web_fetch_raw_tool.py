@@ -7,9 +7,9 @@ Before running, optionally set:
 import asyncio
 import os
 
-from awe_agent.core.tool.search.backends.reader.jina import JinaReaderBackend
-from awe_agent.core.tool.search.constraints import SearchConstraints
-from awe_agent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
+from aweagent.core.tool.search.backends.reader.jina import JinaReaderBackend
+from aweagent.core.tool.search.constraints import SearchConstraints
+from aweagent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
 
 
 # ── 1. Standalone JinaReaderBackend ───────────────────────────────────────

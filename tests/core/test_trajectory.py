@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from awe_agent.core.agent.trajectory import Action, Trajectory, TrajectoryStep
+from aweagent.core.agent.trajectory import Action, Trajectory, TrajectoryStep
 
 
 def test_action_creation():

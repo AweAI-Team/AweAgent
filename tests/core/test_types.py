@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
-from awe_agent.core.runtime.types import ExecutionResult, FileInfo, RuntimeSessionInfo
-from awe_agent.core.task.types import EvalResult, Instance, TaskResult
+from aweagent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
+from aweagent.core.runtime.types import ExecutionResult, FileInfo, RuntimeSessionInfo
+from aweagent.core.task.types import EvalResult, Instance, TaskResult
 
 
 # ── Message ──────────────────────────────────────────────────────────────────

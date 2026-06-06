@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from awe_agent.core.tool.search.backends.reader import get_reader_backend
-from awe_agent.core.tool.search.backends.reader.jina import JinaReaderBackend
-from awe_agent.core.tool.search.backends.search import get_search_backend
-from awe_agent.core.tool.search.backends.search.serpapi import SerpAPIBackend
-from awe_agent.core.tool.search.constraints import SearchConstraints
-from awe_agent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
-from awe_agent.core.tool.search.web_fetch_tool import WebFetchTool
-from awe_agent.core.tool.search.web_search_tool import WebSearchTool
+from aweagent.core.tool.search.backends.reader import get_reader_backend
+from aweagent.core.tool.search.backends.reader.jina import JinaReaderBackend
+from aweagent.core.tool.search.backends.search import get_search_backend
+from aweagent.core.tool.search.backends.search.serpapi import SerpAPIBackend
+from aweagent.core.tool.search.constraints import SearchConstraints
+from aweagent.core.tool.search.web_fetch_raw_tool import WebFetchRawTool
+from aweagent.core.tool.search.web_fetch_tool import WebFetchTool
+from aweagent.core.tool.search.web_search_tool import WebSearchTool
 
 # ── SearchConstraints ───────────────────────────────────────────────────────
 
@@ -329,7 +329,7 @@ def test_web_fetch_yaml_config_inherits_all_fields(tmp_path):
 
 def _make_mock_llm(summary_text: str = "This is the summary.") -> MagicMock:
     """Create a mock LLMClient for WebFetchTool tests."""
-    from awe_agent.core.llm.types import LLMResponse
+    from aweagent.core.llm.types import LLMResponse
 
     mock_llm = MagicMock()
     mock_llm.chat = AsyncMock(return_value=LLMResponse(content=summary_text))

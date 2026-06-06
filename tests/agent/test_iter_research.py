@@ -8,14 +8,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.config.schema import AweAgentConfig
-from awe_agent.core.llm.types import LLMResponse, TokenUsage
-from awe_agent.core.runtime.protocol import RuntimeSession
-from awe_agent.core.tool.protocol import Tool
-from awe_agent.scaffold.iter_research.agent import IterResearchAgent, _resolve_tool_names
-from awe_agent.scaffold.iter_research.loop import IterResearchLoop
-from awe_agent.scaffold.iter_research.prompts import (
+from aweagent.core.agent.context import AgentContext
+from aweagent.core.config.schema import AweAgentConfig
+from aweagent.core.llm.types import LLMResponse, TokenUsage
+from aweagent.core.runtime.protocol import RuntimeSession
+from aweagent.core.tool.protocol import Tool
+from aweagent.scaffold.iter_research.agent import IterResearchAgent, _resolve_tool_names
+from aweagent.scaffold.iter_research.loop import IterResearchLoop
+from aweagent.scaffold.iter_research.prompts import (
     check_report_action,
     extract_tags,
     render_template,
@@ -157,7 +157,7 @@ def test_from_config_with_constraints_builds_agent():
         agent={"type": "iter_research"},
         security={"blocked_search_patterns": {"url": [r".*example\.com.*"]}},
     )
-    from awe_agent.core.tool.search import SearchConstraints
+    from aweagent.core.tool.search import SearchConstraints
 
     agent = IterResearchAgent.from_config_with_constraints(
         config, SearchConstraints(blocked_patterns={"title": [r".*leak.*"]})

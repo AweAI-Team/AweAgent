@@ -2,7 +2,7 @@
 
 import asyncio
 
-from awe_agent.core.tool.search.constraints import SearchConstraints
+from aweagent.core.tool.search.constraints import SearchConstraints
 
 
 def test_from_repo():

@@ -27,8 +27,8 @@ async def test_raw_client():
     print("Test 1: Raw Ark client (create_async_client)")
     print("=" * 60)
 
-    from awe_agent.core.config.loader import load_yaml
-    from awe_agent.core.llm.client import create_async_client
+    from aweagent.core.config.loader import load_yaml
+    from aweagent.core.llm.client import create_async_client
 
     config = load_yaml(str(CONFIG_PATH))
     print(f"  Config loaded: backend={config.get('backend')}, model={config.get('model')}")
@@ -64,7 +64,7 @@ async def test_web_fetch_tool():
 
     os.environ.setdefault("WEB_FETCH_CONFIG_PATH", str(CONFIG_PATH))
 
-    from awe_agent.core.tool.search.web_fetch_tool import WebFetchTool
+    from aweagent.core.tool.search.web_fetch_tool import WebFetchTool
 
     tool = WebFetchTool()
     # Force lazy-load to verify config is picked up

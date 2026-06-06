@@ -93,7 +93,7 @@ three debugpy configs:
 
 - **IterResearch BrowseComp — debug 1 instance (eval off)** — single-flight
   (`--max-concurrent 1`), one instance, judge skipped. Set breakpoints in
-  `awe_agent/scaffold/iter_research/loop.py` and inspect `response.content`,
+  `aweagent/scaffold/iter_research/loop.py` and inspect `response.content`,
   `text`, `report`, `tool_call`, `observation`, and the reconstructed
   `window[0].content` each turn to see whether the model follows the format.
 - **… — dry run (list instances)** — prints instance ids without calling the model.

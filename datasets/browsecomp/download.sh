@@ -7,7 +7,7 @@
 # Why there is NO decrypt step here:
 # the file ships canary-ENCRYPTED, and we keep it encrypted at rest on purpose.
 # The AweAgent browsecomp task decrypts each record in memory at load time
-# (awe_agent/tasks/browsecomp/task.py -> _maybe_decrypt, using the `canary`
+# (aweagent/tasks/browsecomp/task.py -> _maybe_decrypt, using the `canary`
 # column; same sha256-keyed XOR as the official decrypt). Plaintext eval
 # answers therefore never touch disk, which keeps the benchmark uncontaminated.
 set -euo pipefail

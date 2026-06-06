@@ -19,19 +19,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from awe_agent.core.agent.stats import RunStats
-from awe_agent.core.agent.trajectory import Action
-from awe_agent.core.condenser import build_condenser
-from awe_agent.core.condenser.truncation import TruncationCondenser
-from awe_agent.core.config.schema import AgentConfig, CondenserConfig
-from awe_agent.core.llm.format import get_tool_format
-from awe_agent.core.llm.format.openai import OpenAIFunctionFormat
-from awe_agent.core.llm.format.xml import CodeActXMLFormat
-from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
-from awe_agent.core.runtime.types import ExecutionResult
-from awe_agent.core.task.types import EvalResult, Instance
-from awe_agent.core.tool.code.bash import ExecuteBashTool
-from awe_agent.core.tool.search.constraints import SearchConstraints
+from aweagent.core.agent.stats import RunStats
+from aweagent.core.agent.trajectory import Action
+from aweagent.core.condenser import build_condenser
+from aweagent.core.condenser.truncation import TruncationCondenser
+from aweagent.core.config.schema import AgentConfig, CondenserConfig
+from aweagent.core.llm.format import get_tool_format
+from aweagent.core.llm.format.openai import OpenAIFunctionFormat
+from aweagent.core.llm.format.xml import CodeActXMLFormat
+from aweagent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
+from aweagent.core.runtime.types import ExecutionResult
+from aweagent.core.task.types import EvalResult, Instance
+from aweagent.core.tool.code.bash import ExecuteBashTool
+from aweagent.core.tool.search.constraints import SearchConstraints
 from tests.conftest import MockRuntimeSession
 
 
@@ -206,7 +206,7 @@ def test_agent_config_has_condenser():
 
 def test_search_mode_allows_git_clone():
     """Search mode should NOT block git clone (only _ALWAYS_BLOCKED applies)."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     agent = SearchSWEAgent(enable_search=True)
     bash_tool = agent._tools[0]
@@ -219,7 +219,7 @@ def test_search_mode_allows_git_clone():
 
 def test_non_search_mode_blocks_git_clone():
     """Non-search mode should block git clone."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     agent = SearchSWEAgent(enable_search=False)
     bash_tool = agent._tools[0]
@@ -231,7 +231,7 @@ def test_non_search_mode_blocks_git_clone():
 
 def test_always_blocked_in_search_mode():
     """git log --all should be blocked even in search mode."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     agent = SearchSWEAgent(enable_search=True)
     bash_tool = agent._tools[0]
@@ -243,7 +243,7 @@ def test_always_blocked_in_search_mode():
 
 def test_explicit_blocklist_is_additive():
     """Explicit blocklist adds to code defaults, not replaces them."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     custom = [r".*forbidden.*"]
     agent = SearchSWEAgent(enable_search=False, bash_blocklist=custom)
@@ -273,7 +273,7 @@ def test_llm_response_has_finish_reason():
 
 def test_is_valid_response_valid():
     """Valid response with content and stop reason."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     resp = LLMResponse(content="I'll fix it", finish_reason="stop")
     assert SearchSWEAgent._is_valid_response(resp)
@@ -281,7 +281,7 @@ def test_is_valid_response_valid():
 
 def test_is_valid_response_empty():
     """Empty response (no content, no tool_calls) is invalid."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     resp = LLMResponse(content=None, tool_calls=[], finish_reason="stop")
     assert not SearchSWEAgent._is_valid_response(resp)
@@ -289,7 +289,7 @@ def test_is_valid_response_empty():
 
 def test_is_valid_response_truncated():
     """Truncated response (finish_reason='length') is invalid."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     resp = LLMResponse(content="partial...", finish_reason="length")
     assert not SearchSWEAgent._is_valid_response(resp)
@@ -297,7 +297,7 @@ def test_is_valid_response_truncated():
 
 def test_is_valid_response_with_tool_calls():
     """Response with tool_calls and no content is valid."""
-    from awe_agent.scaffold.search_swe.agent import SearchSWEAgent
+    from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
     resp = LLMResponse(
         content=None,
@@ -309,7 +309,7 @@ def test_is_valid_response_with_tool_calls():
 
 def test_retry_config_does_not_retry_bad_request_by_default():
     """BadRequestError should not be retried by the global default policy."""
-    from awe_agent.core.llm.config import RetryConfig
+    from aweagent.core.llm.config import RetryConfig
 
     config = RetryConfig()
     assert "BadRequestError" not in config.retry_on
@@ -322,7 +322,7 @@ def test_retry_config_does_not_retry_bad_request_by_default():
 
 def test_task_get_search_constraints_with_repo():
     """Task.get_search_constraints returns constraints when repo is set."""
-    from awe_agent.core.task.protocol import Task
+    from aweagent.core.task.protocol import Task
 
     class DummyTask(Task):
         def get_instances(self, instance_ids=None): return []
@@ -341,7 +341,7 @@ def test_task_get_search_constraints_with_repo():
 
 def test_task_get_search_constraints_no_repo():
     """Task.get_search_constraints returns None when repo is empty."""
-    from awe_agent.core.task.protocol import Task
+    from aweagent.core.task.protocol import Task
 
     class DummyTask(Task):
         def get_instances(self, instance_ids=None): return []
@@ -591,7 +591,7 @@ def test_agent_config_has_bash_max_timeout():
 @pytest.mark.asyncio
 async def test_apply_patch_6_strategies():
     """apply_patch tries 6 strategies in order; reject partial success normalised to 0."""
-    from awe_agent.core.runtime.types import ExecutionResult
+    from aweagent.core.runtime.types import ExecutionResult
 
     session = MockRuntimeSession()
     call_count = 0
@@ -616,7 +616,7 @@ async def test_apply_patch_6_strategies():
     assert "partial" in result.stdout
 
     # Verify strategy order
-    assert "git apply --verbose /tmp/_awe_agent.patch" in commands_seen[0]
+    assert "git apply --verbose /tmp/_aweagent.patch" in commands_seen[0]
     assert "--ignore-space-change" in commands_seen[1]
     assert "patch --batch" in commands_seen[2]
     assert "--reject" in commands_seen[3]
@@ -656,7 +656,7 @@ async def test_apply_patch_all_fail():
 def test_restore_test_files_recursive_glob():
     """restore_test_files uses **/ prefix for recursive glob."""
     import inspect
-    from awe_agent.core.eval.utils import restore_test_files
+    from aweagent.core.eval.utils import restore_test_files
 
     source = inspect.getsource(restore_test_files)
     assert "**/test_*.py" in source
@@ -666,7 +666,7 @@ def test_restore_test_files_recursive_glob():
 
 def test_parse_junit_xml_exact_match():
     """parse_junit_xml matches tests via exact file::name strategy."""
-    from awe_agent.core.eval.utils import parse_junit_xml
+    from aweagent.core.eval.utils import parse_junit_xml
 
     xml = '''<?xml version="1.0" ?>
     <testsuite tests="2">
@@ -683,7 +683,7 @@ def test_parse_junit_xml_exact_match():
 
 def test_parse_junit_xml_normalized_match():
     """parse_junit_xml matches via normalized classname.name strategy."""
-    from awe_agent.core.eval.utils import parse_junit_xml
+    from aweagent.core.eval.utils import parse_junit_xml
 
     xml = '''<?xml version="1.0" ?>
     <testsuite tests="1">
@@ -698,7 +698,7 @@ def test_parse_junit_xml_normalized_match():
 
 def test_parse_junit_xml_with_failure():
     """parse_junit_xml returns False when a test fails."""
-    from awe_agent.core.eval.utils import parse_junit_xml
+    from aweagent.core.eval.utils import parse_junit_xml
 
     xml = '''<?xml version="1.0" ?>
     <testsuite tests="2">
@@ -716,7 +716,7 @@ def test_parse_junit_xml_with_failure():
 
 def test_parse_junit_xml_skips_skipped():
     """parse_junit_xml ignores skipped tests."""
-    from awe_agent.core.eval.utils import parse_junit_xml
+    from aweagent.core.eval.utils import parse_junit_xml
 
     xml = '''<?xml version="1.0" ?>
     <testsuite tests="2">
@@ -733,7 +733,7 @@ def test_parse_junit_xml_skips_skipped():
 
 def test_parse_junit_xml_invalid_xml():
     """parse_junit_xml returns False on invalid XML."""
-    from awe_agent.core.eval.utils import parse_junit_xml
+    from aweagent.core.eval.utils import parse_junit_xml
 
     all_passed, details = parse_junit_xml("not xml at all", ["test_a"])
     assert not all_passed
@@ -743,7 +743,7 @@ def test_parse_junit_xml_invalid_xml():
 @pytest.mark.asyncio
 async def test_run_tests_with_runner_uploads_and_executes():
     """run_tests_with_runner uploads runner script + config and executes."""
-    from awe_agent.core.eval.utils import run_tests_with_runner
+    from aweagent.core.eval.utils import run_tests_with_runner
 
     session = MockRuntimeSession()
     session._default_result = ExecutionResult(
@@ -767,7 +767,7 @@ async def test_run_tests_with_runner_uploads_and_executes():
 @pytest.mark.asyncio
 async def test_run_tests_with_runner_empty_ids():
     """run_tests_with_runner returns failure for empty test IDs."""
-    from awe_agent.core.eval.utils import run_tests_with_runner
+    from aweagent.core.eval.utils import run_tests_with_runner
 
     session = MockRuntimeSession()
     all_passed, output, details = await run_tests_with_runner(session, "/workspace", [])
@@ -778,7 +778,7 @@ async def test_run_tests_with_runner_empty_ids():
 @pytest.mark.asyncio
 async def test_eval_beyondswe_f2p_patch_fail_returns_false():
     """_eval_beyondswe returns accepted=False immediately when f2p_patch fails."""
-    from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+    from aweagent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
 
     session = MockRuntimeSession()
 
@@ -809,7 +809,7 @@ async def test_eval_beyondswe_f2p_patch_fail_returns_false():
 @pytest.mark.asyncio
 async def test_eval_beyondswe_f2p_script_uploaded_as_test_file():
     """_eval_beyondswe uploads f2p_script to workdir/test_fail_to_pass.py."""
-    from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+    from aweagent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
 
     session = MockRuntimeSession()
     session._default_result = ExecutionResult(
@@ -840,7 +840,7 @@ async def test_eval_beyondswe_f2p_script_uploaded_as_test_file():
 async def test_eval_doc2repo_zip_flow():
     """_eval_doc2repo reads ZIP, uploads, unzips, runs eval script."""
     import tempfile, os, zipfile
-    from awe_agent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
+    from aweagent.tasks.beyond_swe.evaluator import BeyondSWEEvaluator
 
     # Create a temp ZIP file
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -878,7 +878,7 @@ async def test_eval_doc2repo_zip_flow():
 
 def test_parse_pytest_output():
     """parse_pytest_output checks passed >= num and no failures."""
-    from awe_agent.core.eval.utils import parse_pytest_output
+    from aweagent.core.eval.utils import parse_pytest_output
 
     output_pass = "===== 5 passed in 1.23s ====="
     assert parse_pytest_output(output_pass, 5) is True
@@ -893,7 +893,7 @@ def test_parse_pytest_output():
 
 def test_task_metadata_has_test_suite_num():
     """BeyondSWETask includes test_suite_num in instance metadata."""
-    from awe_agent.tasks.beyond_swe.task import BeyondSWETask
+    from aweagent.tasks.beyond_swe.task import BeyondSWETask
 
     task = BeyondSWETask(instances=[{
         "instance_id": "test_001",
@@ -913,7 +913,7 @@ def test_task_metadata_has_test_suite_num():
 @pytest.mark.asyncio
 async def test_pre_agent_setup_prepare():
     """PreAgentSetup.prepare() executes setup_commands, commit, rev-parse, then remove_future_commits."""
-    from awe_agent.core.eval.setup import PreAgentSetup
+    from aweagent.core.eval.setup import PreAgentSetup
 
     session = MockRuntimeSession()
     session._default_result = ExecutionResult(stdout="abc123\n", exit_code=0)
@@ -947,7 +947,7 @@ async def test_pre_agent_setup_prepare():
 @pytest.mark.asyncio
 async def test_pre_agent_setup_remove_future_commits():
     """PreAgentSetup.remove_future_commits() runs the correct git commands."""
-    from awe_agent.core.eval.setup import PreAgentSetup
+    from aweagent.core.eval.setup import PreAgentSetup
 
     session = MockRuntimeSession()
     session._default_result = ExecutionResult(stdout="", exit_code=0)
@@ -966,7 +966,7 @@ async def test_pre_agent_setup_remove_future_commits():
 @pytest.mark.asyncio
 async def test_pre_agent_setup_empty_commands():
     """PreAgentSetup.prepare() with no setup_commands runs commit + rev-parse + remove_future_commits."""
-    from awe_agent.core.eval.setup import PreAgentSetup
+    from aweagent.core.eval.setup import PreAgentSetup
 
     session = MockRuntimeSession()
     session._default_result = ExecutionResult(stdout="def456\n", exit_code=0)
@@ -991,7 +991,7 @@ async def test_pre_agent_setup_empty_commands():
 @pytest.mark.asyncio
 async def test_commit_and_get_id():
     """commit_and_get_id() commits current state and returns HEAD SHA."""
-    from awe_agent.core.eval.setup import PreAgentSetup
+    from aweagent.core.eval.setup import PreAgentSetup
 
     session = MockRuntimeSession()
     session._default_result = ExecutionResult(stdout="abc123def456\n", exit_code=0)
@@ -1008,7 +1008,7 @@ async def test_commit_and_get_id():
 @pytest.mark.asyncio
 async def test_commit_and_get_id_failure():
     """commit_and_get_id() returns None when rev-parse fails."""
-    from awe_agent.core.eval.setup import PreAgentSetup
+    from aweagent.core.eval.setup import PreAgentSetup
 
     session = MockRuntimeSession()
     # Simulate: commit succeeds but rev-parse returns empty stdout with failure
@@ -1032,8 +1032,8 @@ async def test_commit_and_get_id_failure():
 @pytest.mark.asyncio
 async def test_pre_patch_setup_hook_called_before_patch():
     """PatchTestEvaluator calls pre_patch_setup between checkout and patch apply."""
-    from awe_agent.core.eval.base import PatchTestEvaluator
-    from awe_agent.core.runtime.protocol import Runtime
+    from aweagent.core.eval.base import PatchTestEvaluator
+    from aweagent.core.runtime.protocol import Runtime
 
     call_order: list[str] = []
 

@@ -18,8 +18,8 @@ from typing import Any
 
 import pytest
 
-from awe_agent.core.agent.trajectory import Action, Trajectory
-from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
+from aweagent.core.agent.trajectory import Action, Trajectory
+from aweagent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -69,7 +69,7 @@ def _make_mock_anthropic_response(
 
 def test_anthropic_parse_preserves_all_blocks_in_order():
     """_parse_response stores ALL content blocks in reasoning_raw, preserving order."""
-    from awe_agent.core.llm.backends.anthropic import AnthropicBackend
+    from aweagent.core.llm.backends.anthropic import AnthropicBackend
 
     # Simulate interleaved response: thinking → text → thinking → tool_use → text
     blocks = [
@@ -105,7 +105,7 @@ def test_anthropic_parse_preserves_all_blocks_in_order():
 
 def test_anthropic_parse_preserves_redacted_thinking():
     """_parse_response stores redacted_thinking blocks in reasoning_raw."""
-    from awe_agent.core.llm.backends.anthropic import AnthropicBackend
+    from aweagent.core.llm.backends.anthropic import AnthropicBackend
 
     blocks = [
         _make_mock_block("thinking", thinking="Visible thought", signature="sig_a"),
@@ -126,7 +126,7 @@ def test_anthropic_parse_preserves_redacted_thinking():
 
 def test_anthropic_serialize_replays_full_blocks():
     """_serialize_messages replays full blocks directly when available."""
-    from awe_agent.core.llm.backends.anthropic import AnthropicBackend
+    from aweagent.core.llm.backends.anthropic import AnthropicBackend
 
     full_blocks = [
         {"type": "thinking", "thinking": "thought 1", "signature": "sig_1"},
@@ -147,7 +147,7 @@ def test_anthropic_serialize_replays_full_blocks():
     ]
 
     backend = object.__new__(AnthropicBackend)
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.config import LLMConfig
 
     backend.config = LLMConfig(backend="anthropic", model="claude-sonnet-4-6")
     system, anthropic_msgs = backend._serialize_messages(messages)
@@ -163,7 +163,7 @@ def test_anthropic_serialize_replays_full_blocks():
 
 def test_anthropic_serialize_legacy_thinking_only():
     """_serialize_messages falls back to reconstruction for thinking-only blocks."""
-    from awe_agent.core.llm.backends.anthropic import AnthropicBackend
+    from aweagent.core.llm.backends.anthropic import AnthropicBackend
 
     thinking_blocks = [
         {"type": "thinking", "thinking": "I think...", "signature": "sig"},
@@ -178,7 +178,7 @@ def test_anthropic_serialize_legacy_thinking_only():
     ]
 
     backend = object.__new__(AnthropicBackend)
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.config import LLMConfig
 
     backend.config = LLMConfig(backend="anthropic", model="claude-sonnet-4-6")
     system, anthropic_msgs = backend._serialize_messages(messages)
@@ -192,14 +192,14 @@ def test_anthropic_serialize_legacy_thinking_only():
 
 def test_anthropic_serialize_no_reasoning():
     """_serialize_messages works without reasoning_raw."""
-    from awe_agent.core.llm.backends.anthropic import AnthropicBackend
+    from aweagent.core.llm.backends.anthropic import AnthropicBackend
 
     messages = [
         Message(role="assistant", content="Just text"),
     ]
 
     backend = object.__new__(AnthropicBackend)
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.config import LLMConfig
 
     backend.config = LLMConfig(backend="anthropic", model="claude-sonnet-4-6")
     system, anthropic_msgs = backend._serialize_messages(messages)
@@ -220,8 +220,8 @@ def _make_anthropic_backend(
     **config_kw: Any,
 ):
     """Create an AnthropicBackend with config, skipping SDK import."""
-    from awe_agent.core.llm.backends.anthropic import AnthropicBackend
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.anthropic import AnthropicBackend
+    from aweagent.core.llm.config import LLMConfig
 
     config = LLMConfig(
         backend="anthropic", model=config_kw.pop("model", "claude-sonnet-4-6"),
@@ -312,7 +312,7 @@ def test_thinking_budget_zero_raises():
 def test_thinking_budget_negative_raises():
     """thinking_budget=-1 → ValueError at config validation."""
     from pydantic import ValidationError
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.config import LLMConfig
 
     with pytest.raises(ValidationError):
         LLMConfig(backend="anthropic", model="claude-sonnet-4-6", thinking_budget=-1)
@@ -321,7 +321,7 @@ def test_thinking_budget_negative_raises():
 def test_thinking_budget_zero_rejected_by_config():
     """thinking_budget=0 → rejected by Pydantic (gt=0)."""
     from pydantic import ValidationError
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.config import LLMConfig
 
     with pytest.raises(ValidationError):
         LLMConfig(backend="anthropic", model="claude-sonnet-4-6", thinking_budget=0)
@@ -330,7 +330,7 @@ def test_thinking_budget_zero_rejected_by_config():
 def test_invalid_thinking_type_rejected_by_config():
     """Misspelled thinking_type → rejected by Pydantic Literal validation."""
     from pydantic import ValidationError
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.config import LLMConfig
 
     with pytest.raises(ValidationError):
         LLMConfig(backend="anthropic", model="claude-sonnet-4-6", thinking_type="adpative")
@@ -376,7 +376,7 @@ def test_minimax_anthropic_preset_no_thinking():
     This verifies the design: MiniMax doesn't get Claude thinking control
     because the preset simply doesn't configure thinking: true.
     """
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.config import LLMConfig
 
     config = LLMConfig(
         backend="anthropic",
@@ -397,8 +397,8 @@ def test_minimax_anthropic_preset_no_thinking():
 
 def test_response_api_extracts_previous_response_id():
     """_serialize_input extracts response_id from reasoning_raw."""
-    from awe_agent.core.llm.config import LLMConfig
-    from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
+    from aweagent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
         Message(role="system", content="You are helpful."),
@@ -428,8 +428,8 @@ def test_response_api_extracts_previous_response_id():
 
 def test_response_api_continuation_sends_only_new_input():
     """With previous_response_id, only new items after last response are sent."""
-    from awe_agent.core.llm.config import LLMConfig
-    from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
+    from aweagent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
         Message(role="user", content="Hello"),
@@ -459,8 +459,8 @@ def test_response_api_continuation_sends_only_new_input():
 
 def test_response_api_manual_mode_replays_reasoning():
     """Without response_id, reasoning items are replayed in full."""
-    from awe_agent.core.llm.config import LLMConfig
-    from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
+    from aweagent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
         Message(role="user", content="Hello"),
@@ -492,8 +492,8 @@ def test_response_api_manual_mode_replays_reasoning():
 
 def test_response_api_no_previous_response_id():
     """_serialize_input returns None when no response_id available."""
-    from awe_agent.core.llm.config import LLMConfig
-    from awe_agent.core.llm.backends.openai_response import OpenAIResponseBackend
+    from aweagent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.openai_response import OpenAIResponseBackend
 
     messages = [
         Message(role="user", content="Hello"),
@@ -511,7 +511,7 @@ def test_response_api_no_previous_response_id():
 
 
 def test_normalize_response_status_completed():
-    from awe_agent.core.llm.backends.openai_response import (
+    from aweagent.core.llm.backends.openai_response import (
         _normalize_response_status,
     )
 
@@ -519,7 +519,7 @@ def test_normalize_response_status_completed():
 
 
 def test_normalize_response_status_failed():
-    from awe_agent.core.llm.backends.openai_response import (
+    from aweagent.core.llm.backends.openai_response import (
         _normalize_response_status,
     )
 
@@ -528,7 +528,7 @@ def test_normalize_response_status_failed():
 
 def test_normalize_response_status_incomplete_max_tokens():
     """incomplete with max_output_tokens reason → 'length'."""
-    from awe_agent.core.llm.backends.openai_response import (
+    from aweagent.core.llm.backends.openai_response import (
         _normalize_response_status,
     )
 
@@ -542,7 +542,7 @@ def test_normalize_response_status_incomplete_max_tokens():
 
 def test_normalize_response_status_incomplete_content_filter():
     """incomplete with content_filter reason → preserves reason, NOT 'length'."""
-    from awe_agent.core.llm.backends.openai_response import (
+    from aweagent.core.llm.backends.openai_response import (
         _normalize_response_status,
     )
 
@@ -557,7 +557,7 @@ def test_normalize_response_status_incomplete_content_filter():
 
 def test_normalize_response_status_incomplete_no_details():
     """incomplete without details → 'incomplete' (not 'length')."""
-    from awe_agent.core.llm.backends.openai_response import (
+    from aweagent.core.llm.backends.openai_response import (
         _normalize_response_status,
     )
 
@@ -567,7 +567,7 @@ def test_normalize_response_status_incomplete_no_details():
 
 
 def test_normalize_response_status_none():
-    from awe_agent.core.llm.backends.openai_response import (
+    from aweagent.core.llm.backends.openai_response import (
         _normalize_response_status,
     )
 
@@ -581,8 +581,8 @@ def test_normalize_response_status_none():
 
 def test_glm5_clear_thinking_nested_in_thinking_dict():
     """GLM-5: clear_thinking must be nested inside the thinking dict, not a sibling."""
-    from awe_agent.core.llm.backends.openai import OpenAIBackend
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.openai import OpenAIBackend
+    from aweagent.core.llm.config import LLMConfig
 
     config = LLMConfig(
         backend="openai",
@@ -609,8 +609,8 @@ def test_glm5_clear_thinking_nested_in_thinking_dict():
 
 def test_minimax_reasoning_split_stays_separate():
     """MiniMax: reasoning_split stays as a sibling key (not merged into thinking)."""
-    from awe_agent.core.llm.backends.openai import OpenAIBackend
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.openai import OpenAIBackend
+    from aweagent.core.llm.config import LLMConfig
 
     config = LLMConfig(
         backend="openai",
@@ -629,8 +629,8 @@ def test_minimax_reasoning_split_stays_separate():
 
 def test_qwen_enable_thinking_in_extra_body():
     """Qwen: enable_thinking goes into extra_body."""
-    from awe_agent.core.llm.backends.openai import OpenAIBackend
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.openai import OpenAIBackend
+    from aweagent.core.llm.config import LLMConfig
 
     config = LLMConfig(
         backend="openai",
@@ -795,8 +795,8 @@ def test_trajectory_to_messages_exports_both_reasoning_fields():
 
 def test_ark_serializes_reasoning_content():
     """Ark backend preserves reasoning_raw as reasoning_content in messages."""
-    from awe_agent.core.llm.backends.ark import ArkBackend
-    from awe_agent.core.llm.config import LLMConfig
+    from aweagent.core.llm.backends.ark import ArkBackend
+    from aweagent.core.llm.config import LLMConfig
 
     config = LLMConfig(backend="ark", model="ep-xxx", api_key="test")
     backend = object.__new__(ArkBackend)
@@ -819,7 +819,7 @@ def test_ark_serializes_reasoning_content():
 
 def test_create_async_client_rejects_anthropic():
     """create_async_client raises ValueError for 'anthropic' backend."""
-    from awe_agent.core.llm.client import create_async_client
+    from aweagent.core.llm.client import create_async_client
 
     with pytest.raises(ValueError, match="anthropic"):
         create_async_client(backend="anthropic", api_key="test")
@@ -827,7 +827,7 @@ def test_create_async_client_rejects_anthropic():
 
 def test_create_async_client_rejects_openai_response():
     """create_async_client raises ValueError for 'openai_response' backend."""
-    from awe_agent.core.llm.client import create_async_client
+    from aweagent.core.llm.client import create_async_client
 
     with pytest.raises(ValueError, match="openai_response"):
         create_async_client(backend="openai_response", api_key="test")
@@ -835,7 +835,7 @@ def test_create_async_client_rejects_openai_response():
 
 def test_create_async_client_accepts_openai():
     """create_async_client works for 'openai' backend."""
-    from awe_agent.core.llm.client import create_async_client
+    from aweagent.core.llm.client import create_async_client
 
     client = create_async_client(backend="openai", api_key="test-key")
     assert client is not None

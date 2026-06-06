@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from awe_agent.core.llm.config import LLMConfig
-from awe_agent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
-from awe_agent.core.runtime.protocol import RuntimeSession
-from awe_agent.core.runtime.types import ExecutionResult
+from aweagent.core.llm.config import LLMConfig
+from aweagent.core.llm.types import LLMResponse, Message, TokenUsage, ToolCall
+from aweagent.core.runtime.protocol import RuntimeSession
+from aweagent.core.runtime.types import ExecutionResult
 
 
 @pytest.fixture

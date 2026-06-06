@@ -7,9 +7,9 @@ Before running, set:
 import asyncio
 import os
 
-from awe_agent.core.tool.search.backends.search.serpapi import SerpAPIBackend
-from awe_agent.core.tool.search.constraints import SearchConstraints
-from awe_agent.core.tool.search.web_search_tool import WebSearchTool
+from aweagent.core.tool.search.backends.search.serpapi import SerpAPIBackend
+from aweagent.core.tool.search.constraints import SearchConstraints
+from aweagent.core.tool.search.web_search_tool import WebSearchTool
 
 
 # ── 1. Standalone SerpAPIBackend ──────────────────────────────────────────

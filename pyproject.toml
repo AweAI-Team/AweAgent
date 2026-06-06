@@ -31,49 +31,52 @@ dev = [
 ]
 
 [project.scripts]
-awe-agent = "awe_agent.cli:main"
+awe-agent = "aweagent.cli:main"
 
-[project.entry-points."awe_agent.llm_backend"]
-openai = "awe_agent.core.llm.backends.openai:OpenAIBackend"
-azure = "awe_agent.core.llm.backends.openai:OpenAIBackend"
-ark = "awe_agent.core.llm.backends.ark:ArkBackend"
-sglang = "awe_agent.core.llm.backends.sglang:SGLangBackend"
-anthropic = "awe_agent.core.llm.backends.anthropic:AnthropicBackend"
-openai_response = "awe_agent.core.llm.backends.openai_response:OpenAIResponseBackend"
+[project.entry-points."aweagent.llm_backend"]
+openai = "aweagent.core.llm.backends.openai:OpenAIBackend"
+azure = "aweagent.core.llm.backends.openai:OpenAIBackend"
+ark = "aweagent.core.llm.backends.ark:ArkBackend"
+sglang = "aweagent.core.llm.backends.sglang:SGLangBackend"
+anthropic = "aweagent.core.llm.backends.anthropic:AnthropicBackend"
+openai_response = "aweagent.core.llm.backends.openai_response:OpenAIResponseBackend"
 
-[project.entry-points."awe_agent.runtime"]
-docker = "awe_agent.core.runtime.docker:DockerRuntime"
+[project.entry-points."aweagent.runtime"]
+docker = "aweagent.core.runtime.docker:DockerRuntime"
 
-[project.entry-points."awe_agent.agent"]
-search_swe = "awe_agent.scaffold.search_swe.agent:SearchSWEAgent"
-deepsearch = "awe_agent.scaffold.deepsearch.agent:DeepSearchAgent"
-terminus_2 = "awe_agent.scaffold.terminus_2.agent:Terminus2Agent"
-iter_research = "awe_agent.scaffold.iter_research.agent:IterResearchAgent"
+[project.entry-points."aweagent.agent"]
+search_swe = "aweagent.scaffold.search_swe.agent:SearchSWEAgent"
+deepsearch = "aweagent.scaffold.deepsearch.agent:DeepSearchAgent"
+terminus_2 = "aweagent.scaffold.terminus_2.agent:Terminus2Agent"
+iter_research = "aweagent.scaffold.iter_research.agent:IterResearchAgent"
 
-[project.entry-points."awe_agent.evaluator"]
-beyond_swe = "awe_agent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"
-terminal_bench_v2 = "awe_agent.tasks.terminal_bench_v2.evaluator:TerminalBenchV2Evaluator"
-browsecomp = "awe_agent.tasks.browsecomp.evaluator:BrowseCompEvaluator"
+[project.entry-points."aweagent.evaluator"]
+beyond_swe = "aweagent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"
+terminal_bench_v2 = "aweagent.tasks.terminal_bench_v2.evaluator:TerminalBenchV2Evaluator"
+browsecomp = "aweagent.tasks.browsecomp.evaluator:BrowseCompEvaluator"
 
-[project.entry-points."awe_agent.search_backend"]
-serpapi = "awe_agent.core.tool.search.backends.search.serpapi:SerpAPIBackend"
+[project.entry-points."aweagent.search_backend"]
+serpapi = "aweagent.core.tool.search.backends.search.serpapi:SerpAPIBackend"
 
-[project.entry-points."awe_agent.reader_backend"]
-jina = "awe_agent.core.tool.search.backends.reader.jina:JinaReaderBackend"
+[project.entry-points."aweagent.reader_backend"]
+jina = "aweagent.core.tool.search.backends.reader.jina:JinaReaderBackend"
 
-[project.entry-points."awe_agent.tool"]
-execute_bash = "awe_agent.core.tool.code.bash:ExecuteBashTool"
-str_replace_editor = "awe_agent.core.tool.code.editor:StrReplaceEditorTool"
-think = "awe_agent.core.tool.code.think:ThinkTool"
-finish = "awe_agent.core.tool.code.finish:FinishTool"
-web_search = "awe_agent.core.tool.search:WebSearchTool"
-web_fetch = "awe_agent.core.tool.search:WebFetchTool"
-web_fetch_raw = "awe_agent.core.tool.search:WebFetchRawTool"
-python_interpreter = "awe_agent.core.tool.public.python_interpreter:PythonInterpreterTool"
+[project.entry-points."aweagent.tool"]
+execute_bash = "aweagent.core.tool.code.bash:ExecuteBashTool"
+str_replace_editor = "aweagent.core.tool.code.editor:StrReplaceEditorTool"
+think = "aweagent.core.tool.code.think:ThinkTool"
+finish = "aweagent.core.tool.code.finish:FinishTool"
+web_search = "aweagent.core.tool.search:WebSearchTool"
+web_fetch = "aweagent.core.tool.search:WebFetchTool"
+web_fetch_raw = "aweagent.core.tool.search:WebFetchRawTool"
+python_interpreter = "aweagent.core.tool.public.python_interpreter:PythonInterpreterTool"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["aweagent"]
 
 [tool.ruff]
 target-version = "py311"
@@ -84,8 +87,8 @@ select = ["E", "F", "I", "N", "W", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 # Prompt modules hold verbatim, model-facing text that must not be reflowed.
-"awe_agent/scaffold/*/prompts.py" = ["E501"]
-"awe_agent/scaffold/*/prompts/*.py" = ["E501"]
+"aweagent/scaffold/*/prompts.py" = ["E501"]
+"aweagent/scaffold/*/prompts/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

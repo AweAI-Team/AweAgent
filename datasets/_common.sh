@@ -7,7 +7,7 @@
 # Conventions every downloader follows:
 #   * data lands under datasets/<task>/  (a stable, predictable path)
 #   * the matching task config defaults to that path via ${VAR:-<path>}, so a
-#     plain `awe_agent run` works with no env set
+#     plain `aweagent run` works with no env set
 #   * re-download with FORCE=true
 
 # datasets/ root = the directory holding this file.

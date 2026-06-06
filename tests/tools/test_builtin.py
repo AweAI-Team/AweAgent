@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from awe_agent.core.runtime.types import ExecutionResult
-from awe_agent.core.tool.code.bash import ExecuteBashTool
-from awe_agent.core.tool.code.editor import StrReplaceEditorTool
-from awe_agent.core.tool.code.think import ThinkTool
-from awe_agent.core.tool.code.finish import (
+from aweagent.core.runtime.types import ExecutionResult
+from aweagent.core.tool.code.bash import ExecuteBashTool
+from aweagent.core.tool.code.editor import StrReplaceEditorTool
+from aweagent.core.tool.code.think import ThinkTool
+from aweagent.core.tool.code.finish import (
     FINISH_TOOL_BUNDLES,
     FinishTool,
     FinishWithIntTool,
@@ -16,7 +16,7 @@ from awe_agent.core.tool.code.finish import (
     LineFLFinishTool,
     SubmitFileFinishTool,
 )
-from awe_agent.core.tool.search import WebFetchTool, WebSearchTool
+from aweagent.core.tool.search import WebFetchTool, WebSearchTool
 from tests.conftest import MockRuntimeSession
 
 

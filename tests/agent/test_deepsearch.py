@@ -6,18 +6,18 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from awe_agent.core.agent.context import AgentContext
-from awe_agent.core.agent.loop import AgentLoop
-from awe_agent.core.agent.protocol import Agent
-from awe_agent.core.agent.training import TrainingState
-from awe_agent.core.agent.trajectory import Action
-from awe_agent.core.config.schema import AweAgentConfig
-from awe_agent.core.llm.types import LLMResponse, TokenUsage, ToolCall
-from awe_agent.core.tool.code import FinishWithTextTool, ThinkTool
-from awe_agent.core.tool.protocol import Tool
-from awe_agent.scaffold.deepsearch.agent import DeepSearchAgent, _resolve_tool_names
-from awe_agent.scaffold.deepsearch.policy import RetryThenForceAnswerPolicy
-from awe_agent.scaffold.deepsearch.prompts import (
+from aweagent.core.agent.context import AgentContext
+from aweagent.core.agent.loop import AgentLoop
+from aweagent.core.agent.protocol import Agent
+from aweagent.core.agent.training import TrainingState
+from aweagent.core.agent.trajectory import Action
+from aweagent.core.config.schema import AweAgentConfig
+from aweagent.core.llm.types import LLMResponse, TokenUsage, ToolCall
+from aweagent.core.tool.code import FinishWithTextTool, ThinkTool
+from aweagent.core.tool.protocol import Tool
+from aweagent.scaffold.deepsearch.agent import DeepSearchAgent, _resolve_tool_names
+from aweagent.scaffold.deepsearch.policy import RetryThenForceAnswerPolicy
+from aweagent.scaffold.deepsearch.prompts import (
     NO_FINAL_ANSWER_FALLBACK,
     OMITTED_TOOL_RESULT,
     get_final_answer_prompts,
@@ -152,8 +152,8 @@ def test_deepsearch_explicit_tools_override_toolset():
 
 
 def test_deepsearch_web_tools_accept_custom_backend_options(monkeypatch):
-    from awe_agent.core.tool.search.backends.reader import reader_backend_registry
-    from awe_agent.core.tool.search.backends.search import search_backend_registry
+    from aweagent.core.tool.search.backends.reader import reader_backend_registry
+    from aweagent.core.tool.search.backends.search import search_backend_registry
 
     class FakePrivateSearchBackend:
         async def search(self, **kwargs: Any) -> list[dict[str, Any]]:

@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from awe_agent.core.tool.public.python_interpreter import (
+from aweagent.core.tool.public.python_interpreter import (
     PythonInterpreterTool,
     _resolve_endpoints,
 )
