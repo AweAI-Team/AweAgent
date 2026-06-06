@@ -58,9 +58,12 @@ Reference agents shipped in-tree, all on the shared core.
 |:--|:--|:--|:--|:--|
 | **BeyondSWE** | Doc2Repo · CrossRepo · DepMigrate · DomainFix | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/BeyondSWE) · [guide](recipes/beyond_swe/) |
 | **SWE-bench-Pro** | extended SWE-bench code tasks | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro) · [guide](recipes/swe_bench_pro/) |
+| **SWE-bench Verified** | 500-instance human-verified SWE-bench split | SearchSWE / OpenHands | official SWE-bench harness † | [data](https://huggingface.co/datasets/SWE-bench/SWE-bench_Verified) · [guide](recipes/scale_swe/swebench_verified/) |
 | **NL2Repo** | build a repo from a natural-language spec | SearchSWE / OpenHands | isolated Docker (artifact + golden tests) | [data](https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-NL2Repo) · [guide](recipes/nl2repo/) |
 | **Terminal-Bench 2.0** | terminal tasks in containers | Terminus-2 | same-container reward | [repo](https://github.com/laude-institute/terminal-bench-2) · [guide](recipes/terminal_bench_v2/) |
 | **BrowseComp** | web-search QA | DeepSearch / IterResearch | LLM-as-Judge | [guide](recipes/deepsearch/) |
+
+<sub>† **SWE-bench Verified** is a *reproduction recipe* (`recipes/scale_swe/swebench_verified/`), not a framework-native task: the agent's patches are exported as predictions and scored by the **public SWE-bench harness** (with documented eval-side compatibility patches), reproducing the published Scale-SWE-Agent result. The other benchmarks run end-to-end through AweAgent's own isolated evaluator.</sub>
 
 ## :world_map: Roadmap
 
