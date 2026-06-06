@@ -512,3 +512,79 @@ def parse_pytest_output(output: str, pytest_num: int) -> bool:
     if summary.passed >= pytest_num and summary.failed == 0 and summary.errors == 0:
         return True
     return False
+
+
+# ── Test-ID sanitization ───────────────────────────────────────────────
+
+# Detects pytest node IDs whose class name leaked into the file path:
+# ``tests/foo/TestBar.py::test_baz`` instead of ``tests/foo.py::TestBar::test_baz``.
+_CLASS_AS_DIR_RE = re.compile(
+    r"^(?P<prefix>.+)/(?P<cls>Test[A-Z][A-Za-z0-9_]*)\.py$"
+)
+
+
+async def sanitize_test_ids(
+    test_ids: list[str],
+    session: "RuntimeSession",
+    workdir: str,
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Rewrite ``<dir>/Test<X>.py::<rest>`` → ``<dir>.py::Test<X>::<rest>``.
+
+    Only rewrites when ``<dir>.py`` is tracked by ``git ls-files`` — keeps
+    the malformed id otherwise so the failure remains visible rather than
+    silently masked.  Returns ``(sanitized_ids, rewrites)`` where
+    ``rewrites`` is a ``(original, fixed)`` list useful for audit logs.
+
+    Safe to call when ``test_ids`` is empty or no entries are malformed —
+    returns the input unchanged with an empty rewrite list.
+    """
+    if not test_ids:
+        return [], []
+
+    per_id: dict[str, tuple[str, str]] = {}
+    candidate_files: set[str] = set()
+    for tid in test_ids:
+        if not tid or "::" not in tid:
+            continue
+        head, _, rest = tid.partition("::")
+        m = _CLASS_AS_DIR_RE.match(head.strip())
+        if not m:
+            continue
+        prefix = m.group("prefix")
+        cls = m.group("cls")
+        real_file = f"{prefix}.py"
+        fixed = f"{real_file}::{cls}" + (f"::{rest}" if rest else "")
+        candidate_files.add(real_file)
+        per_id[tid] = (real_file, fixed)
+
+    if not candidate_files:
+        return list(test_ids), []
+
+    quoted = " ".join(shlex.quote(p) for p in sorted(candidate_files))
+    result = await session.execute(
+        f"git ls-files -- {quoted} 2>/dev/null || true",
+        cwd=workdir, timeout=30,
+    )
+    present: set[str] = set()
+    if result.success and result.stdout.strip():
+        present = {ln.strip() for ln in result.stdout.splitlines() if ln.strip()}
+
+    sanitized: list[str] = []
+    seen: set[str] = set()
+    rewrites: list[tuple[str, str]] = []
+    for tid in test_ids:
+        info = per_id.get(tid)
+        if info is None:
+            chosen = tid
+        else:
+            real_file, fixed = info
+            if real_file in present:
+                chosen = fixed
+                rewrites.append((tid, fixed))
+            else:
+                chosen = tid
+        if chosen in seen:
+            continue
+        seen.add(chosen)
+        sanitized.append(chosen)
+    return sanitized, rewrites

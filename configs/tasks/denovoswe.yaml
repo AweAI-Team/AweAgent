@@ -1,0 +1,34 @@
+# DeNovoSWE Configuration
+# Usage:
+#   python recipes/denovo_swe/run.py -c configs/tasks/denovoswe.yaml --data-file ...
+#   python recipes/denovo_swe/run.py -c configs/tasks/denovoswe.yaml --data-file ... --validate-run
+
+llm: "!include ${LLM_CONFIG:-../llm/openai.yaml}"
+
+runtime:
+  backend: docker
+  timeout: 14400
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+
+agent:
+  type: search_swe
+  max_steps: 500
+  enable_search: false
+  bash_timeout: 1200
+
+task:
+  type: denovo_swe
+  dataset_id: denovo_swe
+  data_file: ${DATA_FILE}
+
+eval:
+  enabled: true
+  timeout: 3600
+
+execution:
+  max_concurrent: 50
+  max_retries: 3
+  output_path: ./results/denovoswe
