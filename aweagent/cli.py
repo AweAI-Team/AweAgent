@@ -233,8 +233,6 @@ def _build_task(config: Any):
         return SWEBenchProTask(
             dataset_id=config.task.dataset_id,
             data_file=config.task.data_file,
-            images_jsonl=config.task.images_jsonl,
-            official_repo_root=config.task.official_repo_root,
         )
     elif task_type == "browsecomp":
         from aweagent.tasks.browsecomp.task import BrowseCompTask
