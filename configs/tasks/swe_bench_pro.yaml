@@ -32,9 +32,10 @@ task:
   type: swe_bench_pro
   dataset_id: swe_bench_pro
   # Defaults to the downloaded set (bash datasets/download.sh swe_bench_pro).
+  # Source: https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro
+  # Each row already carries its own source_image and prebuilt eval assets
+  # (entryscript_sh / run_script_sh / parser_py); no other paths are needed.
   data_file: ${DATA_FILE:-datasets/swe_bench_pro/swe_bench_pro.jsonl}
-  images_jsonl: ${SWEBENCH_PRO_IMAGES_JSONL:-/path/to/data/swe_bench_pro/images.jsonl}
-  official_repo_root: ${SWEBENCH_PRO_OFFICIAL_REPO_ROOT:-/path/to/SWE-bench_Pro-os}
 
 eval:
   enabled: true

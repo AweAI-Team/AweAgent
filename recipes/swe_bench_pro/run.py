@@ -11,11 +11,12 @@ Key CLI overrides (all optional, default from YAML config):
 
   --config / -c         YAML config file (default: configs/tasks/swe_bench_pro.yaml)
   --data-file           JSONL/JSON/parquet/yaml/dir/csv data source (required unless
-                        the DATA_FILE env var is set)
-  --images-jsonl        SWE-bench-Pro images.jsonl (overrides task.images_jsonl)
-  --official-repo-root  Path to the official SWE-bench-Pro repo (overrides
-                        task.official_repo_root) — required when the data
-                        rows do not ship prebuilt eval assets
+                        the DATA_FILE env var is set). Each row must carry
+                        ``source_image`` and the prebuilt eval assets
+                        (``entryscript_sh`` / ``run_script_sh`` / ``parser_py``).
+                        Download the AweAgent-processed dataset from
+                        https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro
+                        (see datasets/swe_bench_pro/download.sh).
   --instance-id         Single instance ID for prompt/debug
   --instance-ids        Subset of instance IDs for batch
   --model               Override LLM model
@@ -28,8 +29,6 @@ Key CLI overrides (all optional, default from YAML config):
 Environment variables:
 
   DATA_FILE                          Default --data-file
-  SWEBENCH_PRO_IMAGES_JSONL          Default --images-jsonl
-  SWEBENCH_PRO_OFFICIAL_REPO_ROOT    Default --official-repo-root
 
 Usage examples:
 
@@ -63,16 +62,18 @@ logger = logging.getLogger(__name__)
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="SWE-bench-Pro recipe — unified entry point")
-    p.add_argument("--data-file", default=None, help="Path to JSONL/JSON/parquet/yaml/dir/csv data source")
+    p.add_argument(
+        "--data-file", default=None,
+        help=(
+            "Path to JSONL/JSON/parquet/yaml/dir/csv data source. Download from "
+            "https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro "
+            "(see datasets/swe_bench_pro/download.sh)."
+        ),
+    )
     p.add_argument(
         "--config", "-c",
         default="configs/tasks/swe_bench_pro.yaml",
         help="Path to YAML config (default: configs/tasks/swe_bench_pro.yaml)",
-    )
-    p.add_argument("--images-jsonl", default=None, help="Path to SWE-bench-Pro images.jsonl")
-    p.add_argument(
-        "--official-repo-root", default=None,
-        help="Path to the official SWE-bench-Pro repo (for eval-asset generation)",
     )
     p.add_argument(
         "--mode",
@@ -134,10 +135,6 @@ def _load_config(args: argparse.Namespace):
 
     if args.data_file is not None:
         os.environ["DATA_FILE"] = args.data_file
-    if args.images_jsonl is not None:
-        os.environ["SWEBENCH_PRO_IMAGES_JSONL"] = args.images_jsonl
-    if args.official_repo_root is not None:
-        os.environ["SWEBENCH_PRO_OFFICIAL_REPO_ROOT"] = args.official_repo_root
 
     return load_config(args.config, overrides=overrides)
 
@@ -148,8 +145,6 @@ def _build_task(config, args: argparse.Namespace):
     return SWEBenchProTask(
         dataset_id=config.task.dataset_id,
         data_file=args.data_file or config.task.data_file,
-        images_jsonl=args.images_jsonl or config.task.images_jsonl,
-        official_repo_root=args.official_repo_root or config.task.official_repo_root,
         all_languages=args.all_language,
         split_num=args.split_num,
         split_id=args.split_id,

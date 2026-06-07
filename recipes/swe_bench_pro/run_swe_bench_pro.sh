@@ -13,9 +13,10 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CONFIG="${PROJECT_ROOT}/configs/tasks/swe_bench_pro.yaml"
 
 # ── Defaults ──────────────────────────────────────────────────────────
+# Download the data file from
+#   https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro
+# (see datasets/swe_bench_pro/download.sh).
 DATA_FILE="${DATA_FILE:-/path/to/data/swe_bench_pro/swe_bench_pro.jsonl}"
-SWEBENCH_PRO_IMAGES_JSONL="${SWEBENCH_PRO_IMAGES_JSONL:-/path/to/data/swe_bench_pro/images.jsonl}"
-SWEBENCH_PRO_OFFICIAL_REPO_ROOT="${SWEBENCH_PRO_OFFICIAL_REPO_ROOT:-/path/to/SWE-bench_Pro-os}"
 MODEL="${MODEL:-gpt-4o}"
 MAX_STEPS="${MAX_STEPS:-500}"
 MAX_CONCURRENT="${MAX_CONCURRENT:-50}"
@@ -31,9 +32,9 @@ Usage: $(basename "$0") [OPTIONS]
 Run SWE-bench-Pro benchmark.
 
 Options:
-  --data-file PATH                  Path to SWE-bench-Pro data (jsonl/json/parquet/yaml/dir/csv)
-  --images-jsonl PATH               Path to SWE-bench-Pro images.jsonl
-  --official-repo-root PATH         Path to the official SWE-bench-Pro repo
+  --data-file PATH                  Path to SWE-bench-Pro data (jsonl/json/parquet/yaml/dir/csv).
+                                    Download from https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro
+                                    (see datasets/swe_bench_pro/download.sh).
   --model MODEL                     LLM model name (default: gpt-4o, env: MODEL)
   --max-steps N                     Max agent steps per instance (default: 500, env: MAX_STEPS)
   --max-concurrent N                Max concurrent instances (default: 50, env: MAX_CONCURRENT)
@@ -48,14 +49,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --data-file)
             DATA_FILE="$2"
-            shift 2
-            ;;
-        --images-jsonl)
-            SWEBENCH_PRO_IMAGES_JSONL="$2"
-            shift 2
-            ;;
-        --official-repo-root)
-            SWEBENCH_PRO_OFFICIAL_REPO_ROOT="$2"
             shift 2
             ;;
         --model)
@@ -133,16 +126,12 @@ fi
 
 # ── Export env vars for config resolution ─────────────────────────────
 export DATA_FILE
-export SWEBENCH_PRO_IMAGES_JSONL
-export SWEBENCH_PRO_OFFICIAL_REPO_ROOT
 export AWE_AGENT__LLM__MODEL="${MODEL}"
 
 # ── Run ───────────────────────────────────────────────────────────────
 echo "=== SWE-bench-Pro ==="
 echo "Config:                ${CONFIG}"
 echo "Data file:             ${DATA_FILE}"
-echo "Images JSONL:          ${SWEBENCH_PRO_IMAGES_JSONL}"
-echo "Official repo root:    ${SWEBENCH_PRO_OFFICIAL_REPO_ROOT}"
 echo "Model:                 ${MODEL}"
 echo "Max steps:             ${MAX_STEPS}"
 echo "Max concurrent:        ${MAX_CONCURRENT}"
