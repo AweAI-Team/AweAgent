@@ -2,40 +2,49 @@
 
 Faithful AweAgent port of SWE-bench-Pro.
 
+## Download the data
+
+`--data-file` is the only data path the recipe needs. Download the
+AweAgent-processed dataset from:
+
+> https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro
+
+```bash
+# Downloads to datasets/swe_bench_pro/swe_bench_pro.jsonl (a symlink into
+# the HuggingFace snapshot). HF_TOKEN / HF_ENDPOINT are honored.
+bash datasets/swe_bench_pro/download.sh
+```
+
+Each row in this JSONL already ships everything the recipe needs:
+`source_image` (runtime image) plus the prebuilt eval assets
+`entryscript_sh`, `run_script_sh`, `parser_py`. No additional paths
+(images.jsonl, official repo checkout, …) are required.
+
 ## Quick start
 
 ```bash
 # Inspect prompt for one instance (no Docker needed)
 python recipes/swe_bench_pro/run.py \
-    --data-file /path/to/data/swe_bench_pro/swe_bench_pro.jsonl \
+    --data-file datasets/swe_bench_pro/swe_bench_pro.jsonl \
     --instance-id <iid> --mode prompt
 
 # List instances
 python recipes/swe_bench_pro/run.py \
-    --data-file /path/to/data/swe_bench_pro/swe_bench_pro.jsonl \
+    --data-file datasets/swe_bench_pro/swe_bench_pro.jsonl \
     --mode dry-run
 
 # Batch run
 python recipes/swe_bench_pro/run.py \
-    --data-file /path/to/data/swe_bench_pro/swe_bench_pro.jsonl \
+    --data-file datasets/swe_bench_pro/swe_bench_pro.jsonl \
     --mode batch
 
 # Convenience wrapper
-bash recipes/swe_bench_pro/run_swe_bench_pro.sh
+bash recipes/swe_bench_pro/run_swe_bench_pro.sh \
+    --data-file datasets/swe_bench_pro/swe_bench_pro.jsonl
 ```
 
-## Data sources
-
-* `--data-file` accepts JSONL/JSON/parquet/yaml/dataset-dir/CSV.
-* `--images-jsonl` (or `SWEBENCH_PRO_IMAGES_JSONL` env) supplies the
-  per-instance ``icm_image`` mapping.
-* `--official-repo-root` (or `SWEBENCH_PRO_OFFICIAL_REPO_ROOT` env)
-  points at the official SWE-bench-Pro repo and is required when the
-  data rows do not ship prebuilt eval scripts (`entryscript_sh`,
-  `run_script_sh`, `parser_py`).
-
-The pre-converted defaults are at
-`/path/to/data/swe_bench_pro/`.
+`--data-file` also accepts JSON / parquet / yaml / dataset-dir / CSV
+forms of the same dataset.
 
 ## Notes
 

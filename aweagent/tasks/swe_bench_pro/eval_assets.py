@@ -6,10 +6,7 @@ import ast
 import json
 import os
 import re
-import shlex
-from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 
@@ -37,49 +34,16 @@ def normalize_repo_language(raw_language: str | None) -> str:
     return language
 
 
-def load_icm_image_index(jsonl_path: str | Path) -> dict[str, str]:
-    """Load instance_id → icm_image mapping from a SWE-bench-Pro images.jsonl."""
-    path = Path(jsonl_path)
-    if not path.exists():
-        raise FileNotFoundError(f"SWE-bench-Pro images.jsonl not found: {path}")
-
-    index: dict[str, str] = {}
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            dockerfile = str(row.get("dockerfile") or "").strip()
-            icm_image = str(row.get("icm_image") or "").strip()
-            if not dockerfile or not icm_image:
-                continue
-            instance_id = (
-                dockerfile[: -len(".Dockerfile")]
-                if dockerfile.endswith(".Dockerfile")
-                else dockerfile
-            )
-            index[instance_id] = icm_image
-    return index
-
-
-def resolve_image(raw: dict[str, Any], image_index: Mapping[str, str] | None = None) -> str:
+def resolve_image(raw: dict[str, Any]) -> str:
     """Resolve the runtime image for a SWE-bench-Pro row.
 
-    Order: explicit ``oci_image`` / ``image`` / ``image_url`` → the
-    ``images.jsonl`` index (internal-mirror override, when provided) → the
-    row's own ``source_image`` (shipped by the public
+    Order: explicit ``oci_image`` / ``image`` / ``image_url`` → the row's own
+    ``source_image`` (shipped by the public
     ``AweAI-Team/AweAgent-Meta-SWE-Bench-Pro`` dataset).
     """
     explicit_image = raw.get("oci_image") or raw.get("image") or raw.get("image_url")
     if explicit_image:
         return str(explicit_image)
-
-    instance_id = str(raw.get("instance_id") or "").strip()
-    if image_index and instance_id:
-        mapped = image_index.get(instance_id, "")
-        if mapped:
-            return mapped
     return str(raw.get("source_image") or "")
 
 
@@ -126,36 +90,6 @@ def extract_selected_test_targets(raw: dict[str, Any]) -> list[str]:
     return _dedupe(derived)
 
 
-def build_source_eval_assets(
-    raw: dict[str, Any],
-    *,
-    workdir: str = "/app",
-    official_repo_root: str | None = None,
-) -> SWEBenchProEvalAssets:
-    """Generate official SWE-bench-Pro eval assets from a raw dataset row."""
-    if not official_repo_root:
-        raise ValueError("official_repo_root is required for raw SWE-bench-Pro evaluation")
-
-    root = Path(official_repo_root)
-    if not root.exists():
-        raise FileNotFoundError(f"Official SWE-bench-Pro repo not found: {official_repo_root}")
-
-    instance_id = str(raw.get("instance_id") or "").strip()
-    if not instance_id:
-        raise ValueError("SWE-bench-Pro row is missing instance_id")
-
-    run_script_sh = _load_official_script(root, instance_id, "run_script.sh")
-    parser_py = _load_official_script(root, instance_id, "parser.py")
-    entryscript_sh = _build_official_entryscript(raw, root, workdir)
-    selected_targets = extract_selected_test_targets(raw)
-    return SWEBenchProEvalAssets(
-        entryscript_sh=entryscript_sh,
-        run_script_sh=run_script_sh,
-        parser_py=parser_py,
-        selected_test_targets=selected_targets,
-    )
-
-
 def strip_binary_hunks(patch: str) -> str:
     """Match the official evaluator's binary-diff stripping behavior."""
     if not patch:
@@ -177,84 +111,6 @@ def strip_binary_hunks(patch: str) -> str:
 def parse_swebench_expected_tests(raw: Any) -> list[str]:
     """Parse official SWE-bench-Pro FAIL_TO_PASS / PASS_TO_PASS fields."""
     return _parse_swebench_list(raw)
-
-
-def _load_official_script(root: Path, instance_id: str, script_name: str) -> str:
-    script_path = root / "run_scripts" / instance_id / script_name
-    if not script_path.exists():
-        raise FileNotFoundError(f"Official SWE-bench-Pro script not found: {script_path}")
-    return script_path.read_text(encoding="utf-8")
-
-
-def _load_dockerfile(root: Path, docker_type: str, instance_id: str) -> str:
-    dockerfile_path = root / "dockerfiles" / docker_type / instance_id / "Dockerfile"
-    if not dockerfile_path.exists():
-        raise FileNotFoundError(f"Official SWE-bench-Pro Dockerfile not found: {dockerfile_path}")
-    return dockerfile_path.read_text(encoding="utf-8")
-
-
-def _extract_env_exports(*dockerfiles: str) -> str:
-    env_cmds: list[str] = []
-    for dockerfile_content in dockerfiles:
-        for raw_line in dockerfile_content.splitlines():
-            line = raw_line.strip()
-            if line.startswith("ENV"):
-                env_cmds.append(line.replace("ENV", "export", 1))
-    return "\n".join(env_cmds)
-
-
-def _build_official_entryscript(
-    raw: dict[str, Any],
-    official_repo_root: Path,
-    workdir: str,
-) -> str:
-    base_commit = str(raw.get("base_commit") or raw.get("parent_commit") or "").strip()
-    if not base_commit:
-        raise ValueError("SWE-bench-Pro row is missing base_commit")
-
-    before_repo_set_cmd = str(raw.get("before_repo_set_cmd") or "").strip()
-    before_repo_line = before_repo_set_cmd.splitlines()[-1].strip() if before_repo_set_cmd else ""
-    selected_test_files = ",".join(
-        _parse_swebench_list(raw.get("selected_test_files_to_run"))
-    )
-
-    base_dockerfile = _load_dockerfile(
-        official_repo_root,
-        "base_dockerfile",
-        str(raw["instance_id"]),
-    )
-    instance_dockerfile = _load_dockerfile(
-        official_repo_root,
-        "instance_dockerfile",
-        str(raw["instance_id"]),
-    )
-    env_cmds = _extract_env_exports(base_dockerfile, instance_dockerfile)
-
-    lines = [
-        env_cmds,
-        "# apply patch",
-        f"cd {shlex.quote(workdir)}",
-        f"git reset --hard {shlex.quote(base_commit)}",
-        f"git checkout {shlex.quote(base_commit)}",
-        "git apply -v /workspace/patch.diff",
-    ]
-    if before_repo_line:
-        lines.append(before_repo_line)
-    lines.extend(
-        [
-            "# run test and save stdout and stderr to separate files",
-            (
-                f"bash /workspace/run_script.sh {selected_test_files} "
-                "> /workspace/stdout.log 2> /workspace/stderr.log"
-            ).strip(),
-            "# run parsing script",
-            (
-                "python /workspace/parser.py /workspace/stdout.log "
-                "/workspace/stderr.log /workspace/output.json"
-            ),
-        ]
-    )
-    return "\n".join(line for line in lines if line).rstrip() + "\n"
 
 
 def _parse_jsonish_list(raw_value: Any) -> list[str]:

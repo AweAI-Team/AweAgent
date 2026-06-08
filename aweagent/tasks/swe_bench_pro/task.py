@@ -13,9 +13,7 @@ import yaml
 from aweagent.core.task.protocol import Evaluator, Task
 from aweagent.core.task.types import Instance
 from aweagent.tasks.swe_bench_pro.eval_assets import (
-    build_source_eval_assets,
     extract_prebuilt_eval_assets,
-    load_icm_image_index,
     normalize_repo_language,
     resolve_image,
 )
@@ -38,8 +36,6 @@ class SWEBenchProTask(Task):
         dataset_id: str = "swe_bench_pro",
         data_file: str | None = None,
         instances: list[dict[str, Any]] | None = None,
-        images_jsonl: str | None = None,
-        official_repo_root: str | None = None,
         default_workdir: str = "/app",
         all_languages: bool = False,
         split_num: int | None = None,
@@ -48,14 +44,11 @@ class SWEBenchProTask(Task):
         self.dataset_id = dataset_id
         self.data_file = data_file
         self._raw_instances = instances
-        self._images_jsonl = images_jsonl
-        self._official_repo_root = official_repo_root
         self._default_workdir = default_workdir
         self._all_languages = all_languages
         self._split_num = split_num
         self._split_id = split_id
         self._loaded: list[dict[str, Any]] | None = None
-        self._image_index: dict[str, str] | None = None
         self._validate_split_args()
 
     def _load_raw(self) -> list[dict[str, Any]]:
@@ -104,36 +97,6 @@ class SWEBenchProTask(Task):
             ),
         )
         return self._loaded
-
-    def _get_image_index(self) -> dict[str, str]:
-        if self._image_index is not None:
-            return self._image_index
-
-        jsonl_path = self._resolve_images_jsonl_path()
-        if jsonl_path is None:
-            self._image_index = {}
-            logger.info(
-                "SWE-bench-Pro images.jsonl not configured; using each row's source_image"
-            )
-            return self._image_index
-
-        self._image_index = load_icm_image_index(jsonl_path)
-        logger.info(
-            "Loaded %d SWE-bench-Pro icm images from %s",
-            len(self._image_index),
-            jsonl_path,
-        )
-        return self._image_index
-
-    def _resolve_images_jsonl_path(self) -> Path | None:
-        if self._images_jsonl:
-            return Path(self._images_jsonl)
-        if not self.data_file:
-            return None
-        data_path = Path(self.data_file)
-        candidate_root = data_path if data_path.is_dir() else data_path.parent
-        candidate = candidate_root / "images.jsonl"
-        return candidate if candidate.exists() else None
 
     def _validate_split_args(self) -> None:
         if self._split_num is None and self._split_id is None:
@@ -286,23 +249,13 @@ class SWEBenchProTask(Task):
                 }
             )
         else:
-            try:
-                generated_assets = build_source_eval_assets(
-                    raw,
-                    workdir=workdir,
-                    official_repo_root=self._official_repo_root,
-                )
-            except (FileNotFoundError, NotImplementedError, ValueError) as exc:
-                metadata["eval_assets_error"] = str(exc)
-            else:
-                metadata.update(
-                    {
-                        "entryscript_sh": generated_assets.entryscript_sh,
-                        "run_script_sh": generated_assets.run_script_sh,
-                        "parser_py": generated_assets.parser_py,
-                        "selected_test_targets": generated_assets.selected_test_targets,
-                    }
-                )
+            metadata["eval_assets_error"] = (
+                "SWE-bench-Pro row is missing prebuilt eval assets "
+                "(entryscript_sh / run_script_sh / parser_py). Download the "
+                "AweAgent-processed dataset from "
+                "https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro "
+                "(see datasets/swe_bench_pro/download.sh)."
+            )
 
         return Instance(
             id=str(raw.get("instance_id", "")),
@@ -310,7 +263,7 @@ class SWEBenchProTask(Task):
             repo=str(raw.get("repo", "")),
             base_commit=str(raw.get("base_commit", raw.get("parent_commit", ""))),
             workdir=workdir,
-            image=resolve_image(raw, self._get_image_index()),
+            image=resolve_image(raw),
             language=language,
             problem_statement=formatted_problem_statement,
             gold_patch=str(raw.get("patch", raw.get("golden_patch", ""))),
