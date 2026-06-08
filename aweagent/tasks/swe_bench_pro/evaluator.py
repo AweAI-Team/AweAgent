@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import tempfile
 import time
 from dataclasses import dataclass, replace
@@ -24,6 +25,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+_SWE_BENCH_PRO_PATCH_EXCLUDED_PATHS = frozenset({
+    "conf/sandboxd_env_conf.json",
+})
 
 @dataclass(frozen=True)
 class SWEBenchProEvaluationArtifacts:
@@ -121,7 +126,7 @@ class SWEBenchProEvaluator(Evaluator):
                 return (
                     _build_eval_result(
                         instance=instance,
-                        patch=patch,
+                        patch=artifacts.patch_diff,
                         stdout_text=stdout_text,
                         stderr_text=stderr_text or exec_result.stderr,
                         output_json=output_json,
@@ -239,7 +244,7 @@ class SWEBenchProEvaluator(Evaluator):
         return (
             _build_eval_result(
                 instance=instance,
-                patch=patch,
+                patch=artifacts.patch_diff,
                 stdout_text=stdout_text,
                 stderr_text=stderr_text,
                 output_json=output_json,
@@ -252,12 +257,35 @@ class SWEBenchProEvaluator(Evaluator):
 
 
 def _build_artifacts(instance: Instance, patch: str) -> SWEBenchProEvaluationArtifacts:
+    patch = _strip_swe_bench_pro_runtime_patch_files(patch)
     return SWEBenchProEvaluationArtifacts(
         patch_diff=strip_binary_hunks(patch),
         entryscript_sh=str(instance.metadata.get("entryscript_sh", "")),
         run_script_sh=str(instance.metadata.get("run_script_sh", "")),
         parser_py=str(instance.metadata.get("parser_py", "")),
     )
+
+
+def _strip_swe_bench_pro_runtime_patch_files(patch: str) -> str:
+    """Remove Portal runtime files that are not part of a model solution."""
+    if not patch:
+        return patch
+
+    sections = re.split(r"(?=^diff --git )", patch, flags=re.MULTILINE)
+    kept: list[str] = []
+    for section in sections:
+        if not section.strip():
+            continue
+        match = re.match(r"^diff --git a/(.*?) b/(.*?)$", section, flags=re.MULTILINE)
+        if match:
+            old_path, new_path = match.groups()
+            if (
+                old_path in _SWE_BENCH_PRO_PATCH_EXCLUDED_PATHS
+                or new_path in _SWE_BENCH_PRO_PATCH_EXCLUDED_PATHS
+            ):
+                continue
+        kept.append(section)
+    return "".join(kept)
 
 
 def _build_eval_result(
