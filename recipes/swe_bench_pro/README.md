@@ -54,3 +54,8 @@ forms of the same dataset.
 * `inject_gitignore_in_patch=False` strips the AweAgent auto-generated
   `.gitignore` block from the agent's patch so it matches the official
   `git diff <base_commit>` output byte-for-byte.
+
+## Reproducibility Results
+| Model | Average score | go | js | python | ts | Official result |
+|---|---:|---:|---:|---:|---:|---:|
+| Qwen3.6-35A3B | 0.416 | 0.354 | 0.345 | 0.504 | 0.700 | 0.495 |
