@@ -23,6 +23,7 @@ AweAgent's core capabilities:
 
 ## :newspaper: News
 
+- `[2026-06-10]` 🎉 Added Long-horizon & [DeNovoSWE](https://arxiv.org/abs/2606.10728) scaffolds support.
 - `[2026-06-04]` 🎉 Added DeepSearch & [IterResearch](https://arxiv.org/pdf/2511.07327) scaffolds + [BrowseComp](https://arxiv.org/pdf/2504.12516) support.
 - `[2026-05-10]` 🎉 Added [NL2Repo](https://arxiv.org/pdf/2512.12730) and [SWE-bench Pro](https://arxiv.org/pdf/2509.16941) task support.
 - `[2026-03-16]` 🎉 Added unified **LLM backends** (openai/azure/response/ark/anthropic/sglang) with multi-provider reasoning support ([docs](docs/llm_client/README.md)).
@@ -50,7 +51,7 @@ Reference agents shipped in-tree, all on the shared core.
 | Dataset | Description | Scaffold | Resources |
 |:--|:--|:--|:--|
 | **ScaleSWE** | large-scale SWE-bench-style data | SearchSWE / OpenHands | [data](https://huggingface.co/datasets/AweAI-Team/Scale-SWE) · [guide](recipes/scale_swe/) |
-| **DeNovoSWE** | doc2repo — implement a package from a natural-language spec | SearchSWE / OpenHands | [guide](recipes/denovo_swe/) |
+| **DeNovoSWE** | doc2repo — implement a package from a natural-language spec | SearchSWE / OpenHands | [data](https://huggingface.co/datasets/AweAI-Team/DeNovoSWE) · [guide](recipes/denovo_swe/) |
 
 **Test sets** — evaluation benchmarks:
 
