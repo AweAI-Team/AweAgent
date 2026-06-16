@@ -13,7 +13,6 @@ import asyncio
 import json
 import logging
 import sys
-from pathlib import Path
 from typing import Any
 
 from aweagent import __version__
@@ -51,6 +50,19 @@ def main() -> None:
         "--max-concurrent", type=int, help="Override max concurrent instances"
     )
     run_parser.add_argument(
+        "--start-index",
+        type=int,
+        help="0-based inclusive start index after instance-id filtering",
+    )
+    run_parser.add_argument(
+        "--end-index",
+        type=int,
+        help="0-based inclusive end index after instance-id filtering",
+    )
+    run_parser.add_argument(
+        "--max-instances", type=int, help="Run at most N instances after filtering"
+    )
+    run_parser.add_argument(
         "--max-steps", type=int, help="Override max agent steps"
     )
     run_parser.add_argument(
@@ -58,7 +70,7 @@ def main() -> None:
     )
 
     # ── info command ─────────────────────────────────────────────────
-    info_parser = subparsers.add_parser("info", help="Show available backends and plugins")
+    subparsers.add_parser("info", help="Show available backends and plugins")
 
     # Parse
     args = parser.parse_args()
@@ -116,7 +128,7 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     """Run agent on task instances."""
     from aweagent.core.condenser import build_condenser
     from aweagent.core.config.loader import load_config
-    from aweagent.core.task.runner import TaskRunner
+    from aweagent.core.task.runner import TaskRunner, select_instances
 
     logger = logging.getLogger("aweagent.cli")
 
@@ -124,6 +136,12 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     overrides: dict[str, Any] = {}
     if args.max_concurrent is not None:
         overrides.setdefault("execution", {})["max_concurrent"] = args.max_concurrent
+    if args.start_index is not None:
+        overrides.setdefault("execution", {})["start_index"] = args.start_index
+    if args.end_index is not None:
+        overrides.setdefault("execution", {})["end_index"] = args.end_index
+    if args.max_instances is not None:
+        overrides.setdefault("execution", {})["max_instances"] = args.max_instances
     if args.max_steps is not None:
         overrides.setdefault("agent", {})["max_steps"] = args.max_steps
     if args.output is not None:
@@ -136,7 +154,12 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 
     # Build task
     task = _build_task(config)
-    instances = task.get_instances(args.instance_ids)
+    instances = select_instances(
+        task.get_instances(args.instance_ids),
+        start_index=config.execution.start_index,
+        end_index=config.execution.end_index,
+        max_instances=config.execution.max_instances,
+    )
 
     if args.dry_run:
         print(f"\nDry run — {len(instances)} instances loaded:")
@@ -161,6 +184,9 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         runtime_config=config.runtime,
         evaluator=evaluator,
         max_concurrent=config.execution.max_concurrent,
+        start_index=config.execution.start_index,
+        end_index=config.execution.end_index,
+        max_instances=config.execution.max_instances,
         max_retries=config.execution.max_retries,
         output_path=config.execution.output_path,
         condenser=condenser,
@@ -245,7 +271,8 @@ def _build_task(config: Any):
     else:
         raise ValueError(
             f"Unknown task type: {task_type}. "
-            "Available: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro, browsecomp."
+            "Available: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, "
+            "swe_bench_pro, browsecomp."
         )
 
 
