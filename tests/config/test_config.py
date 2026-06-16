@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
-from pathlib import Path
 
 import pytest
 import yaml
@@ -14,7 +12,6 @@ from aweagent.core.config.loader import load_config
 from aweagent.core.config.schema import (
     AgentConfig,
     AweAgentConfig,
-    EvalConfig,
     ExecutionConfig,
     SecurityConfig,
     TaskConfig,
@@ -67,6 +64,7 @@ def test_load_config_from_yaml():
         "llm": {"backend": "azure", "model": "gpt-4"},
         "runtime": {"backend": "docker", "timeout": 3600},
         "agent": {"max_steps": 50},
+        "execution": {"start_index": 2, "end_index": 5, "max_instances": 10},
     }
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -78,8 +76,31 @@ def test_load_config_from_yaml():
             assert config.llm.model == "gpt-4"
             assert config.runtime.timeout == 3600
             assert config.agent.max_steps == 50
+            assert config.execution.start_index == 2
+            assert config.execution.end_index == 5
+            assert config.execution.max_instances == 10
         finally:
             os.unlink(f.name)
+
+
+def test_execution_max_instances_must_be_positive():
+    """A configured instance cap must be positive when provided."""
+    with pytest.raises(ValueError):
+        ExecutionConfig(max_instances=0)
+
+
+def test_execution_instance_range_must_be_non_negative():
+    """Configured instance range indices must be non-negative."""
+    with pytest.raises(ValueError):
+        ExecutionConfig(start_index=-1)
+    with pytest.raises(ValueError):
+        ExecutionConfig(end_index=-1)
+
+
+def test_execution_end_index_must_not_precede_start_index():
+    """The inclusive end index must not be before the start index."""
+    with pytest.raises(ValueError):
+        ExecutionConfig(start_index=3, end_index=2)
 
 
 def test_load_config_env_override():

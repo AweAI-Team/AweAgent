@@ -238,6 +238,7 @@ def _build_tool(
             max_attempts=options.get("max_attempts", 3),
             system_prompt=options.get("system_prompt"),
             llm_config_path=options.get("llm_config_path"),
+            llm_config=options.get("llm") or options.get("llm_config"),
             llm_params=options.get("llm_params"),
             reader=reader,
         )
