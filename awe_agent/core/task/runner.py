@@ -140,6 +140,75 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
     return record
 
 
+def select_instances(
+    instances: list[Instance],
+    *,
+    start_index: int | None = None,
+    end_index: int | None = None,
+    max_instances: int | None = None,
+) -> list[Instance]:
+    """Apply global instance range/cap after task loading and ID filtering."""
+    if start_index is not None and start_index < 0:
+        raise ValueError("start_index must be greater than or equal to 0")
+    if end_index is not None and end_index < 0:
+        raise ValueError("end_index must be greater than or equal to 0")
+    if max_instances is not None and max_instances <= 0:
+        raise ValueError("max_instances must be greater than 0")
+
+    start = start_index if start_index is not None else 0
+    if end_index is not None and end_index < start:
+        raise ValueError("end_index must be greater than or equal to start_index")
+
+    total = len(instances)
+    if total == 0:
+        if start_index is not None or end_index is not None:
+            logger.warning(
+                "Instance range start_index=%s end_index=%s was set but no "
+                "instances are available; running 0 instances",
+                start_index,
+                end_index,
+            )
+        if max_instances is not None:
+            logger.warning(
+                "max_instances=%d exceeds 0 selected instance(s); running 0",
+                max_instances,
+            )
+        return []
+
+    # Range selection is global and happens after task-specific loading/ID
+    # filtering, so every task keeps its own data parsing semantics.
+    if start >= total:
+        logger.warning(
+            "start_index=%d is beyond %d loaded instance(s); running 0 instances",
+            start,
+            total,
+        )
+        selected: list[Instance] = []
+    else:
+        end = end_index if end_index is not None else total - 1
+        if end >= total:
+            logger.warning(
+                "end_index=%d exceeds last loaded index %d; clipping to %d",
+                end,
+                total - 1,
+                total - 1,
+            )
+            end = total - 1
+        selected = instances[start : end + 1]
+
+    if max_instances is not None and max_instances > len(selected):
+        logger.warning(
+            "max_instances=%d exceeds %d selected instance(s); running %d",
+            max_instances,
+            len(selected),
+            len(selected),
+        )
+    if max_instances is not None:
+        selected = selected[:max_instances]
+
+    return selected
+
+
 class TaskRunner:
     """Batch execution engine.
 
@@ -166,6 +235,9 @@ class TaskRunner:
         evaluator: Evaluator | None = None,
         eval_runtime_config: RuntimeConfig | None = None,
         max_concurrent: int = 50,
+        start_index: int | None = None,
+        end_index: int | None = None,
+        max_instances: int | None = None,
         max_retries: int = 3,
         output_path: str | Path = "./results",
         condenser: Any = None,
@@ -183,6 +255,9 @@ class TaskRunner:
         self.evaluator = evaluator or task.default_evaluator()
         self.eval_runtime_config = eval_runtime_config
         self.max_concurrent = max_concurrent
+        self.start_index = start_index
+        self.end_index = end_index
+        self.max_instances = max_instances
         self.max_retries = max_retries
         self.max_steps = max_steps
         self.max_context_length = max_context_length
@@ -200,7 +275,12 @@ class TaskRunner:
         instance_ids: list[str] | None = None,
     ) -> list[TaskResult]:
         """Run agent on all instances concurrently."""
-        instances = self.task.get_instances(instance_ids)
+        instances = select_instances(
+            self.task.get_instances(instance_ids),
+            start_index=self.start_index,
+            end_index=self.end_index,
+            max_instances=self.max_instances,
+        )
         logger.info("Running %d instances (max_concurrent=%d)", len(instances), self.max_concurrent)
 
         # Build timestamped run directory

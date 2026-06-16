@@ -179,7 +179,14 @@ def test_deepsearch_web_tools_accept_custom_backend_options(monkeypatch):
             "tools": ["web_search", "web_fetch", "finish"],
             "tool_options": {
                 "web_search": {"backend": "private_search", "engine": "google"},
-                "web_fetch": {"reader_backend": "private_reader"},
+                "web_fetch": {
+                    "reader_backend": "private_reader",
+                    "llm": {
+                        "backend": "openai",
+                        "model": "web-fetch-model",
+                        "api_key": "web-fetch-key",
+                    },
+                },
             },
         }
     )
@@ -191,6 +198,7 @@ def test_deepsearch_web_tools_accept_custom_backend_options(monkeypatch):
     assert isinstance(web_search._backend, FakePrivateSearchBackend)  # noqa: SLF001
     assert web_search._engine == "google"  # noqa: SLF001
     assert isinstance(web_fetch._reader._backend, FakePrivateReaderBackend)  # noqa: SLF001
+    assert web_fetch._llm_config_inline["model"] == "web-fetch-model"  # noqa: SLF001
 
 
 @pytest.mark.asyncio

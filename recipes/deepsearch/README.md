@@ -5,10 +5,15 @@ read web pages, think, and submit a short final answer with `finish(answer=...)`
 It supports configurable context folding, fresh rollout retries, and forced
 answer extraction when the agent reaches the step limit without submitting.
 
-Current result: with `max_steps=300`, single rollout (`rollout_retries=0`), and
-`deepseek-v4-pro` with `reasoning_effort=max`, this framework reaches **71.4%**
-on a 185-example BrowseComp subset that is consistent with the full evaluation
-set. The setup is still under active optimization.
+Current result:
+
+| Model | BrowseComp |
+|-------|------------|
+| `deepseek-v4-pro` | **64.5** |
+
+<sub>Official reported score: 83.4. Since the harness and search/fetch backends
+may differ, treat it as a reference point. We are continuing to improve this
+setup.</sub>
 
 ## Setup
 

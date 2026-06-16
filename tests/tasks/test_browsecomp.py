@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
+import subprocess
+import sys
 from typing import Any
 
 import pytest
@@ -16,7 +19,13 @@ from awe_agent.core.config.schema import AweAgentConfig
 from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.llm.types import LLMResponse
 from awe_agent.core.runtime.config import RuntimeConfig
-from awe_agent.core.task.runner import TaskRunner, _build_trajectory_record, runtime_registry
+from awe_agent.core.task.protocol import Task
+from awe_agent.core.task.runner import (
+    TaskRunner,
+    _build_trajectory_record,
+    runtime_registry,
+    select_instances,
+)
 from awe_agent.core.task.types import Instance, TaskResult
 from awe_agent.core.tool.protocol import Tool
 from awe_agent.tasks.browsecomp.evaluator import (
@@ -180,6 +189,9 @@ def test_browsecomp_blocks_known_benchmark_leak_sources(tmp_path):
     assert constraints.is_url_blocked(
         "https://www.researchgate.net/publication/ordinary_paper"
     )
+    assert constraints.is_url_blocked(
+        "https://www.salesforce.com/blog/poisoning-the-well-search-agents/"
+    )
     assert constraints.is_url_blocked("https://arxiv.org/pdf/2603.20432.pdf")
     assert constraints.is_url_blocked(
         "https://openreview.net/attachment?id=N0d6tG377V&name=supplementary_material"
@@ -216,6 +228,101 @@ def test_browsecomp_blocks_known_benchmark_leak_sources(tmp_path):
             "snippets": "ordinary result",
         }
     ]
+
+
+def test_browsecomp_blocks_only_configured_sites(tmp_path, monkeypatch):
+    monkeypatch.setenv("BROWSECOMP_BLOCK_SITES", "huggingface")
+    data_file = tmp_path / "browsecomp.json"
+    data_file.write_text(json.dumps([
+        {"id": "bc", "problem": "Question?", "answer": "Answer"}
+    ]))
+    task = BrowseCompTask(data_file=str(data_file))
+    constraints = task.get_search_constraints(task.get_instances()[0])
+
+    assert constraints.is_url_blocked(
+        "https://huggingface.co/datasets/rl-rag/browsecomp-high-effort-gpt-oss-120b"
+    )
+    assert constraints.is_url_blocked("https://huggingface.co/Qwen/Qwen3-235B")
+    assert constraints.is_url_blocked(
+        "https://datasets-server.huggingface.co/rows?dataset=timchen0618%2Fbcp-traj-ext-formatted-v1"
+    )
+    assert not constraints.is_url_blocked(
+        "https://openreview.net/forum?id=ordinary-paper"
+    )
+    assert not constraints.is_url_blocked("https://github.com/example/repo")
+    assert not constraints.is_url_blocked(
+        "https://raw.githubusercontent.com/openai/grade-school-math/master/data/train.jsonl"
+    )
+    assert not constraints.is_url_blocked("https://arxiv.org/html/2504.12516v1")
+    assert not constraints.is_url_blocked(
+        "https://infosecwriteups.com/minrlm-a-token-efficient-recursive-language-model-implementation-and-benchmark-bdc6840a3b00"
+    )
+    assert not constraints.is_url_blocked(
+        "https://softwaredoug.com/blog/2026/03/23/we-can-learn-from-this-late-interaction-win"
+    )
+    assert not constraints.is_url_blocked(
+        "https://www.linkedin.com/posts/example_i-came-across-an-evaluation-test-called-browsecomp"
+    )
+    assert not constraints.is_url_blocked("https://openreward.ai/GeneralReasoning/ToolMind-Web-QA")
+    assert not constraints.is_url_blocked("https://www.modelscope.cn/datasets/nanbeige/ToolMind-Web-QA")
+    assert not constraints.is_url_blocked("http://www.hfdailybriefer.com/")
+    assert not constraints.is_url_blocked("https://img1.wsimg.com/blobby/go/example/OpenResearcher.pdf")
+    assert not constraints.is_url_blocked(
+        "https://www.researchgate.net/publication/ordinary_paper"
+    )
+    assert not constraints.is_url_blocked(
+        "https://www.salesforce.com/blog/poisoning-the-well-search-agents/"
+    )
+
+    filtered, count = constraints.filter_search_results([
+        {
+            "title": "Open source",
+            "url": "https://github.com/example/repo",
+            "description": "ordinary result",
+            "snippets": "ordinary result",
+        },
+        {
+            "title": "Open primary source",
+            "url": "https://www.britannica.com/topic/example",
+            "description": "Correct Answer: Steve Falat",
+            "snippets": "",
+        },
+    ])
+
+    assert count == 1
+    assert filtered == [
+        {
+            "title": "Open source",
+            "url": "https://github.com/example/repo",
+            "description": "ordinary result",
+            "snippets": "ordinary result",
+        }
+    ]
+
+
+def test_browsecomp_blocks_huggingface_alias(tmp_path, monkeypatch):
+    monkeypatch.setenv("BROWSECOMP_BLOCK_SITES", "HF")
+    data_file = tmp_path / "browsecomp.json"
+    data_file.write_text(json.dumps([
+        {"id": "bc", "problem": "Question?", "answer": "Answer"}
+    ]))
+    task = BrowseCompTask(data_file=str(data_file))
+    constraints = task.get_search_constraints(task.get_instances()[0])
+
+    assert constraints.is_url_blocked("https://huggingface.co/Qwen/Qwen3-235B")
+    assert not constraints.is_url_blocked("https://github.com/example/repo")
+
+
+def test_browsecomp_rejects_unknown_block_site(tmp_path, monkeypatch):
+    monkeypatch.setenv("BROWSECOMP_BLOCK_SITES", "gitub")
+    data_file = tmp_path / "browsecomp.json"
+    data_file.write_text(json.dumps([
+        {"id": "bc", "problem": "Question?", "answer": "Answer"}
+    ]))
+    task = BrowseCompTask(data_file=str(data_file))
+
+    with pytest.raises(ValueError, match="Unknown BROWSECOMP_BLOCK_SITES"):
+        task.get_search_constraints(task.get_instances()[0])
 
 
 def test_grader_template_keeps_reference_rubric_and_requests_json():
@@ -526,6 +633,29 @@ class _FinalAnswerAgent(Agent):
         return _FinalAnswerLoop()
 
 
+class _ListTask(Task):
+    def __init__(self, ids: list[str]) -> None:
+        self._instances = [
+            Instance(id=instance_id, dataset_id="list", metadata={"task_type": "list"})
+            for instance_id in ids
+        ]
+
+    def get_instances(self, instance_ids: list[str] | None = None) -> list[Instance]:
+        if not instance_ids:
+            return list(self._instances)
+        by_id = {instance.id: instance for instance in self._instances}
+        return [by_id[instance_id] for instance_id in instance_ids if instance_id in by_id]
+
+    def get_prompt(self, instance: Instance) -> str:
+        return f"Prompt for {instance.id}"
+
+    def requires_runtime(self) -> bool:
+        return False
+
+    def requires_patch_extraction(self) -> bool:
+        return False
+
+
 @pytest.mark.asyncio
 async def test_runner_passes_final_answer_to_agent_result_evaluator(
     tmp_path,
@@ -560,6 +690,209 @@ async def test_runner_passes_final_answer_to_agent_result_evaluator(
     assert result.eval_result is not None
     assert result.eval_result.accepted
     assert "[response]: Answer" in _FakeLLMClient.last_messages[0].content
+
+
+@pytest.mark.asyncio
+async def test_runner_limits_instances_after_id_filtering(tmp_path):
+    task = _ListTask(["train_0", "train_1", "train_2"])
+    runner = TaskRunner(
+        task=task,
+        agent_factory=lambda search_constraints=None: _FinalAnswerAgent(),
+        llm_config=LLMConfig(model="search"),
+        runtime_config=RuntimeConfig(),
+        max_instances=1,
+        max_retries=1,
+        max_concurrent=1,
+        output_path=tmp_path,
+        save_trajectories=False,
+    )
+
+    results = await runner.run_all(["train_2", "train_0"])
+
+    assert [result.instance_id for result in results] == ["train_2"]
+
+
+def test_select_instances_start_end_are_inclusive():
+    instances = _ListTask(["train_0", "train_1", "train_2", "train_3"]).get_instances()
+
+    assert [inst.id for inst in select_instances(instances, start_index=2)] == [
+        "train_2",
+        "train_3",
+    ]
+    assert [inst.id for inst in select_instances(instances, end_index=1)] == [
+        "train_0",
+        "train_1",
+    ]
+    assert [
+        inst.id
+        for inst in select_instances(instances, start_index=1, end_index=2)
+    ] == ["train_1", "train_2"]
+
+
+@pytest.mark.asyncio
+async def test_runner_applies_id_filter_then_range_then_max(tmp_path):
+    task = _ListTask(["train_0", "train_1", "train_2", "train_3"])
+    runner = TaskRunner(
+        task=task,
+        agent_factory=lambda search_constraints=None: _FinalAnswerAgent(),
+        llm_config=LLMConfig(model="search"),
+        runtime_config=RuntimeConfig(),
+        start_index=1,
+        end_index=2,
+        max_instances=1,
+        max_retries=1,
+        max_concurrent=1,
+        output_path=tmp_path,
+        save_trajectories=False,
+    )
+
+    results = await runner.run_all(["train_3", "train_1", "train_2", "train_0"])
+
+    assert [result.instance_id for result in results] == ["train_1"]
+
+
+def test_select_instances_warns_when_end_or_max_exceeds_available(caplog):
+    instances = _ListTask(["train_0", "train_1", "train_2"]).get_instances()
+    caplog.set_level(logging.WARNING)
+
+    selected = select_instances(instances, end_index=99, max_instances=99)
+
+    assert [inst.id for inst in selected] == ["train_0", "train_1", "train_2"]
+    messages = "\n".join(record.message for record in caplog.records)
+    assert "end_index=99 exceeds last loaded index 2" in messages
+    assert "max_instances=99 exceeds 3 selected instance(s)" in messages
+
+
+def test_select_instances_warns_when_start_exceeds_available(caplog):
+    instances = _ListTask(["train_0", "train_1", "train_2"]).get_instances()
+    caplog.set_level(logging.WARNING)
+
+    selected = select_instances(instances, start_index=99)
+
+    assert selected == []
+    assert "start_index=99 is beyond 3 loaded instance(s)" in caplog.text
+
+
+def test_cli_dry_run_respects_max_instances(tmp_path):
+    data_file = tmp_path / "browsecomp.json"
+    data_file.write_text(json.dumps([
+        {"id": "bc0", "problem": "Question 0?", "answer": "Answer 0"},
+        {"id": "bc1", "problem": "Question 1?", "answer": "Answer 1"},
+        {"id": "bc2", "problem": "Question 2?", "answer": "Answer 2"},
+    ]))
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        f"""
+task:
+  type: browsecomp
+  data_file: {data_file}
+eval:
+  enabled: false
+"""
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "awe_agent.cli",
+            "run",
+            "--config",
+            str(config_file),
+            "--max-instances",
+            "2",
+            "--dry-run",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "Dry run — 2 instances loaded" in result.stdout
+    assert "bc0" in result.stdout
+    assert "bc1" in result.stdout
+    assert "bc2" not in result.stdout
+
+
+def test_cli_dry_run_respects_instance_range(tmp_path):
+    data_file = tmp_path / "browsecomp.json"
+    data_file.write_text(json.dumps([
+        {"id": "bc0", "problem": "Question 0?", "answer": "Answer 0"},
+        {"id": "bc1", "problem": "Question 1?", "answer": "Answer 1"},
+        {"id": "bc2", "problem": "Question 2?", "answer": "Answer 2"},
+    ]))
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        f"""
+task:
+  type: browsecomp
+  data_file: {data_file}
+eval:
+  enabled: false
+"""
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "awe_agent.cli",
+            "run",
+            "--config",
+            str(config_file),
+            "--start-index",
+            "1",
+            "--end-index",
+            "2",
+            "--dry-run",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "Dry run — 2 instances loaded" in result.stdout
+    assert "bc0" not in result.stdout
+    assert "bc1" in result.stdout
+    assert "bc2" in result.stdout
+
+
+def test_cli_dry_run_warns_when_max_instances_exceeds_selected(tmp_path):
+    data_file = tmp_path / "browsecomp.json"
+    data_file.write_text(json.dumps([
+        {"id": "bc0", "problem": "Question 0?", "answer": "Answer 0"},
+        {"id": "bc1", "problem": "Question 1?", "answer": "Answer 1"},
+    ]))
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        f"""
+task:
+  type: browsecomp
+  data_file: {data_file}
+eval:
+  enabled: false
+"""
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "awe_agent.cli",
+            "run",
+            "--config",
+            str(config_file),
+            "--max-instances",
+            "99",
+            "--dry-run",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "Dry run — 2 instances loaded" in result.stdout
+    assert "max_instances=99 exceeds 2 selected instance(s)" in result.stderr
 
 
 def test_trajectory_record_includes_answer_provenance():

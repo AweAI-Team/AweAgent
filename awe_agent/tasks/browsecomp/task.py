@@ -7,6 +7,7 @@ import csv
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -17,27 +18,61 @@ from awe_agent.core.tool.search.constraints import SearchConstraints
 
 logger = logging.getLogger(__name__)
 
-_BROWSECOMP_ANTI_HACK_BLOCKED_PATTERNS: dict[str, list[str]] = {
-    "url": [
+_BROWSECOMP_BLOCK_SITES_ENV = "BROWSECOMP_BLOCK_SITES"
+
+_BROWSECOMP_BLOCK_SITE_ALIASES = {
+    "hf": "huggingface",
+}
+
+_BROWSECOMP_SITE_URL_BLOCKED_PATTERNS: dict[str, list[str]] = {
+    "huggingface": [
         r".*://([^/]+\.)?huggingface\.co(/|$).*",
-        r".*://([^/]+\.)?openreview\.net(/|$).*",
-        r".*://([^/]+\.)?github\.com(/|$).*",
-        r".*://([^/]+\.)?raw\.githubusercontent\.com(/|$).*",
-        r".*://([^/]+\.)?arxiv\.org(/|$).*",
-        r".*://([^/]+\.)?infosecwriteups\.com(/|$).*",
-        r".*://([^/]+\.)?softwaredoug\.com(/|$).*",
-        r".*://([^/]+\.)?linkedin\.com(/|$).*",
-        r".*://([^/]+\.)?openreward\.ai(/|$).*",
-        r".*://([^/]+\.)?modelscope\.cn(/|$).*",
-        r".*://([^/]+\.)?hfdailybriefer\.com(/|$).*",
-        r".*://([^/]+\.)?wsimg\.com(/|$).*",
-        r".*://([^/]+\.)?researchgate\.net(/|$).*",
         r".*huggingface\.co/datasets/.*",
         r".*huggingface\.co/api/datasets/.*",
         r".*datasets-server\.huggingface\.co/.*",
+    ],
+    "openreview": [
+        r".*://([^/]+\.)?openreview\.net(/|$).*",
         r".*openreview\.net/attachment.*",
         r".*openreview\.net/forum\?id=UJFCyrYM1V.*",
     ],
+    "github": [
+        r".*://([^/]+\.)?github\.com(/|$).*",
+        r".*://([^/]+\.)?raw\.githubusercontent\.com(/|$).*",
+    ],
+    "arxiv": [
+        r".*://([^/]+\.)?arxiv\.org(/|$).*",
+    ],
+    "infosecwriteups": [
+        r".*://([^/]+\.)?infosecwriteups\.com(/|$).*",
+    ],
+    "softwaredoug": [
+        r".*://([^/]+\.)?softwaredoug\.com(/|$).*",
+    ],
+    "linkedin": [
+        r".*://([^/]+\.)?linkedin\.com(/|$).*",
+    ],
+    "openreward": [
+        r".*://([^/]+\.)?openreward\.ai(/|$).*",
+    ],
+    "modelscope": [
+        r".*://([^/]+\.)?modelscope\.cn(/|$).*",
+    ],
+    "hfdailybriefer": [
+        r".*://([^/]+\.)?hfdailybriefer\.com(/|$).*",
+    ],
+    "wsimg": [
+        r".*://([^/]+\.)?wsimg\.com(/|$).*",
+    ],
+    "researchgate": [
+        r".*://([^/]+\.)?researchgate\.net(/|$).*",
+    ],
+    "salesforce": [
+        r".*://([^/]+\.)?salesforce\.com(/|$).*",
+    ],
+}
+
+_BROWSECOMP_ANTI_HACK_BASE_BLOCKED_PATTERNS: dict[str, list[str]] = {
     "title": [
         r".*BrowseComp.*",
         r".*BrowseComp-Plus.*",
@@ -74,6 +109,53 @@ _BROWSECOMP_ANTI_HACK_BLOCKED_PATTERNS: dict[str, list[str]] = {
         r".*microsoft/webgym_tasks.*",
     ],
 }
+
+
+def _parse_browsecomp_block_sites() -> set[str]:
+    # BROWSECOMP_BLOCK_SITES is a positive allowlist of sites to keep blocked
+    # for this rollout. If it is unset or empty, preserve the benchmark default:
+    # block every known leak-source site.
+    raw_sites = os.environ.get(_BROWSECOMP_BLOCK_SITES_ENV)
+    if raw_sites is None or not raw_sites.strip():
+        return set(_BROWSECOMP_SITE_URL_BLOCKED_PATTERNS)
+
+    # Accept comma-separated values with whitespace/case variations, and map
+    # short aliases such as "hf" to their canonical site names.
+    sites = {
+        site.strip().lower()
+        for site in raw_sites.split(",")
+        if site.strip()
+    }
+    normalized = {
+        _BROWSECOMP_BLOCK_SITE_ALIASES.get(site, site)
+        for site in sites
+    }
+    supported = set(_BROWSECOMP_SITE_URL_BLOCKED_PATTERNS)
+    unknown = sorted(normalized - supported)
+    if unknown:
+        supported_names = sorted(supported | set(_BROWSECOMP_BLOCK_SITE_ALIASES))
+        raise ValueError(
+            f"Unknown {_BROWSECOMP_BLOCK_SITES_ENV} value(s): "
+            f"{', '.join(unknown)}. Supported values: {', '.join(supported_names)}"
+        )
+    return normalized
+
+
+def _get_browsecomp_blocked_patterns() -> dict[str, list[str]]:
+    blocked_sites = _parse_browsecomp_block_sites()
+    # Keyword-based leak filters stay enabled regardless of the site-level URL
+    # switch; only URL patterns are selected by BROWSECOMP_BLOCK_SITES.
+    blocked_patterns = {
+        field: list(patterns)
+        for field, patterns in _BROWSECOMP_ANTI_HACK_BASE_BLOCKED_PATTERNS.items()
+    }
+    blocked_patterns["url"] = [
+        pattern
+        for site, patterns in _BROWSECOMP_SITE_URL_BLOCKED_PATTERNS.items()
+        if site in blocked_sites
+        for pattern in patterns
+    ]
+    return blocked_patterns
 
 
 def derive_key(password: str, length: int) -> bytes:
@@ -135,12 +217,7 @@ class BrowseCompTask(Task):
     def get_search_constraints(self, instance: Instance) -> SearchConstraints:
         # BrowseComp answers are now mirrored in public benchmark traces.
         # Block those leak sources by default while keeping this task-specific.
-        return SearchConstraints(
-            blocked_patterns={
-                field: list(patterns)
-                for field, patterns in _BROWSECOMP_ANTI_HACK_BLOCKED_PATTERNS.items()
-            }
-        )
+        return SearchConstraints(blocked_patterns=_get_browsecomp_blocked_patterns())
 
     def get_task_info(self, instance: Instance) -> dict[str, Any]:
         return {

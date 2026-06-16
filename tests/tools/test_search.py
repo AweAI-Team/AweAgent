@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from awe_agent.core.llm.config import LLMConfig
 from awe_agent.core.tool.search.backends.reader import get_reader_backend
 from awe_agent.core.tool.search.backends.reader.jina import JinaReaderBackend
 from awe_agent.core.tool.search.backends.search import get_search_backend
@@ -325,6 +326,92 @@ def test_web_fetch_yaml_config_inherits_all_fields(tmp_path):
     assert cfg.thinking_budget == 5000
     assert cfg.reasoning.preserve is True
     assert cfg.extra.get("enable_thinking") is True
+
+
+def test_web_fetch_inline_config_dict_inherits_all_fields(monkeypatch):
+    """Inline web_fetch LLM config supports the same fields as config files."""
+    monkeypatch.delenv("WEB_FETCH_MODEL", raising=False)
+
+    tool = WebFetchTool(
+        llm_config={
+            "backend": "openai",
+            "model": "inline-model",
+            "api_key": "inline-key",
+            "base_url": "https://inline.example/v1",
+            "reasoning": {"preserve": True, "format": "reasoning_content"},
+            "params": {"temperature": 0.2, "max_tokens": 4096},
+        },
+        llm_params={"temperature": 0.8},
+    )
+    tool._ensure_llm_loaded()
+
+    assert tool._llm is not None
+    cfg = tool._llm.config
+    assert cfg.model == "inline-model"
+    assert cfg.api_key == "inline-key"
+    assert cfg.base_url == "https://inline.example/v1"
+    assert cfg.reasoning.preserve is True
+    assert cfg.params["temperature"] == 0.2
+    assert tool._llm_params["temperature"] == 0.8
+    assert tool._llm_params["max_tokens"] == 4096
+
+
+def test_web_fetch_inline_llm_config_object(monkeypatch):
+    """Inline config may also be a fully built LLMConfig object."""
+    monkeypatch.delenv("WEB_FETCH_MODEL", raising=False)
+
+    tool = WebFetchTool(
+        llm_config=LLMConfig(
+            backend="openai",
+            model="object-model",
+            api_key="object-key",
+            params={"temperature": 0.1, "max_tokens": 1234},
+        )
+    )
+    tool._ensure_llm_loaded()
+
+    assert tool._llm is not None
+    cfg = tool._llm.config
+    assert cfg.model == "object-model"
+    assert cfg.api_key == "object-key"
+    assert tool._llm_params["temperature"] == 0.1
+    assert tool._llm_params["max_tokens"] == 1234
+
+
+def test_web_fetch_inline_config_takes_priority_over_path(tmp_path, monkeypatch):
+    """When both are supplied, inline config avoids reading llm_config_path."""
+    monkeypatch.delenv("WEB_FETCH_MODEL", raising=False)
+
+    missing_config_path = tmp_path / "missing.yaml"
+    tool = WebFetchTool(
+        llm_config_path=str(missing_config_path),
+        llm_config={
+            "backend": "openai",
+            "model": "inline-model",
+            "api_key": "inline-key",
+        },
+    )
+    tool._ensure_llm_loaded()
+
+    assert tool._llm is not None
+    assert tool._llm.config.model == "inline-model"
+
+
+def test_web_fetch_model_env_overrides_inline_config(monkeypatch):
+    """WEB_FETCH_MODEL remains a backwards-compatible model override."""
+    monkeypatch.setenv("WEB_FETCH_MODEL", "env-model")
+
+    tool = WebFetchTool(
+        llm_config={
+            "backend": "openai",
+            "model": "inline-model",
+            "api_key": "inline-key",
+        },
+    )
+    tool._ensure_llm_loaded()
+
+    assert tool._llm is not None
+    assert tool._llm.config.model == "env-model"
 
 
 def _make_mock_llm(summary_text: str = "This is the summary.") -> MagicMock:

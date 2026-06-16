@@ -82,6 +82,8 @@ class WebFetchTool(Tool):
         max_attempts: Retry attempts for LLM summarization.
         system_prompt: Custom system prompt (defaults to ``WEB_FETCH_PROMPT``).
         llm_config_path: Path to YAML config for the LLM client.
+        llm_config: Inline LLM configuration dict or :class:`LLMConfig`.
+            Takes priority over ``llm_config_path``.
         llm_params: LLM generation parameters (e.g. ``max_tokens``).
             Overrides values from YAML config. Defaults: ``max_tokens=10240``.
         llm: Optional pre-configured :class:`LLMClient` instance.
@@ -97,6 +99,7 @@ class WebFetchTool(Tool):
         max_attempts: int = _DEFAULT_MAX_ATTEMPTS,
         system_prompt: str | None = None,
         llm_config_path: str | None = None,
+        llm_config: dict[str, Any] | LLMConfig | None = None,
         llm_params: dict[str, Any] | None = None,
         llm: LLMClient | None = None,
         reader: WebFetchRawTool | None = None,
@@ -107,6 +110,7 @@ class WebFetchTool(Tool):
         self._llm_config_path = llm_config_path or os.environ.get(
             "WEB_FETCH_CONFIG_PATH"
         )
+        self._llm_config_inline = llm_config
         # LLM generation parameters — overridable via constructor or YAML config.
         # Resolved lazily in _ensure_llm_loaded(); constructor values take priority.
         self._llm_params_override = llm_params
@@ -249,15 +253,20 @@ class WebFetchTool(Tool):
             return
 
         model = os.environ.get("WEB_FETCH_MODEL")
-        if not model and not self._llm_config_path:
+        has_config = self._llm_config_inline is not None or self._llm_config_path
+        if not model and not has_config:
             logger.info(
-                "No WEB_FETCH_MODEL or WEB_FETCH_CONFIG_PATH set — "
+                "No web_fetch LLM config or WEB_FETCH_MODEL set — "
                 "web_fetch will return raw content without summarization."
             )
             return
 
         config_dict: dict[str, Any] = {}
-        if self._llm_config_path:
+        if isinstance(self._llm_config_inline, LLMConfig):
+            config_dict = self._llm_config_inline.model_dump()
+        elif self._llm_config_inline is not None:
+            config_dict = dict(self._llm_config_inline)
+        elif self._llm_config_path:
             config_dict = load_yaml(self._llm_config_path)
 
         # Resolve generation params: defaults ← YAML ← constructor override
@@ -266,9 +275,8 @@ class WebFetchTool(Tool):
         if self._llm_params_override:
             self._llm_params.update(self._llm_params_override)
 
-        # Apply env-var overrides and model name, then build full LLMConfig
-        # from the YAML dict so all fields (thinking, reasoning, extra, etc.)
-        # are inherited — not just backend/api_key/base_url/model.
+        # Inline config beats config-file loading, while env vars remain a
+        # backwards-compatible fallback for older rollout scripts.
         if model:
             config_dict["model"] = model
         config_dict.setdefault("model", "gpt-4o-mini")

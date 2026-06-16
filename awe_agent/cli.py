@@ -51,6 +51,19 @@ def main() -> None:
         "--max-concurrent", type=int, help="Override max concurrent instances"
     )
     run_parser.add_argument(
+        "--start-index",
+        type=int,
+        help="0-based inclusive start index after instance-id filtering",
+    )
+    run_parser.add_argument(
+        "--end-index",
+        type=int,
+        help="0-based inclusive end index after instance-id filtering",
+    )
+    run_parser.add_argument(
+        "--max-instances", type=int, help="Run at most N instances after filtering"
+    )
+    run_parser.add_argument(
         "--max-steps", type=int, help="Override max agent steps"
     )
     run_parser.add_argument(
@@ -116,7 +129,7 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     """Run agent on task instances."""
     from awe_agent.core.condenser import build_condenser
     from awe_agent.core.config.loader import load_config
-    from awe_agent.core.task.runner import TaskRunner
+    from awe_agent.core.task.runner import TaskRunner, select_instances
 
     logger = logging.getLogger("awe_agent.cli")
 
@@ -124,6 +137,12 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     overrides: dict[str, Any] = {}
     if args.max_concurrent is not None:
         overrides.setdefault("execution", {})["max_concurrent"] = args.max_concurrent
+    if args.start_index is not None:
+        overrides.setdefault("execution", {})["start_index"] = args.start_index
+    if args.end_index is not None:
+        overrides.setdefault("execution", {})["end_index"] = args.end_index
+    if args.max_instances is not None:
+        overrides.setdefault("execution", {})["max_instances"] = args.max_instances
     if args.max_steps is not None:
         overrides.setdefault("agent", {})["max_steps"] = args.max_steps
     if args.output is not None:
@@ -136,7 +155,12 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 
     # Build task
     task = _build_task(config)
-    instances = task.get_instances(args.instance_ids)
+    instances = select_instances(
+        task.get_instances(args.instance_ids),
+        start_index=config.execution.start_index,
+        end_index=config.execution.end_index,
+        max_instances=config.execution.max_instances,
+    )
 
     if args.dry_run:
         print(f"\nDry run — {len(instances)} instances loaded:")
@@ -161,6 +185,9 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         runtime_config=config.runtime,
         evaluator=evaluator,
         max_concurrent=config.execution.max_concurrent,
+        start_index=config.execution.start_index,
+        end_index=config.execution.end_index,
+        max_instances=config.execution.max_instances,
         max_retries=config.execution.max_retries,
         output_path=config.execution.output_path,
         condenser=condenser,
