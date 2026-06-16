@@ -52,3 +52,9 @@ Each row has these fields (matches NL2RepoBench's CSV):
 * `--agent-run-docker IMG` (or `AGENT_RUN_DOCKER` env) → optionally
   override the agent-side image. Empty string means agent shares the
   evaluation image (the default).
+
+## Reproducibility Results
+| Model | NL2Repo with golden env | NL2Repo without golden env | Official result |
+|---|---:|---:|---:|
+| Qwen3.5-35A3B | 0.235 | 0.222 | 0.205 |
+| Qwen3.6-35A3B | 0.273 | 0.262 | 0.294 |
