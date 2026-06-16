@@ -18,6 +18,8 @@ dependencies = [
     "sandbox_fusion",              # IterResearch PythonInterpreter tool (SandboxFusion client)
     "json5",                       # lenient parsing of string-encoded tool args
     "huggingface_hub",             # benchmark dataset downloads (BeyondSWE / ScaleSWE)
+    "pandas",                      # BrowseComp parquet loading
+    "pyarrow",                     # BrowseComp parquet loading
 ]
 
 [project.optional-dependencies]

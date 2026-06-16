@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
 
 from aweagent.core.llm.config import LLMConfig
 from aweagent.core.runtime.config import RuntimeConfig
@@ -69,10 +69,26 @@ class ExecutionConfig(BaseModel):
     """Execution configuration."""
 
     max_concurrent: int = 50
+    start_index: NonNegativeInt | None = None
+    end_index: NonNegativeInt | None = None
+    max_instances: PositiveInt | None = None
     max_retries: int = 3
     output_path: str = "./results"
     output_format: str = "jsonl"
     save_trajectories: bool = True
+
+    @model_validator(mode="after")
+    def validate_instance_range(self) -> ExecutionConfig:
+        if (
+            self.start_index is not None
+            and self.end_index is not None
+            and self.end_index < self.start_index
+        ):
+            raise ValueError(
+                "execution.end_index must be greater than or equal to "
+                "execution.start_index"
+            )
+        return self
 
 
 class SecurityConfig(BaseModel):
