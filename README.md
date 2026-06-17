@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1 align="center">
-  <img src="assets/aweai_logo.png" alt="AweAgent logo" height="36" align="center">
+  <img src="assets/aweai_logo.png" alt="AweAgent logo" height="34" align="top">
   &nbsp;AweAgent
 </h1>
 
@@ -42,7 +42,7 @@ Reference agents shipped in-tree, all on the shared core.
 | **OpenHands-style** | coding | CodeAct-XML coding agent, behavior-compatible with OpenHands (search off) | [code](aweagent/scaffold/search_swe) |
 | **SearchSWE** | coding | SWE coding agent with web search & fetch — fixes repo issues, pulls in external docs | [code](aweagent/scaffold/search_swe) |
 | **DeepSearch** | deep search | Base web-research QA agent; retry-until-answerable loop policy | [code](aweagent/scaffold/deepsearch) |
-| **IterResearch** | deep search | Deep search + **interaction scaling** for long, multi-step research | [code](aweagent/scaffold/iter_research) |
+| **IterResearch** | deep search | Deep search + interaction scaling for long, multi-step research | [code](aweagent/scaffold/iter_research) |
 | **Terminus-2** | terminal | tmux terminal agent driven by raw JSON keystrokes, on the standard loop | [code](aweagent/scaffold/terminus_2) |
 
 <sub>**OpenHands-style** and **SearchSWE** are the same scaffold (`search_swe`), one `enable_search` flag apart — listed separately because they behave differently.</sub>
