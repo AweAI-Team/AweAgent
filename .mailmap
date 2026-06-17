@@ -1,0 +1,8 @@
+# Consolidate each contributor to a single canonical identity for
+# `git shortlog -sne` and the GitHub contributor view.
+# Format: Canonical Name <canonical-email>  Mapped Name <mapped-email>
+
+DeepLSUN <2868523244@qq.com> Shuang Sun <2868523244@qq.com>
+Heisenburger2020 <marshmallowzjl@gmail.com> Jiale Zhao <65890878+Heisenburger2020@users.noreply.github.com>
+Mengfanzhe0127 <zcj0916001@sina.com> 孟繁哲 <113839695+Mengfanzhe0127@users.noreply.github.com>
+Capricious-Liu <zhili.liu@connect.ust.hk> zhili-liu <zhili.liu@connect.ust.hk>
