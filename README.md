@@ -1,6 +1,9 @@
 <div align="center">
 
-# AweAgent
+<h1 align="center">
+  <img src="assets/aweai_logo.png" alt="AweAgent logo" height="36" align="center">
+  &nbsp;AweAgent
+</h1>
 
 ### Make Agent Research Systematic.
 
