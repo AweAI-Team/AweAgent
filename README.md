@@ -201,3 +201,7 @@ Released under the [Apache-2.0 License](LICENSE).
 ## 📨 Contact
 
 Questions or feedback? Open an [issue](https://github.com/AweAI-Team/AweAgent/issues) or email `gx.chen.chn@gmail.com`.
+
+## 🎗️ Supporters
+
+This project is supported by [RUC AIBox](https://github.com/RUCAIBox).
