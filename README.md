@@ -204,4 +204,4 @@ Questions or feedback? Open an [issue](https://github.com/AweAI-Team/AweAgent/is
 
 ## 🎗️ Supporters
 
-This project is mainly developed and maintained by students from [RUC AIBox](https://github.com/RUCAIBox).
+This project is mainly developed and maintained by students from [RUC AI Box](https://github.com/RUCAIBox).
