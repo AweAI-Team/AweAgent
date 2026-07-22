@@ -48,10 +48,13 @@ class ExecuteBashTool(Tool):
             Execute a bash command in the terminal.
             * One command at a time: You can only execute one bash command at a time. \
 If you need to run multiple commands sequentially, use `&&` or `;` to chain them together.
-            * Persistent session: Commands execute in a persistent shell session where \
-environment variables, virtual environments, and working directory persist between commands.
-            * Soft timeout: Commands have a soft timeout. Once that's reached, the command \
-will be interrupted.
+            * Stateless commands: Each command runs in a fresh shell invocation. Shell \
+state — environment variables, activated virtual environments, and the working directory \
+(`cd`) — does NOT persist between commands, although changes to the container filesystem \
+(created files, installed packages) do persist. To run steps that depend on shared shell \
+state, chain them in a single command with `&&` or `;` (e.g. `cd /repo && pytest`).
+            * Timeout: Commands have a timeout (overridable via the `timeout` parameter). \
+When it is reached the command is terminated.
             * Shell options: Do NOT use `set -e`, `set -eu`, or `set -euo pipefail` in \
 shell scripts or commands in this environment. The runtime may not support them and can \
 cause unusable shell sessions. If you want to run multi-line bash commands, write the \
@@ -72,12 +75,7 @@ truncated before being returned.""")
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": (
-                        "The bash command to execute. "
-                        "Can be empty string to view additional logs when previous "
-                        "exit code is `-1`. "
-                        "Can be `C-c` (Ctrl+C) to interrupt the currently running process."
-                    ),
+                    "description": "The bash command to execute.",
                 },
                 "timeout": {
                     "type": "number",
@@ -99,6 +97,10 @@ truncated before being returned.""")
             return "Error: ExecuteBashTool requires a runtime session."
 
         command = params.get("command", "")
+        # Each call runs a fresh, one-shot command to completion; there is no
+        # persistent foreground process to poll, so an empty command has no
+        # meaning here. (The tool description intentionally does not advertise
+        # empty-command log polling — that belongs to a stateful shell backend.)
         if not command.strip():
             return "Error: empty command."
 
