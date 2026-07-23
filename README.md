@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1 align="center">
-  <img src="assets/aweai_logo.png" alt="AweAgent logo" height="34" align="top">
+  <img src="assets/aweai_logo.png" alt="AweAgent logo" height="34pt" align="top">
   &nbsp;AweAgent
 </h1>
 
@@ -187,10 +187,11 @@ If AweAgent is useful in your work, please consider citing it and giving the rep
 
 ```bibtex
 @misc{aweagent2026,
-  title        = {AweAgent: A Unified, Composable Framework to Build, Evaluate, and Train Agents},
-  author       = {AweAI Team},
+  author       = {{AweAI Team}},
+  title        = {{AweAgent}: A Unified, Composable Framework to Build, Evaluate, and Train Agents},
   year         = {2026},
-  howpublished = {\url{https://github.com/AweAI-Team/AweAgent}}
+  howpublished = {\url{https://github.com/AweAI-Team/AweAgent}},
+  note         = {GitHub repository}
 }
 ```
 
