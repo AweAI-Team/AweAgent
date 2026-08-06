@@ -310,6 +310,24 @@ class TerminalBenchV2Task(Task):
         self.dataset_id = dataset_id
         self._cache: dict[str, TaskInfo] = {}
 
+    @classmethod
+    def from_config(cls, config: Any) -> "TerminalBenchV2Task":
+        if not config.task.task_data_dir:
+            raise ValueError(
+                "task_data_dir is required for terminal_bench_v2. "
+                "Set task.task_data_dir in config YAML."
+            )
+        if not config.task.data_file:
+            raise ValueError(
+                "data_file is required for terminal_bench_v2. "
+                "Set task.data_file in config YAML."
+            )
+        return cls(
+            task_data_dir=config.task.task_data_dir,
+            data_file=config.task.data_file,
+            dataset_id=config.task.dataset_id,
+        )
+
     def _get_task_info(self, instance_id: str) -> TaskInfo:
         if instance_id not in self._cache:
             task_dir = self.task_data_dir / instance_id

@@ -190,6 +190,14 @@ class BrowseCompTask(Task):
         self._grader_llm_config = grader_llm_config
         self._instances: list[Instance] | None = None
 
+    @classmethod
+    def from_config(cls, config: Any) -> "BrowseCompTask":
+        return cls(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+            grader_llm_config=config.eval.judge_llm or config.llm,
+        )
+
     def get_instances(self, instance_ids: list[str] | None = None) -> list[Instance]:
         if self._instances is None:
             self._instances = self._load_instances()

@@ -73,6 +73,14 @@ web_fetch = "aweagent.core.tool.search:WebFetchTool"
 web_fetch_raw = "aweagent.core.tool.search:WebFetchRawTool"
 python_interpreter = "aweagent.core.tool.public.python_interpreter:PythonInterpreterTool"
 
+[project.entry-points."aweagent.task"]
+beyond_swe = "aweagent.tasks.beyond_swe.task:BeyondSWETask"
+scale_swe = "aweagent.tasks.scale_swe.task:ScaleSWETask"
+swe_bench_pro = "aweagent.tasks.swe_bench_pro.task:SWEBenchProTask"
+terminal_bench_v2 = "aweagent.tasks.terminal_bench_v2.task:TerminalBenchV2Task"
+nl2repo = "aweagent.tasks.nl2repo.task:NL2RepoTask"
+browsecomp = "aweagent.tasks.browsecomp.task:BrowseCompTask"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

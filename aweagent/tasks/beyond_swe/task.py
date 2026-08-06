@@ -87,6 +87,15 @@ class BeyondSWETask(Task):
         self._test_suite_dir = test_suite_dir or os.environ.get("BEYONDSWE_TEST_SUITE_DIR", "")
         self._loaded: list[dict[str, Any]] | None = None
 
+    @classmethod
+    def from_config(cls, config: Any) -> "BeyondSWETask":
+        return cls(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+            search_mode=config.agent.enable_search,
+            test_suite_dir=config.task.test_suite_dir,
+        )
+
     def _load_raw(self) -> list[dict[str, Any]]:
         if self._loaded is not None:
             return self._loaded

@@ -10,6 +10,7 @@ from aweagent.core.task.types import EvalResult, Instance
 from aweagent.core.tool.search.constraints import SearchConstraints
 
 if TYPE_CHECKING:
+    from aweagent.core.config.schema import AweAgentConfig
     from aweagent.core.runtime.protocol import RuntimeSession
 
 
@@ -23,6 +24,20 @@ class Task(ABC):
     4. Provide setup commands for the environment
     5. Provide a default evaluator (override in subclasses)
     """
+
+    @classmethod
+    def from_config(cls, config: AweAgentConfig) -> Task:
+        """Create a task instance from the global config.
+
+        Subclasses override this to extract their own parameters from
+        ``config`` (e.g. ``search_mode``, split args, grader LLM).  The
+        default reads only the common ``TaskConfig`` fields, which is
+        correct for tasks that need nothing else (e.g. ScaleSWE).
+        """
+        return cls(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+        )
 
     @abstractmethod
     def get_instances(self, instance_ids: list[str] | None = None) -> list[Instance]:

@@ -52,6 +52,10 @@ class TaskConfig(BaseModel):
     # NL2Repo: optional override of the per-instance agent image.
     agent_run_docker: str | None = None
     override_agent_timeout: float | None = None
+    # SWE-bench-Pro: language filter + deterministic sharding.
+    all_languages: bool = False
+    split_num: int | None = None
+    split_id: int | None = None
 
 
 class EvalConfig(BaseModel):

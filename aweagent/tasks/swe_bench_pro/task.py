@@ -51,6 +51,16 @@ class SWEBenchProTask(Task):
         self._loaded: list[dict[str, Any]] | None = None
         self._validate_split_args()
 
+    @classmethod
+    def from_config(cls, config: Any) -> "SWEBenchProTask":
+        return cls(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+            all_languages=config.task.all_languages,
+            split_num=config.task.split_num,
+            split_id=config.task.split_id,
+        )
+
     def _load_raw(self) -> list[dict[str, Any]]:
         if self._loaded is not None:
             return self._loaded

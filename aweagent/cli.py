@@ -99,6 +99,7 @@ def main() -> None:
 def _cmd_info() -> None:
     """Show available backends, tools, and plugins."""
     from aweagent.core.llm.client import llm_registry
+    from aweagent.core.task.registry import task_registry
     from aweagent.core.task.runner import runtime_registry
     from aweagent.core.tool.registry import tool_registry
     from aweagent.scaffold.registry import agent_registry
@@ -121,7 +122,9 @@ def _cmd_info() -> None:
     for name in tool_registry.list_available():
         print(f"  - {name}")
 
-    print("\nTasks: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, swe_bench_pro, browsecomp")
+    print("\nTasks:")
+    for name in task_registry.list_available():
+        print(f"  - {name}")
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
@@ -206,74 +209,10 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 
 
 def _build_task(config: Any):
-    """Build a Task instance from config."""
-    task_type = config.task.type
+    """Build a Task instance from config via the task registry."""
+    from aweagent.core.task.registry import task_registry
 
-    if task_type == "beyond_swe":
-        from aweagent.tasks.beyond_swe.task import BeyondSWETask
-
-        return BeyondSWETask(
-            dataset_id=config.task.dataset_id,
-            data_file=config.task.data_file,
-            search_mode=config.agent.enable_search,
-            test_suite_dir=config.task.test_suite_dir,
-        )
-    elif task_type == "scale_swe":
-        from aweagent.tasks.scale_swe.task import ScaleSWETask
-
-        return ScaleSWETask(
-            dataset_id=config.task.dataset_id,
-            data_file=config.task.data_file,
-        )
-    elif task_type == "terminal_bench_v2":
-        from aweagent.tasks.terminal_bench_v2.task import TerminalBenchV2Task
-
-        task_data_dir = config.task.task_data_dir
-        data_file = config.task.data_file
-        if not task_data_dir:
-            raise ValueError(
-                "task_data_dir is required for terminal_bench_v2. "
-                "Set task.task_data_dir in config YAML."
-            )
-        if not data_file:
-            raise ValueError(
-                "data_file is required for terminal_bench_v2. "
-                "Set task.data_file in config YAML."
-            )
-        return TerminalBenchV2Task(
-            task_data_dir=task_data_dir,
-            data_file=data_file,
-            dataset_id=config.task.dataset_id,
-        )
-    elif task_type == "nl2repo":
-        from aweagent.tasks.nl2repo.task import NL2RepoTask
-
-        return NL2RepoTask(
-            dataset_id=config.task.dataset_id,
-            data_file=config.task.data_file,
-            agent_run_docker=config.task.agent_run_docker,
-        )
-    elif task_type == "swe_bench_pro":
-        from aweagent.tasks.swe_bench_pro.task import SWEBenchProTask
-
-        return SWEBenchProTask(
-            dataset_id=config.task.dataset_id,
-            data_file=config.task.data_file,
-        )
-    elif task_type == "browsecomp":
-        from aweagent.tasks.browsecomp.task import BrowseCompTask
-
-        return BrowseCompTask(
-            dataset_id=config.task.dataset_id,
-            data_file=config.task.data_file,
-            grader_llm_config=config.eval.judge_llm or config.llm,
-        )
-    else:
-        raise ValueError(
-            f"Unknown task type: {task_type}. "
-            "Available: beyond_swe, scale_swe, terminal_bench_v2, nl2repo, "
-            "swe_bench_pro, browsecomp."
-        )
+    return task_registry.get(config.task.type).from_config(config)
 
 
 def _build_agent_factory(config: Any):
