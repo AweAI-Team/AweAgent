@@ -87,8 +87,6 @@ class DeNovoSWETask(BeyondSWETask):
             files remaining after ``clean.sh`` ran (for audit).
         prompt_version: ``"v1"`` (original) or ``"v2"`` (default — adds
             the public-API verification gate).
-        eval_iters: Run the evaluator N times in independent sandboxes
-            and report the mean score (mitigates eval flakiness).
     """
 
     def __init__(
@@ -101,7 +99,6 @@ class DeNovoSWETask(BeyondSWETask):
         del_done_images: bool = False,
         clean_snapshot_file: str | None = None,
         prompt_version: str = "v2",
-        eval_iters: int = 1,
     ) -> None:
         # NOT calling super().__init__() on purpose: BeyondSWETask reads
         # the BEYONDSWE_TEST_SUITE_DIR env var and stores a
@@ -116,7 +113,6 @@ class DeNovoSWETask(BeyondSWETask):
         self._del_done_images = del_done_images
         self._clean_snapshot_file = clean_snapshot_file
         self._prompt_version = prompt_version
-        self._eval_iters = eval_iters
         self._snapshot_lock: asyncio.Lock | None = None
         self._loaded: list[dict[str, Any]] | None = None
 
@@ -130,7 +126,6 @@ class DeNovoSWETask(BeyondSWETask):
             del_done_images=config.task.del_done_images,
             clean_snapshot_file=config.task.clean_snapshot_file,
             prompt_version=config.task.prompt_version,
-            eval_iters=config.task.eval_iters,
         )
 
     def _load_raw(self) -> list[dict[str, Any]]:
@@ -453,5 +448,4 @@ class DeNovoSWETask(BeyondSWETask):
             kwargs["timeout"] = timeout
         kwargs["validate_run"] = self._validate_run
         kwargs["del_done_images"] = self._del_done_images
-        kwargs["eval_iters"] = self._eval_iters
         return DeNovoSWEEvaluator(**kwargs)

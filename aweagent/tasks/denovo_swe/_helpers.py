@@ -15,7 +15,6 @@ import shlex
 import subprocess
 from typing import TYPE_CHECKING
 
-from aweagent.core.task.types import EvalResult
 from aweagent.tasks.denovo_swe._scripts import REMOVE_TESTS_SCRIPT
 
 if TYPE_CHECKING:
@@ -55,90 +54,6 @@ def head_tail_slice(text: str, head_bytes: int = 6000, tail_bytes: int = 4000) -
         text[:head_bytes]
         + f"\n\n... [truncated {len(text) - head_bytes - tail_bytes} chars] ...\n\n"
         + text[-tail_bytes:]
-    )
-
-
-# ── Multi-iteration aggregation ────────────────────────────────────────
-
-
-def aggregate_iterations(
-    instance_id: str,
-    results: list[EvalResult],
-    total_duration: float,
-) -> EvalResult:
-    """Combine per-iteration EvalResults into a single one.
-
-    * ``score`` — arithmetic mean of per-iteration scores.
-    * ``accepted`` — strict: only True when EVERY iteration accepts.
-    * ``duration`` — total wall-clock of all iterations.
-    * ``details`` — first iter's details (preserved for back-compat
-      consumers reading ``details.output``), plus a compact
-      ``iterations`` field listing per-iter ``score`` /
-      ``accepted`` / ``error``.
-    """
-    if not results:
-        return EvalResult(
-            accepted=False, score=0.0,
-            details={"error": "no_iterations"},
-            duration=total_duration,
-        )
-
-    scores = [r.score or 0.0 for r in results]
-    accepted_flags = [bool(r.accepted) for r in results]
-    score_mean = sum(scores) / len(scores)
-    # Population stdev — fine for N=3..5.
-    score_var = sum((s - score_mean) ** 2 for s in scores) / len(scores)
-    score_std = score_var ** 0.5
-
-    # Preserve a representative iter's details so any field name
-    # a downstream consumer expected continues to exist.  Prefer
-    # the first NON-CRASH iter: results[0] may have
-    # ``details = {"error": "iteration_crash:..."}`` from an early
-    # runtime hiccup, and propagating that as the aggregated
-    # ``details.error`` would falsely advertise the whole row as
-    # crashed even when iters 1+ produced honest outcomes.  Fall
-    # back to results[0] if every iter crashed.
-    def _is_crash_only(r: EvalResult) -> bool:
-        d = r.details or {}
-        return (
-            bool(d)
-            and len(d) == 1
-            and isinstance(d.get("error"), str)
-            and d["error"].startswith("iteration_crash:")
-        )
-
-    base_iter = next(
-        (r for r in results if not _is_crash_only(r)),
-        results[0],
-    )
-    base = dict(base_iter.details or {})
-    iter_summary = []
-    for i, r in enumerate(results):
-        iter_summary.append({
-            "iter": i,
-            "score": r.score,
-            "accepted": r.accepted,
-            "duration": r.duration,
-            "error": (r.details or {}).get("error"),
-        })
-    base["iterations"] = iter_summary
-    base["iter_count"] = len(results)
-    base["score_mean"] = score_mean
-    base["score_std"] = score_std
-    base["all_accepted"] = all(accepted_flags)
-    base["any_accepted"] = any(accepted_flags)
-
-    logger.info(
-        "Eval: aggregated %d iterations for %s → mean=%.3f std=%.3f "
-        "all_accepted=%s",
-        len(results), instance_id, score_mean, score_std,
-        base["all_accepted"],
-    )
-    return EvalResult(
-        accepted=base["all_accepted"],
-        score=score_mean,
-        details=base,
-        duration=total_duration,
     )
 
 

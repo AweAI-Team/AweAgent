@@ -19,7 +19,6 @@ Key CLI overrides (all optional, default from YAML config):
   --skip-eval         Skip evaluation after agent run
   --validate-run      Skip agent, run evaluation only (verify test patches)
   --del-done-images   Delete docker image after each instance completes
-  --eval-iters        Run evaluator N times per instance and report the mean
   --prompt-version    Prompt version: v1 (original) or v2 (default — adds
                       public-API verification gate)
   --dump-clean-snapshot PATH  Dump post-clean workspace snapshots to JSONL
@@ -101,11 +100,6 @@ def parse_args() -> argparse.Namespace:
         "--validate-run", action="store_true",
         help="Skip agent execution, run evaluation only (verify test patches)",
     )
-    p.add_argument(
-        "--eval-iters", type=int, default=1,
-        help="Run the evaluator N times per instance in separate sandboxes "
-             "and report the mean score (mitigates eval flakiness). Default 1.",
-    )
     p.add_argument("--no-trajectories", action="store_true", help="Disable saving per-instance trajectory files")
     p.add_argument(
         "--del-done-images", action="store_true", default=False,
@@ -149,8 +143,6 @@ def _load_config(args: argparse.Namespace):
     # pipeline (registry.from_config) can build the task.
     if args.validate_run:
         overrides.setdefault("task", {})["validate_run"] = args.validate_run
-    if args.eval_iters is not None:
-        overrides.setdefault("task", {})["eval_iters"] = args.eval_iters
     if args.del_done_images:
         overrides.setdefault("task", {})["del_done_images"] = args.del_done_images
     if args.dump_clean_snapshot is not None:
@@ -221,7 +213,6 @@ def _build_debug_run_dir(output_base: str, instance_id: str) -> Path:
 
 async def _mode_debug(
     config, task, instance_id: str, skip_eval: bool, validate_run: bool,
-    eval_iters: int = 1,
 ) -> None:
     from aweagent.core.agent import AgentContext, AgentLoop
     from aweagent.core.condenser import build_condenser
@@ -387,7 +378,6 @@ async def _mode_debug(
         evaluator = DeNovoSWEEvaluator(
             timeout=config.eval.timeout,
             validate_run=validate_run,
-            eval_iters=eval_iters,
         )
         eval_result = await evaluator.evaluate(inst, agent_patch, eval_runtime)
         from aweagent.core.task.error_kind import infer_error_kind
@@ -537,7 +527,6 @@ async def main() -> None:
             sys.exit(1)
         await _mode_debug(
             config, task, args.instance_id, args.skip_eval, args.validate_run,
-            eval_iters=args.eval_iters,
         )
 
     elif args.mode == "batch":

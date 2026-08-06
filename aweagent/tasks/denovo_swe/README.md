@@ -106,7 +106,6 @@ DeNovoSWETask(
     del_done_images=False,          # docker rmi after each instance
     clean_snapshot_file=None,       # Dump post-clean workspace snapshots
     prompt_version="v2",            # "v1" or "v2" (default — finish gate)
-    eval_iters=1,                   # Repeat eval N times, average score
 )
 ```
 

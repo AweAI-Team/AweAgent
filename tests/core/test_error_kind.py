@@ -36,7 +36,6 @@ CASES = [
     ("finish", _ev(error="missing_agent_final_answer"), None, ErrorKind.TASK_FAILURE.value),
     # 3e. A bare exception string (unknown marker) is infra.
     ("finish", _ev(error="KeyError: 'x'"), None, ErrorKind.INFRA_ERROR.value),
-    ("finish", _ev(error="iteration_crash:RuntimeError()"), None, ErrorKind.INFRA_ERROR.value),
     # 4. Ran to completion.
     ("finish", _ev(accepted=True, score=1.0), None, ErrorKind.OK.value),
     ("max_steps", _ev(accepted=False, score=0.0), None, ErrorKind.TASK_FAILURE.value),

@@ -36,7 +36,6 @@ from aweagent.core.eval.utils import (
 from aweagent.core.runtime.protocol import Runtime
 from aweagent.core.task.types import EvalResult, Instance
 from aweagent.tasks.denovo_swe._helpers import (
-    aggregate_iterations,
     apply_binary_archive,
     clean_all_test_files,
     collect_test_ids,
@@ -65,13 +64,6 @@ class DeNovoSWEEvaluator(PatchTestEvaluator):
 
     In ``validate_run`` mode, the agent patch is skipped (source code
     remains in the image) but tests are still applied and executed.
-
-    Multi-run averaging:
-        Pass ``eval_iters > 1`` to run the full evaluate cycle that
-        many times in *independent* sandboxes and aggregate the
-        scores.  This mitigates pytest / install / network flakiness
-        when comparing model variants — single runs are noisy enough
-        that small fixes can disappear in the noise.
     """
 
     def __init__(
@@ -79,14 +71,10 @@ class DeNovoSWEEvaluator(PatchTestEvaluator):
         timeout: int = 3600,
         validate_run: bool = False,
         del_done_images: bool = False,
-        eval_iters: int = 1,
     ) -> None:
         super().__init__(timeout=timeout, restore_tests=False)
         self._validate_run = validate_run
         self._del_done_images = del_done_images
-        if eval_iters < 1:
-            raise ValueError(f"eval_iters must be >= 1, got {eval_iters}")
-        self._eval_iters = eval_iters
 
     async def evaluate(
         self,
@@ -94,41 +82,8 @@ class DeNovoSWEEvaluator(PatchTestEvaluator):
         patch: str,
         runtime: Runtime,
     ) -> EvalResult:
-        """Public entry point — fans out to multiple iterations when
-        ``eval_iters > 1`` and aggregates the resulting scores."""
-        if self._eval_iters == 1:
-            return await self._evaluate_once(instance, patch, runtime)
-
-        outer_start = time.monotonic()
-        results: list[EvalResult] = []
-        for i in range(self._eval_iters):
-            logger.info(
-                "Eval: starting iteration %d/%d for %s",
-                i + 1, self._eval_iters, instance.id,
-            )
-            try:
-                er = await self._evaluate_once(instance, patch, runtime)
-            except Exception as exc:
-                logger.error(
-                    "Eval: iteration %d for %s crashed: %s",
-                    i + 1, instance.id, exc,
-                )
-                er = EvalResult(
-                    accepted=False,
-                    score=0.0,
-                    details={"error": f"iteration_crash:{exc!r}"},
-                    duration=0.0,
-                )
-            results.append(er)
-            logger.info(
-                "Eval: iteration %d/%d for %s → score=%.3f accepted=%s",
-                i + 1, self._eval_iters, instance.id,
-                er.score or 0.0, er.accepted,
-            )
-
-        return aggregate_iterations(
-            instance.id, results, time.monotonic() - outer_start,
-        )
+        """Public entry point — a single evaluation pass in an isolated sandbox."""
+        return await self._evaluate_once(instance, patch, runtime)
 
     async def _evaluate_once(
         self,

@@ -141,7 +141,6 @@ python recipes/denovo_swe/run.py \
 --output DIR               Output directory
 --skip-eval                Skip evaluation
 --validate-run             Skip agent, run eval only
---eval-iters N             Repeat the evaluator N times, report the mean
 --del-done-images          docker rmi after each instance
 --dump-clean-snapshot PATH Dump per-instance post-clean workspace
                            snapshots to a JSONL file
