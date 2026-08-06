@@ -3,9 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 from aweagent.core.agent.loop import AgentResult
+
+
+class ErrorKind(str, Enum):
+    """Structured classification of why an instance did not pass.
+
+    Separates *infrastructure* failures (which say nothing about the harness
+    or the model and should be excluded from pass-rate denominators) from a
+    genuine *task failure* (the agent ran fine but did not solve the task).
+    """
+
+    OK = "ok"                        # evaluated normally (accepted or genuine miss)
+    INFRA_ERROR = "infra_error"      # runtime/eval crash, agent step exception, eval-proxy error
+    TIMEOUT = "timeout"              # agent wall-clock timeout
+    CONTEXT_LENGTH = "context_length"  # context/token budget exhausted
+    TASK_FAILURE = "task_failure"    # ran to completion, agent just did not solve it
 
 
 @dataclass
@@ -36,6 +52,7 @@ class EvalResult:
     score: float = 0.0
     details: dict[str, Any] = field(default_factory=dict)
     duration: float = 0.0
+    error_kind: str = ErrorKind.OK.value
 
 
 @dataclass

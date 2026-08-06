@@ -133,6 +133,14 @@ def test_eval_result_failed():
     assert r.details["reason"] == "tests_failed"
 
 
+def test_eval_result_error_kind_default_ok():
+    from dataclasses import asdict
+
+    r = EvalResult(accepted=True, score=1.0)
+    assert r.error_kind == "ok"
+    assert asdict(r)["error_kind"] == "ok"
+
+
 # ── TaskResult ───────────────────────────────────────────────────────────────
 
 

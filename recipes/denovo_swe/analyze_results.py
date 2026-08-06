@@ -14,6 +14,11 @@ import sys
 from pathlib import Path
 
 
+# error_kind values that denote infrastructure failures (excluded from the
+# scored denominator). See aweagent.core.task.types.ErrorKind.
+_INFRA_KINDS = {"infra_error", "timeout", "context_length"}
+
+
 def analyze(results_file: str) -> dict:
     results = []
     with open(results_file) as f:
@@ -41,7 +46,11 @@ def analyze(results_file: str) -> dict:
         accepted = eval_result.get("accepted", False)
         details = eval_result.get("details", {})
 
-        if details.get("error"):
+        # Prefer the structured error_kind; fall back to the details["error"]
+        # heuristic for trajectories written before error_kind existed.
+        kind = eval_result.get("error_kind")
+        is_infra = kind in _INFRA_KINDS if kind is not None else bool(details.get("error"))
+        if is_infra:
             errors += 1
             continue
 

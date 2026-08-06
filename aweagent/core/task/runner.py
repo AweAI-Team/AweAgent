@@ -25,8 +25,9 @@ from aweagent.core.llm.client import LLMClient
 from aweagent.core.llm.config import LLMConfig
 from aweagent.core.runtime.config import RuntimeConfig
 from aweagent.core.runtime.protocol import Runtime
+from aweagent.core.task.error_kind import infer_error_kind
 from aweagent.core.task.protocol import Evaluator, Task
-from aweagent.core.task.types import EvalResult, Instance, TaskResult
+from aweagent.core.task.types import EvalResult, ErrorKind, Instance, TaskResult
 from aweagent.plugins.registry import Registry
 
 logger = logging.getLogger(__name__)
@@ -352,6 +353,19 @@ class TaskRunner:
                                     if result.agent_result
                                     else ""
                                 ),
+                                "error_kind": (
+                                    result.eval_result.error_kind
+                                    if result.eval_result is not None
+                                    else infer_error_kind(
+                                        finish_reason=(
+                                            result.agent_result.finish_reason
+                                            if result.agent_result
+                                            else None
+                                        ),
+                                        eval_result=None,
+                                        task_error=result.error,
+                                    )
+                                ),
                             }) + "\n")
 
                         # Append trajectory to jsonl
@@ -405,6 +419,7 @@ class TaskRunner:
                         "score": 0.0,
                         "error": last_error,
                         "finish_reason": "error",
+                        "error_kind": ErrorKind.INFRA_ERROR.value,
                     }) + "\n")
             return error_result
 
@@ -539,6 +554,14 @@ class TaskRunner:
                 eval_result = await self._evaluate(instance, agent_result.patch)
 
         elapsed = time.monotonic() - start_time
+        # Classify the outcome (infra vs genuine failure) from the signals that
+        # already exist, so downstream aggregation can exclude infra failures.
+        if eval_result is not None:
+            eval_result.error_kind = infer_error_kind(
+                finish_reason=(agent_result.finish_reason if agent_result else None),
+                eval_result=eval_result,
+                task_error=None,
+            )
         return TaskResult(
             instance_id=instance.id,
             agent_result=agent_result,

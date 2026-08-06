@@ -25,6 +25,19 @@ from collections import defaultdict
 
 DOMAIN_TASK = "doc2repo"  # The task type with partial pass rates
 
+# error_kind values that denote infrastructure failures (not harness/model
+# quality). See aweagent.core.task.types.ErrorKind.
+_INFRA_KINDS = {"infra_error", "timeout", "context_length"}
+
+
+def _is_infra(r: dict) -> bool:
+    """Infra failure? Prefer the structured error_kind; fall back to
+    finish_reason for results.jsonl written before error_kind existed."""
+    kind = r.get("error_kind")
+    if kind is not None:
+        return kind in _INFRA_KINDS
+    return r.get("finish_reason") == "error"
+
 
 def load_results(result_dir: str) -> list[dict]:
     """Load results.jsonl from the run directory."""
@@ -61,7 +74,7 @@ def analyze(results: list[dict]) -> dict:
             avg_pass_rate = sum(scores) / total if total > 0 else 0.0
             almost_correct = sum(1 for s in scores if s >= 0.9)
             correct = sum(1 for s in scores if s >= 1.0)
-            error_count = sum(1 for r in task_results if r.get("finish_reason") == "error")
+            error_count = sum(1 for r in task_results if _is_infra(r))
 
             stats[task_type] = {
                 "total": total,
@@ -74,7 +87,7 @@ def analyze(results: list[dict]) -> dict:
             }
         else:
             solved = sum(1 for r in task_results if r["score"] >= 1.0)
-            error_count = sum(1 for r in task_results if r.get("finish_reason") == "error")
+            error_count = sum(1 for r in task_results if _is_infra(r))
 
             stats[task_type] = {
                 "total": total,
@@ -86,7 +99,7 @@ def analyze(results: list[dict]) -> dict:
     # Overall
     total_all = len(results)
     solved_all = sum(1 for r in results if r["score"] >= 1.0)
-    error_all = sum(1 for r in results if r.get("finish_reason") == "error")
+    error_all = sum(1 for r in results if _is_infra(r))
     stats["overall"] = {
         "total": total_all,
         "solved": solved_all,

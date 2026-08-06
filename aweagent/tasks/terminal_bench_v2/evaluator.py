@@ -167,7 +167,9 @@ class TerminalBenchV2Evaluator(Evaluator):
 
         return EvalResult(
             accepted=accepted,
-            score=reward_value,
+            # Clamp to [0, 1]: reward files are only conventionally 0/1 and an
+            # out-of-range value would otherwise poison score aggregation.
+            score=max(0.0, min(1.0, reward_value)),
             details={
                 "reward_source": reward_source,
                 "verifier_timed_out": verifier_timed_out,
