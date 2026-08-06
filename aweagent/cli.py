@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import sys
 from typing import Any
@@ -129,9 +128,9 @@ def _cmd_info() -> None:
 
 async def _cmd_run(args: argparse.Namespace) -> None:
     """Run agent on task instances."""
-    from aweagent.core.condenser import build_condenser
     from aweagent.core.config.loader import load_config
-    from aweagent.core.task.runner import TaskRunner, select_instances
+    from aweagent.core.task.pipeline import build_runner, build_task
+    from aweagent.core.task.runner import select_instances
 
     logger = logging.getLogger("aweagent.cli")
 
@@ -156,15 +155,15 @@ async def _cmd_run(args: argparse.Namespace) -> None:
                 config.llm.backend, config.runtime.backend, config.agent.type, config.task.type)
 
     # Build task
-    task = _build_task(config)
-    instances = select_instances(
-        task.get_instances(args.instance_ids),
-        start_index=config.execution.start_index,
-        end_index=config.execution.end_index,
-        max_instances=config.execution.max_instances,
-    )
+    task = build_task(config)
 
     if args.dry_run:
+        instances = select_instances(
+            task.get_instances(args.instance_ids),
+            start_index=config.execution.start_index,
+            end_index=config.execution.end_index,
+            max_instances=config.execution.max_instances,
+        )
         print(f"\nDry run — {len(instances)} instances loaded:")
         for inst in instances[:20]:
             print(f"  {inst.id} (image={inst.image[:50] if inst.image else 'none'})")
@@ -172,33 +171,10 @@ async def _cmd_run(args: argparse.Namespace) -> None:
             print(f"  ... and {len(instances) - 20} more")
         return
 
-    logger.info("Running %d instances", len(instances))
-
-    # Unified runner for all task types.
-    agent_factory = _build_agent_factory(config)
-    evaluator = _build_evaluator(config, task)
-    condenser = build_condenser(config.agent.condenser)
-    config_snapshot = json.loads(config.model_dump_json())
-
-    runner = TaskRunner(
-        task=task,
-        agent_factory=agent_factory,
-        llm_config=config.llm,
-        runtime_config=config.runtime,
-        evaluator=evaluator,
-        max_concurrent=config.execution.max_concurrent,
-        start_index=config.execution.start_index,
-        end_index=config.execution.end_index,
-        max_instances=config.execution.max_instances,
-        max_retries=config.execution.max_retries,
-        output_path=config.execution.output_path,
-        condenser=condenser,
-        save_trajectories=config.execution.save_trajectories and not args.no_trajectories,
-        config_snapshot=config_snapshot,
-        max_steps=config.agent.max_steps,
-        max_context_length=config.agent.max_context_length,
+    # Unified runner for all task types (shared pipeline).
+    runner = build_runner(
+        config, task, save_trajectories=not args.no_trajectories
     )
-
     results = await runner.run_all(args.instance_ids)
 
     # Summary
@@ -209,50 +185,27 @@ async def _cmd_run(args: argparse.Namespace) -> None:
 
 
 def _build_task(config: Any):
-    """Build a Task instance from config via the task registry."""
-    from aweagent.core.task.registry import task_registry
+    """Build a Task instance from config via the task registry.
 
-    return task_registry.get(config.task.type).from_config(config)
+    Thin wrapper over ``pipeline.build_task`` kept for backward compatibility.
+    """
+    from aweagent.core.task.pipeline import build_task
+
+    return build_task(config)
 
 
 def _build_agent_factory(config: Any):
-    """Build an agent factory function from config.
+    """Backward-compatible wrapper over ``pipeline.build_agent_factory``."""
+    from aweagent.core.task.pipeline import build_agent_factory
 
-    Returns a callable that accepts optional ``search_constraints`` kwarg
-    for per-instance constraint injection.
-    """
-    from aweagent.scaffold.registry import agent_registry
-
-    agent_cls = agent_registry.get(config.agent.type)
-
-    def factory(search_constraints=None):
-        if search_constraints and hasattr(agent_cls, "from_config_with_constraints"):
-            return agent_cls.from_config_with_constraints(config, search_constraints)
-        return agent_cls.from_config(config)
-
-    return factory
+    return build_agent_factory(config)
 
 
 def _build_evaluator(config: Any, task: Any):
-    """Build an evaluator from config, or None if eval is disabled.
+    """Backward-compatible wrapper over ``pipeline.build_evaluator``."""
+    from aweagent.core.task.pipeline import build_evaluator
 
-    Prefers the task's own evaluator (e.g. BeyondSWEEvaluator) over the
-    generic IsolatedEvaluator so that task-specific evaluation logic is used.
-    """
-    if not config.eval.enabled:
-        return None
-
-    # Prefer task-specific evaluator
-    task_eval = task.default_evaluator(timeout=config.eval.timeout)
-    if task_eval is not None:
-        return task_eval
-
-    # Fallback to generic isolated evaluator
-    if config.eval.isolated:
-        from aweagent.core.eval.isolation import IsolatedEvaluator
-        return IsolatedEvaluator(eval_script=config.eval.eval_script)
-
-    return None
+    return build_evaluator(config, task)
 
 
 if __name__ == "__main__":

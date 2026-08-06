@@ -111,12 +111,10 @@ def _load_config(args: argparse.Namespace):
 
 
 def _build_task(config, data_file: str):
-    from aweagent.tasks.scale_swe.task import ScaleSWETask
+    # data_file is threaded into config.task.data_file via DATA_FILE env.
+    from aweagent.core.task.pipeline import build_task
 
-    return ScaleSWETask(
-        dataset_id=config.task.dataset_id,
-        data_file=data_file,
-    )
+    return build_task(config)
 
 
 def _print_section(title: str, content: str, max_len: int = 2000) -> None:
@@ -284,41 +282,11 @@ async def _mode_batch(
     config, task, instance_ids: list[str] | None, skip_eval: bool,
     save_trajectories: bool = True,
 ) -> None:
-    from aweagent.core.condenser import build_condenser
-    from aweagent.core.task.runner import TaskRunner
-    from aweagent.scaffold.registry import agent_registry
+    from aweagent.core.task.pipeline import build_runner
 
-    agent_cls = agent_registry.get(config.agent.type)
-
-    def agent_factory(search_constraints=None):
-        if search_constraints and hasattr(agent_cls, "from_config_with_constraints"):
-            return agent_cls.from_config_with_constraints(config, search_constraints)
-        return agent_cls.from_config(config)
-
-    condenser = build_condenser(config.agent.condenser)
-
-    evaluator = None if skip_eval else task.default_evaluator(
-        timeout=config.eval.timeout,
+    runner = build_runner(
+        config, task, skip_eval=skip_eval, save_trajectories=save_trajectories
     )
-
-    config_snapshot = json.loads(config.model_dump_json())
-
-    runner = TaskRunner(
-        task=task,
-        agent_factory=agent_factory,
-        llm_config=config.llm,
-        runtime_config=config.runtime,
-        evaluator=evaluator,
-        max_concurrent=config.execution.max_concurrent,
-        max_retries=config.execution.max_retries,
-        output_path=config.execution.output_path,
-        condenser=condenser,
-        save_trajectories=save_trajectories,
-        config_snapshot=config_snapshot,
-        max_steps=config.agent.max_steps,
-        max_context_length=config.agent.max_context_length,
-    )
-
     results = await runner.run_all(instance_ids)
 
     successes = sum(1 for r in results if r.success)

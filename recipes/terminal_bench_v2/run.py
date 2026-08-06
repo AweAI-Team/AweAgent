@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import os
 import sys
@@ -75,23 +74,11 @@ def _load_config(args: argparse.Namespace):
 
 
 def _build_task(config):
-    from aweagent.tasks.terminal_bench_v2.task import TerminalBenchV2Task
+    # task_data_dir/data_file are threaded into config.task.* by _load_config;
+    # the registry's from_config keeps the required-field validation.
+    from aweagent.core.task.pipeline import build_task
 
-    task_data_dir = config.task.task_data_dir
-    data_file = config.task.data_file
-    if not task_data_dir:
-        raise ValueError(
-            "task_data_dir is required. Set --task-data-dir or TASK_DATA_DIR."
-        )
-    if not data_file:
-        raise ValueError(
-            "data_file is required. Set --data-file or DATA_FILE."
-        )
-    return TerminalBenchV2Task(
-        task_data_dir=task_data_dir,
-        data_file=data_file,
-        dataset_id=config.task.dataset_id,
-    )
+    return build_task(config)
 
 
 async def main() -> None:
@@ -110,35 +97,11 @@ async def main() -> None:
     print(f"Agent:  type={config.agent.type}, max_steps={config.agent.max_steps}")
     print(f"Task:   task_data_dir={config.task.task_data_dir}")
 
-    from aweagent.core.condenser import build_condenser
-    from aweagent.core.task.runner import TaskRunner
-    from aweagent.scaffold.registry import agent_registry
+    from aweagent.core.task.pipeline import build_runner
 
-    agent_cls = agent_registry.get(config.agent.type)
-
-    def agent_factory(search_constraints=None):
-        return agent_cls.from_config(config)
-
-    evaluator = None
-    if not args.skip_eval:
-        evaluator = task.default_evaluator(timeout=config.eval.timeout)
-
-    save_traj = config.execution.save_trajectories and not args.no_trajectories
-
-    runner = TaskRunner(
-        task=task,
-        agent_factory=agent_factory,
-        llm_config=config.llm,
-        runtime_config=config.runtime,
-        evaluator=evaluator,
-        max_concurrent=config.execution.max_concurrent,
-        max_retries=config.execution.max_retries,
-        output_path=config.execution.output_path,
-        condenser=build_condenser(config.agent.condenser),
-        save_trajectories=save_traj,
-        config_snapshot=json.loads(config.model_dump_json()),
-        max_steps=config.agent.max_steps,
-        max_context_length=config.agent.max_context_length,
+    save_traj = not args.no_trajectories
+    runner = build_runner(
+        config, task, skip_eval=args.skip_eval, save_trajectories=save_traj
     )
 
     results = await runner.run_all(args.instance_ids)

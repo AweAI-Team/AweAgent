@@ -147,18 +147,36 @@ In summary, you need to:
 2. Import and merge your `SYSTEM_PROMPTS` in `scaffold/search_swe/prompts/system.py`
 3. Import and merge your `USER_PROMPTS` in `scaffold/search_swe/prompts/user.py`
 
-### 5. Register in CLI (`aweagent/cli.py`)
+### 5. Register the task
 
-Add your task type to `_build_task()`:
+Tasks are resolved through the `aweagent.task` registry (mirroring the agent /
+evaluator / runtime registries), so there is no hand-written dispatch to edit.
 
-```python
-elif task_type == "your_task":
-    from aweagent.tasks.your_task.task import YourTask
-    return YourTask(
-        dataset_id=config.task.dataset_id,
-        data_file=config.task.data_file,
-    )
-```
+1. Give your task class a `from_config(cls, config)` classmethod that pulls its
+   own parameters from the global config (the `Task` base provides a default
+   that reads `dataset_id` / `data_file`; override it only if you need more):
+
+   ```python
+   @classmethod
+   def from_config(cls, config):
+       return cls(
+           dataset_id=config.task.dataset_id,
+           data_file=config.task.data_file,
+           # ...your task-specific params, read from config.task.* / config.agent.* ...
+       )
+   ```
+
+2. Register it in `aweagent/core/task/registry.py` (built-in) and add an entry
+   under `[project.entry-points."aweagent.task"]` in `pyproject.toml`
+   (so editable installs of downstream packages are discovered too):
+
+   ```toml
+   your_task = "aweagent.tasks.your_task.task:YourTask"
+   ```
+
+   The shared pipeline (`aweagent/core/task/pipeline.py`) then builds it via
+   `task_registry.get(config.task.type).from_config(config)` — the CLI and all
+   recipes go through this one path.
 
 ### 6. Create Config and Recipe
 
