@@ -40,3 +40,10 @@ try:
     task_registry.register("browsecomp", BrowseCompTask)
 except ImportError:
     pass
+
+try:
+    from aweagent.tasks.denovo_swe.task import DeNovoSWETask
+
+    task_registry.register("denovo_swe", DeNovoSWETask)
+except ImportError:
+    pass

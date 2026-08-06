@@ -184,29 +184,5 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     print(f"Output: {runner.run_dir}")
 
 
-def _build_task(config: Any):
-    """Build a Task instance from config via the task registry.
-
-    Thin wrapper over ``pipeline.build_task`` kept for backward compatibility.
-    """
-    from aweagent.core.task.pipeline import build_task
-
-    return build_task(config)
-
-
-def _build_agent_factory(config: Any):
-    """Backward-compatible wrapper over ``pipeline.build_agent_factory``."""
-    from aweagent.core.task.pipeline import build_agent_factory
-
-    return build_agent_factory(config)
-
-
-def _build_evaluator(config: Any, task: Any):
-    """Backward-compatible wrapper over ``pipeline.build_evaluator``."""
-    from aweagent.core.task.pipeline import build_evaluator
-
-    return build_evaluator(config, task)
-
-
 if __name__ == "__main__":
     main()

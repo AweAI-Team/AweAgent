@@ -145,7 +145,21 @@ def _load_config(args: argparse.Namespace):
     if args.output is not None:
         overrides.setdefault("execution", {})["output_path"] = args.output
 
+    # DeNovoSWE task params now flow through config.task.* so the shared
+    # pipeline (registry.from_config) can build the task.
+    if args.validate_run:
+        overrides.setdefault("task", {})["validate_run"] = args.validate_run
+    if args.eval_iters is not None:
+        overrides.setdefault("task", {})["eval_iters"] = args.eval_iters
+    if args.del_done_images:
+        overrides.setdefault("task", {})["del_done_images"] = args.del_done_images
+    if args.dump_clean_snapshot is not None:
+        overrides.setdefault("task", {})["clean_snapshot_file"] = args.dump_clean_snapshot
+    if args.prompt_version is not None:
+        overrides.setdefault("task", {})["prompt_version"] = args.prompt_version
+
     os.environ.setdefault("DATA_FILE", args.data_file)
+    overrides.setdefault("task", {})["data_file"] = args.data_file
     return load_config(args.config, overrides=overrides)
 
 
@@ -155,18 +169,11 @@ def _build_task(
     del_done_images: bool = False, clean_snapshot_file: str | None = None,
     prompt_version: str = "v2", eval_iters: int = 1,
 ):
-    from aweagent.tasks.denovo_swe.task import DeNovoSWETask
+    # All task params are threaded into config.task.* by _load_config; build
+    # via the shared registry (DeNovoSWETask.from_config reads them).
+    from aweagent.core.task.pipeline import build_task
 
-    return DeNovoSWETask(
-        dataset_id=config.task.dataset_id,
-        data_file=data_file,
-        search_mode=config.agent.enable_search,
-        validate_run=validate_run,
-        del_done_images=del_done_images,
-        clean_snapshot_file=clean_snapshot_file,
-        prompt_version=prompt_version,
-        eval_iters=eval_iters,
-    )
+    return build_task(config)
 
 
 def _print_section(title: str, content: str, max_len: int = 2000) -> None:
@@ -485,39 +492,10 @@ async def _mode_batch(
     config, task, instance_ids: list[str] | None, skip_eval: bool,
     save_trajectories: bool = True,
 ) -> None:
-    from aweagent.core.condenser import build_condenser
-    from aweagent.core.task.runner import TaskRunner
-    from aweagent.scaffold.registry import agent_registry
+    from aweagent.core.task.pipeline import build_runner
 
-    agent_cls = agent_registry.get(config.agent.type)
-
-    def agent_factory(search_constraints=None):
-        if search_constraints and hasattr(agent_cls, "from_config_with_constraints"):
-            return agent_cls.from_config_with_constraints(config, search_constraints)
-        return agent_cls.from_config(config)
-
-    condenser = build_condenser(config.agent.condenser)
-
-    evaluator = None if skip_eval else task.default_evaluator(
-        timeout=config.eval.timeout,
-    )
-
-    config_snapshot = json.loads(config.model_dump_json())
-
-    runner = TaskRunner(
-        task=task,
-        agent_factory=agent_factory,
-        llm_config=config.llm,
-        runtime_config=config.runtime,
-        evaluator=evaluator,
-        max_concurrent=config.execution.max_concurrent,
-        max_retries=config.execution.max_retries,
-        output_path=config.execution.output_path,
-        condenser=condenser,
-        save_trajectories=save_trajectories,
-        config_snapshot=config_snapshot,
-        max_steps=config.agent.max_steps,
-        max_context_length=config.agent.max_context_length,
+    runner = build_runner(
+        config, task, skip_eval=skip_eval, save_trajectories=save_trajectories
     )
 
     results = await runner.run_all(instance_ids)

@@ -80,6 +80,7 @@ swe_bench_pro = "aweagent.tasks.swe_bench_pro.task:SWEBenchProTask"
 terminal_bench_v2 = "aweagent.tasks.terminal_bench_v2.task:TerminalBenchV2Task"
 nl2repo = "aweagent.tasks.nl2repo.task:NL2RepoTask"
 browsecomp = "aweagent.tasks.browsecomp.task:BrowseCompTask"
+denovo_swe = "aweagent.tasks.denovo_swe.task:DeNovoSWETask"
 
 [build-system]
 requires = ["hatchling"]

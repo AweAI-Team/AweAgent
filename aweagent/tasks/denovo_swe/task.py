@@ -120,6 +120,19 @@ class DeNovoSWETask(BeyondSWETask):
         self._snapshot_lock: asyncio.Lock | None = None
         self._loaded: list[dict[str, Any]] | None = None
 
+    @classmethod
+    def from_config(cls, config: Any) -> "DeNovoSWETask":
+        return cls(
+            dataset_id=config.task.dataset_id,
+            data_file=config.task.data_file,
+            search_mode=config.agent.enable_search,
+            validate_run=config.task.validate_run,
+            del_done_images=config.task.del_done_images,
+            clean_snapshot_file=config.task.clean_snapshot_file,
+            prompt_version=config.task.prompt_version,
+            eval_iters=config.task.eval_iters,
+        )
+
     def _load_raw(self) -> list[dict[str, Any]]:
         # Overridden (rather than inherited) so the log line keeps the
         # "DeNovoSWE" label.  Implementation is otherwise identical to

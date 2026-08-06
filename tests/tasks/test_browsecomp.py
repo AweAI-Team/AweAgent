@@ -10,7 +10,6 @@ from typing import Any
 
 import pytest
 
-from aweagent.cli import _build_task
 from aweagent.core.agent.context import AgentContext
 from aweagent.core.agent.loop import AgentResult
 from aweagent.core.agent.protocol import Agent
@@ -18,6 +17,7 @@ from aweagent.core.agent.trajectory import Action, Trajectory
 from aweagent.core.config.schema import AweAgentConfig
 from aweagent.core.llm.client import llm_registry
 from aweagent.core.llm.config import LLMConfig
+from aweagent.core.task.pipeline import build_task
 from aweagent.core.llm.types import LLMResponse
 from aweagent.core.runtime.config import RuntimeConfig
 from aweagent.core.task.protocol import Task
@@ -569,7 +569,7 @@ def test_browsecomp_cli_uses_judge_llm_when_configured(tmp_path):
         task={"type": "browsecomp", "data_file": str(data_file)},
     )
 
-    task = _build_task(config)
+    task = build_task(config)
     evaluator = task.default_evaluator()
 
     assert evaluator._grader_llm_config.model == "judge-model"
@@ -585,7 +585,7 @@ def test_browsecomp_cli_falls_back_to_search_llm(tmp_path):
         task={"type": "browsecomp", "data_file": str(data_file)},
     )
 
-    task = _build_task(config)
+    task = build_task(config)
     evaluator = task.default_evaluator()
 
     assert evaluator._grader_llm_config.model == "search-model"

@@ -69,3 +69,23 @@ def test_taskconfig_split_defaults():
     assert tc.all_languages is False
     assert tc.split_num is None
     assert tc.split_id is None
+
+
+def test_denovo_swe_from_config_reads_own_params():
+    """DeNovoSWE reads its recipe-only params from config.task.* now."""
+    cfg = _config(
+        type="denovo_swe",
+        dataset_id="denovo_swe",
+        data_file="/tmp/x.jsonl",
+        validate_run=True,
+        eval_iters=3,
+        prompt_version="v1",
+    )
+    task = task_registry.get("denovo_swe").from_config(cfg)
+    assert task._validate_run is True
+    assert task._eval_iters == 3
+    assert task._prompt_version == "v1"
+
+
+def test_registry_lists_denovo():
+    assert "denovo_swe" in task_registry.list_available()

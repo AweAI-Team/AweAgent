@@ -56,6 +56,12 @@ class TaskConfig(BaseModel):
     all_languages: bool = False
     split_num: int | None = None
     split_id: int | None = None
+    # DeNovoSWE: eval-only replay, repeated eval, image cleanup, prompt version.
+    validate_run: bool = False
+    eval_iters: int = 1
+    del_done_images: bool = False
+    clean_snapshot_file: str | None = None
+    prompt_version: str = "v2"
 
 
 class EvalConfig(BaseModel):
