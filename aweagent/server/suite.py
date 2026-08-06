@@ -59,6 +59,30 @@ def _serving_overrides(
     }
 
 
+def _resolve_num_rollouts(
+    num_rollouts: int | list[int], bench_ids: list[str]
+) -> list[int]:
+    """Normalize num_rollouts to one positive int per bench.
+
+    An int applies to every bench; a list must match ``bench_ids`` in length
+    and maps positionally (e.g. ``[3, 1]`` for two benches). Fails fast on a
+    length mismatch or a non-positive count rather than silently guessing.
+    """
+    if isinstance(num_rollouts, int):
+        counts = [num_rollouts] * len(bench_ids)
+    else:
+        counts = list(num_rollouts)
+        if len(counts) != len(bench_ids):
+            raise ValueError(
+                f"num_rollouts list length ({len(counts)}) must match "
+                f"bench_ids length ({len(bench_ids)}): {bench_ids}"
+            )
+    for c in counts:
+        if not isinstance(c, int) or c < 1:
+            raise ValueError(f"num_rollouts values must be positive ints, got {c!r}")
+    return counts
+
+
 async def evaluate(
     ckpt_base_url: str,
     bench_ids: list[str],
@@ -66,7 +90,7 @@ async def evaluate(
     concurrency: int = 50,
     timeout: int = 3600,
     model_name: str = "ckpt",
-    num_rollouts: int = 1,
+    num_rollouts: int | list[int] = 1,
     instance_ids: dict[str, list[str]] | None = None,
     output_root: str | Path = "./results/eval_server",
 ) -> SuiteResult:
@@ -78,8 +102,11 @@ async def evaluate(
         concurrency: max concurrent instances per bench (TaskRunner semaphore).
         timeout: per-instance eval timeout (seconds).
         model_name: model id passed to the sglang backend.
-        num_rollouts: independent full rollouts per instance (default 1). N>1
-            runs each instance N times continuously (semaphore-throttled, not
+        num_rollouts: independent full rollouts per instance (default 1). Pass an
+            int to use the same count for every bench, or a list of ints (one per
+            bench, same length/order as ``bench_ids``) to vary it — e.g.
+            ``[3, 1]`` for ``["terminal_bench_v2", "swe_bench_pro"]``. N>1 runs
+            each instance N times continuously (semaphore-throttled, not
             batched), writes rollout_k/ subdirs, and scores pass@k / avg pass
             rate per instance. Infra-failed rollouts are dropped from each
             instance's denominator and recorded in ``BenchScore.missing_rollouts``
@@ -93,10 +120,11 @@ async def evaluate(
     Benches run sequentially to avoid oversubscribing the shared sglang
     endpoint and Docker/portal pool; instances within a bench run concurrently.
     """
+    rollouts_per_bench = _resolve_num_rollouts(num_rollouts, bench_ids)
     output_root = Path(output_root)
     per_bench: dict[str, BenchScore] = {}
 
-    for bench_id in bench_ids:
+    for bench_id, bench_rollouts in zip(bench_ids, rollouts_per_bench):
         spec = get_bench(bench_id)
         overrides = _serving_overrides(
             base_url=ckpt_base_url,
@@ -104,7 +132,7 @@ async def evaluate(
             concurrency=concurrency,
             timeout=timeout,
             output_path=str(output_root / bench_id),
-            num_rollouts=num_rollouts,
+            num_rollouts=bench_rollouts,
         )
         # Apply the bench's own identity overrides first, then serving knobs.
         # Deep-merge (not a shallow spread) so a bench setting e.g. llm.params
@@ -117,10 +145,10 @@ async def evaluate(
 
         logger.info(
             "Evaluating bench %s (concurrency=%d, num_rollouts=%d)",
-            bench_id, concurrency, num_rollouts,
+            bench_id, concurrency, bench_rollouts,
         )
         runner, results = await run_pipeline(config, instance_ids=ids)
-        score = aggregate(bench_id, results, str(runner.run_dir), num_rollouts=num_rollouts)
+        score = aggregate(bench_id, results, str(runner.run_dir), num_rollouts=bench_rollouts)
         per_bench[bench_id] = score
         _write_missing_rollouts(runner.run_dir, score)
 

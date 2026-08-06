@@ -167,12 +167,16 @@ from aweagent.server import evaluate
 suite = asyncio.run(evaluate(
     "http://localhost:30000/v1",              # served model
     ["terminal_bench_v2", "swe_bench_pro"],   # benchmarks
-    num_rollouts=3,
+    num_rollouts=[3, 1],                      # per-bench (int applies to all)
     concurrency=50,
 ))
 for bench_id, score in suite.per_bench.items():
     print(bench_id, score.avg_pass_rate, score.pass_at_k)
 ```
+
+`num_rollouts` accepts an int (same count for every benchmark) or a list of
+ints matching `bench_ids` — e.g. `[3, 1]` runs Terminal-Bench-2 three times and
+SWE-bench-Pro once.
 
 `evaluate` only points the harness at the served endpoint and sets execution
 knobs — it never launches the server or touches the (fixed) eval harness.

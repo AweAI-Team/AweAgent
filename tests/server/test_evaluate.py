@@ -119,3 +119,28 @@ def test_evaluate_num_rollouts_end_to_end(tmp_path, monkeypatch):
     assert report["num_rollouts"] == 3
     assert report["instances"][0]["instance_id"] == "a"
     assert report["instances"][0]["missing"] == 1
+
+
+def test_evaluate_per_bench_num_rollouts_list(monkeypatch):
+    """A list num_rollouts maps positionally to bench_ids."""
+    seen_n = {}
+
+    async def fake_run_pipeline(config, *, instance_ids=None, **kwargs):
+        seen_n[config.task.type] = config.execution.num_rollouts
+        results = [TaskResult(instance_id="a",
+                              eval_result=EvalResult(accepted=True, score=1.0,
+                                                     error_kind=ErrorKind.OK.value))]
+        return _FakeRunner(f"/tmp/{config.task.type}"), results
+
+    monkeypatch.setattr("aweagent.server.suite.run_pipeline", fake_run_pipeline)
+    asyncio.run(evaluate(
+        "http://x/v1", ["terminal_bench_v2", "swe_bench_pro"], num_rollouts=[3, 1],
+    ))
+    assert seen_n["terminal_bench_v2"] == 3
+    assert seen_n["swe_bench_pro"] == 1
+
+
+def test_evaluate_num_rollouts_length_mismatch_raises():
+    import pytest
+    with pytest.raises(ValueError, match="must match"):
+        asyncio.run(evaluate("http://x/v1", ["a", "b"], num_rollouts=[3]))
