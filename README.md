@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1 align="center">
-  <img src="assets/aweai_logo.png" alt="AweAgent logo" height="34pt" align="top">
+  <img src="assets/aweai_logo.png" alt="AweAgent logo" height="34" align="top">
   &nbsp;AweAgent
 </h1>
 
