@@ -48,7 +48,31 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--instance-ids", nargs="*", default=None, help="Instance IDs to run (filter)")
     p.add_argument("--model", default=None, help="Override LLM model")
     p.add_argument("--max-steps", type=int, default=None, help="Override max agent steps")
+    p.add_argument(
+        "--agent-timeout",
+        type=float,
+        default=None,
+        help="Wall-clock agent timeout in seconds for every instance",
+    )
+    p.add_argument(
+        "--verifier-timeout",
+        type=int,
+        default=None,
+        help="Uniform timeout in seconds for bash /tests/test.sh",
+    )
     p.add_argument("--max-concurrent", type=int, default=None, help="Override concurrency")
+    p.add_argument(
+        "--cpu-milli",
+        type=int,
+        default=None,
+        help="Global Docker CPU limit in millicores (e.g. 16000 = 16 cores)",
+    )
+    p.add_argument(
+        "--memory-mb",
+        type=int,
+        default=None,
+        help="Global Docker memory limit in MiB",
+    )
     p.add_argument("--output", default=None, help="Output directory")
     p.add_argument("--skip-eval", action="store_true", help="Skip evaluation")
     p.add_argument("--no-trajectories", action="store_true", help="Disable saving trajectories")
@@ -70,6 +94,21 @@ def _load_config(args: argparse.Namespace):
         overrides.setdefault("task", {})["task_data_dir"] = args.task_data_dir
     if args.data_file is not None:
         overrides.setdefault("task", {})["data_file"] = args.data_file
+    if args.agent_timeout is not None:
+        overrides.setdefault("task", {})["override_agent_timeout"] = args.agent_timeout
+    if args.verifier_timeout is not None:
+        overrides.setdefault("eval", {})["verifier_timeout"] = args.verifier_timeout
+    if args.cpu_milli is not None or args.memory_mb is not None:
+        resource_limits = overrides.setdefault("runtime", {}).setdefault(
+            "resource_limits", {}
+        )
+        if args.cpu_milli is not None:
+            resource_limits["cpu"] = f"{args.cpu_milli}m"
+        if args.memory_mb is not None:
+            resource_limits["memory"] = f"{args.memory_mb}Mi"
+        overrides.setdefault("runtime", {}).setdefault("extra", {})[
+            "_force_resource_limits"
+        ] = True
     return load_config(args.config, overrides=overrides)
 
 
@@ -88,7 +127,19 @@ async def main() -> None:
 
     print(f"LLM:    backend={config.llm.backend}, model={config.llm.model}")
     print(f"Agent:  type={config.agent.type}, max_steps={config.agent.max_steps}")
+    resource_limits = config.runtime.resource_limits
+    print(
+        f"Runtime: backend={config.runtime.backend}, "
+        f"cpu={resource_limits.cpu} "
+        f"({resource_limits.cpu_milli_value()}m), "
+        f"memory={resource_limits.memory}"
+    )
     print(f"Task:   task_data_dir={config.task.task_data_dir}")
+    agent_timeout_override = config.task.override_agent_timeout
+    if agent_timeout_override is not None:
+        print(f"Agent wall-clock timeout override: {agent_timeout_override}s")
+    if config.eval.verifier_timeout is not None:
+        print(f"Verifier timeout override: {config.eval.verifier_timeout}s")
 
     from aweagent.core.task.pipeline import build_runner
 

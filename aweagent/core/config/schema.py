@@ -69,6 +69,7 @@ class EvalConfig(BaseModel):
     enabled: bool = True
     isolated: bool = True
     timeout: int = 3600
+    verifier_timeout: int | None = None
     eval_script: str | None = None
     runtime: RuntimeConfig | None = None
     judge_llm: LLMConfig | None = None

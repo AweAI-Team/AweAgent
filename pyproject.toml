@@ -51,6 +51,7 @@ search_swe = "aweagent.scaffold.search_swe.agent:SearchSWEAgent"
 deepsearch = "aweagent.scaffold.deepsearch.agent:DeepSearchAgent"
 terminus_2 = "aweagent.scaffold.terminus_2.agent:Terminus2Agent"
 iter_research = "aweagent.scaffold.iter_research.agent:IterResearchAgent"
+calibforge = "aweagent.scaffold.calibforge.agent:CalibForgeAgent"
 
 [project.entry-points."aweagent.evaluator"]
 beyond_swe = "aweagent.tasks.beyond_swe.evaluator:BeyondSWEEvaluator"

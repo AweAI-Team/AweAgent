@@ -13,6 +13,13 @@ class ResourceLimits(BaseModel):
     cpu: str = "4"
     memory: str = "8Gi"
 
+    def cpu_milli_value(self) -> int:
+        """Convert the CPU limit to millicores."""
+        value = self.cpu.strip()
+        if value.endswith("m"):
+            return int(float(value[:-1]))
+        return int(float(value) * 1000)
+
 
 class DockerConfig(BaseModel):
     """Docker-specific configuration."""

@@ -94,6 +94,7 @@ def build_runner(
         max_steps=config.agent.max_steps,
         max_context_length=config.agent.max_context_length,
         agent_timeout_override=config.task.override_agent_timeout,
+        evaluation_enabled=not skip_eval and config.eval.enabled,
     )
 
 

@@ -304,10 +304,14 @@ class TerminalBenchV2Task(Task):
         task_data_dir: str,
         data_file: str | None = None,
         dataset_id: str = "terminal_bench_v2",
+        install_terminus_dependencies: bool = True,
+        verifier_timeout: int | None = None,
     ) -> None:
         self.task_data_dir = Path(task_data_dir).resolve()
         self.data_file = data_file
         self.dataset_id = dataset_id
+        self.install_terminus_dependencies = install_terminus_dependencies
+        self.verifier_timeout = verifier_timeout
         self._cache: dict[str, TaskInfo] = {}
 
     @classmethod
@@ -326,6 +330,8 @@ class TerminalBenchV2Task(Task):
             task_data_dir=config.task.task_data_dir,
             data_file=config.task.data_file,
             dataset_id=config.task.dataset_id,
+            install_terminus_dependencies=config.agent.type == "terminus_2",
+            verifier_timeout=config.eval.verifier_timeout,
         )
 
     def _get_task_info(self, instance_id: str) -> TaskInfo:
@@ -387,9 +393,10 @@ class TerminalBenchV2Task(Task):
         return instance.image
 
     def get_setup_commands(self, instance: Instance) -> list[str]:
-        """Terminal Bench: inject PyPI, proxy, install tmux and asciinema.
+        """Inject network settings and optional Terminus-2 dependencies.
 
-        Installs tmux, asciinema, and configures PyPI/proxy env vars.
+        PyPI and proxy settings are shared by all scaffolds. ``tmux`` and
+        ``asciinema`` are installed only when Terminus-2 is selected.
 
         Environment propagation strategy:
         1. Write all env exports to /root/.aweagent_env (guard-free).
@@ -423,6 +430,9 @@ class TerminalBenchV2Task(Task):
                 f"echo '{source_line}' >> {rcfile} 2>/dev/null || true"
             )
             commands.append(hook_cmd)
+
+        if not self.install_terminus_dependencies:
+            return commands
 
         tmux_cmd = (
             "which tmux >/dev/null 2>&1 || ("
@@ -490,6 +500,8 @@ class TerminalBenchV2Task(Task):
             kwargs = {}
             if timeout is not None:
                 kwargs["timeout"] = int(timeout)
+            if self.verifier_timeout is not None:
+                kwargs["verifier_timeout"] = int(self.verifier_timeout)
             return TerminalBenchV2Evaluator(**kwargs)
         except ImportError:
             return None

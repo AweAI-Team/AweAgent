@@ -44,6 +44,7 @@ Reference agents shipped in-tree, all on the shared core.
 | **SearchSWE** | coding | SWE coding agent with web search & fetch — fixes repo issues, pulls in external docs | [code](aweagent/scaffold/search_swe) |
 | **DeepSearch** | deep search | Base web-research QA agent; retry-until-answerable loop policy | [code](aweagent/scaffold/deepsearch) |
 | **IterResearch** | deep search | Deep search + interaction scaling for long, multi-step research | [code](aweagent/scaffold/iter_research) |
+| **CalibForge** | terminal | Code-agent scaffold with bash and file-editing tools for terminal tasks | [code](aweagent/scaffold/calibforge) |
 | **Terminus-2** | terminal | tmux terminal agent driven by raw JSON keystrokes, on the standard loop | [code](aweagent/scaffold/terminus_2) |
 
 <sub>**OpenHands-style** and **SearchSWE** are the same scaffold (`search_swe`), one `enable_search` flag apart — listed separately because they behave differently.</sub>
@@ -65,14 +66,14 @@ Reference agents shipped in-tree, all on the shared core.
 | **SWE-bench-Pro** | extended SWE-bench code tasks | SearchSWE / OpenHands | isolated Docker patch test | [data](https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-SWE-Bench-Pro) · [guide](recipes/swe_bench_pro/) |
 | **SWE-bench Verified** | 500-instance human-verified SWE-bench split | SearchSWE / OpenHands | official SWE-bench harness † | [data](https://huggingface.co/datasets/SWE-bench/SWE-bench_Verified) · [guide](recipes/scale_swe/swebench_verified/) |
 | **NL2Repo** | build a repo from a natural-language spec | SearchSWE / OpenHands | isolated Docker (artifact + golden tests) | [data](https://huggingface.co/datasets/AweAI-Team/AweAgent-Meta-NL2Repo) · [guide](recipes/nl2repo/) |
-| **Terminal-Bench 2.0** | terminal tasks in containers | Terminus-2 | same-container reward | [repo](https://github.com/laude-institute/terminal-bench-2) · [guide](recipes/terminal_bench_v2/) |
+| **Terminal-Bench 2.0** | terminal tasks in containers | Terminus-2 / CalibForge | same-container reward | [repo](https://github.com/laude-institute/terminal-bench-2) · [guide](recipes/terminal_bench_v2/) |
 | **BrowseComp** | web-search QA | DeepSearch / IterResearch | LLM-as-Judge | [guide](recipes/deepsearch/) |
 
 <sub>† **SWE-bench Verified** is a *reproduction recipe* (`recipes/scale_swe/swebench_verified/`), not a framework-native task: the agent's patches are exported as predictions and scored by the **public SWE-bench harness** (with documented eval-side compatibility patches), reproducing the published Scale-SWE-Agent result. The other benchmarks run end-to-end through AweAgent's own isolated evaluator.</sub>
 
 ## :world_map: Roadmap
 
-Long-term goal: practical, general-purpose agents optimized with reinforcement learning. Shipped so far — the four scaffolds plus the datasets & benchmarks above. Next:
+Long-term goal: practical, general-purpose agents optimized with reinforcement learning. Shipped so far — the five scaffolds plus the datasets & benchmarks above. Next:
 
 - [ ] **Multi-agent** — multi-agent collaboration and orchestration on the shared core
 - [ ] **RL training** — reinforcement-learning rollouts via [Slime](https://github.com/THUDM/slime) with an SGLang rollout engine *(experimental today)*
@@ -196,7 +197,7 @@ Four layers driven by a shared core — the figure maps 1:1 onto the modules bel
 - **TaskRunner** (`core/task`) — the batch engine: loads a `Task`, provisions its runtime, drives each instance through the loop, routes the result to an evaluator, and writes structured output (concurrency · retries · per-instance isolation).
 - **AgentContext** (`core/agent`) — the shared bus: all rollout state (messages, trajectory, stats) plus every injected dependency (LLM, tools, tool-call format, runtime) and an optional `training` field. The single seam between the agent and the outside world.
 - **AgentLoop** (`core/agent`) — the rollout engine: runs the step loop, branches only on the *kind* of action (finish · message · tool call), dispatches tools by name, and records the trajectory + RL tokens — agnostic to whether it's driving a search, code, or terminal agent.
-- **Agent scaffold** (`scaffold/`) — the policy: a near-stateless `step(ctx) → action`. Built-ins: SearchSWE · DeepSearch · Terminus-2 · IterResearch.
+- **Agent scaffold** (`scaffold/`) — the policy: a near-stateless `step(ctx) → action`. Built-ins: SearchSWE · DeepSearch · Terminus-2 · IterResearch · CalibForge.
 - **Interaction layer** (`core/llm` · `core/tool` · `core/runtime`) — the pluggable dependencies the loop injects: LLM backends, tools, tool-call formats, and runtime sandboxes.
 - **Evaluation & Data** (`core/eval` · `tasks/` · `integrations/`) — turns a finished run into a score (isolated Docker patch test · LLM-as-judge · in-container reward) **or** token-level RL rollout data (Slime bridge).
 - **Config / Registry** (`core/config` · `plugins/`) — layered YAML config + entry-point registries that wire every part by name.

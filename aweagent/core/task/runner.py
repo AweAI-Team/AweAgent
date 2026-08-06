@@ -250,12 +250,16 @@ class TaskRunner:
         workspace_output_dir: str | None = None,
         agent_timeout_override: float | None = None,
         num_rollouts: int = 1,
+        evaluation_enabled: bool = True,
     ) -> None:
         self.task = task
         self.agent_factory = agent_factory
         self.llm_config = llm_config
         self.runtime_config = runtime_config
-        self.evaluator = evaluator or task.default_evaluator()
+        if evaluation_enabled:
+            self.evaluator = evaluator or task.default_evaluator()
+        else:
+            self.evaluator = None
         self.eval_runtime_config = eval_runtime_config
         self.max_concurrent = max_concurrent
         self.start_index = start_index
@@ -272,6 +276,8 @@ class TaskRunner:
         self._config_snapshot = config_snapshot
         self._agent_timeout_override = agent_timeout_override
         self.num_rollouts = num_rollouts
+        runtime_extra = runtime_config.extra if runtime_config is not None else {}
+        self._force_resource_limits = runtime_extra.get("_force_resource_limits", False)
         self.run_dir: Path | None = None  # set in run_all()
 
     async def run_all(
@@ -600,13 +606,15 @@ class TaskRunner:
         updates["workdir"] = instance_workdir
 
         # Per-instance resource limits (e.g. Terminal Bench task.toml).
-        limits = self.task.get_resource_limits(instance)
-        if limits:
-            from aweagent.core.runtime.config import ResourceLimits
-            updates["resource_limits"] = ResourceLimits(
-                cpu=limits.get("cpu", "1"),
-                memory=limits.get("memory", "2048Mi"),
-            )
+        # Skip when the recipe explicitly supplies global resource limits.
+        if not self._force_resource_limits:
+            limits = self.task.get_resource_limits(instance)
+            if limits:
+                from aweagent.core.runtime.config import ResourceLimits
+                updates["resource_limits"] = ResourceLimits(
+                    cpu=limits.get("cpu", "1"),
+                    memory=limits.get("memory", "2048Mi"),
+                )
 
         # Per-instance Docker environment variables (e.g. BASH_ENV).
         env = self.task.get_docker_environment(instance)
@@ -622,6 +630,9 @@ class TaskRunner:
         self, instance: Instance, session: Any,
     ) -> EvalResult:
         """Evaluate inside the agent's session (no patch, no isolation)."""
+        if not self.evaluator:
+            return EvalResult()
+
         from dataclasses import replace
 
         from aweagent.core.runtime.reuse_session import RuntimeWithExistingSession

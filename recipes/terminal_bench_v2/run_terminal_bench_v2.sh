@@ -5,10 +5,10 @@
 #   bash recipes/terminal_bench_v2/run_terminal_bench_v2.sh \
 #       --task-data-dir /path/to/terminal-bench-2 --data-file /path/to/instance_ids.json
 #   bash recipes/terminal_bench_v2/run_terminal_bench_v2.sh \
-#       --task-data-dir data/terminal-bench-2 --data-file data/instance_ids.json --model glm-5 --dry-run
+#       --task-data-dir data/terminal-bench-2 --data-file data/instance_ids.json --model glm-5
 #   bash recipes/terminal_bench_v2/run_terminal_bench_v2.sh \
 #       --task-data-dir data/terminal-bench-2 --data-file data/instance_ids.json \
-#       --instance-ids task_001 task_002 --mode batch
+#       --instance-ids task_001 task_002
 
 set -euo pipefail
 
@@ -19,16 +19,18 @@ CONFIG="${PROJECT_ROOT}/configs/tasks/terminal_bench_v2.yaml"
 # ── Defaults ──────────────────────────────────────────────────────────
 TASK_DATA_DIR=""
 DATA_FILE=""
-MODE="${MODE:-dry-run}"
 MODEL="${MODEL:-}"
 MAX_STEPS="${MAX_STEPS:-500}"
 MAX_CONCURRENT="${MAX_CONCURRENT:-10}"
+AGENT_TIMEOUT="${AGENT_TIMEOUT:-}"
+VERIFIER_TIMEOUT="${VERIFIER_TIMEOUT:-}"
+CPU_MILLI="${CPU_MILLI:-}"
+MEMORY_MB="${MEMORY_MB:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_ROOT}/results/terminal_bench_v2}"
-INSTANCE_ID=""
 INSTANCE_IDS=()
-DRY_RUN=false
 SKIP_EVAL=false
 NO_TRAJECTORIES=false
+VERBOSE=false
 
 # ── Parse arguments ───────────────────────────────────────────────────
 usage() {
@@ -46,17 +48,21 @@ Environment variables (optional):
   HTTP_PROXY / HTTPS_PROXY       Proxy for container network access
 
 Options:
-  --config PATH         Task config YAML (default: configs/tasks/terminal_bench_v2.yaml)
-  --mode MODE           prompt | debug | batch | dry-run (default: dry-run, env: MODE)
-  --instance-id ID      Single instance ID (prompt/debug)
-  --instance-ids ID ... Run only specific instance IDs (batch)
+  --config, -c PATH     Task config YAML (default: configs/tasks/terminal_bench_v2.yaml)
+  --instance-ids ID ... Run only specific instance IDs
   --model MODEL         Override LLM model (env: MODEL)
   --max-steps N         Max agent steps (default: 500, env: MAX_STEPS)
+  --agent-timeout SEC   Agent wall-clock timeout (env: AGENT_TIMEOUT)
+  --verifier-timeout SEC
+                        /tests/test.sh timeout (env: VERIFIER_TIMEOUT)
   --max-concurrent N    Max concurrent instances (default: 10, env: MAX_CONCURRENT)
-  --output-dir DIR      Output directory (default: results/terminal_bench_v2, env: OUTPUT_DIR)
+  --cpu-milli N         Global CPU limit in millicores (env: CPU_MILLI)
+  --memory-mb N         Global memory limit in MiB (env: MEMORY_MB)
+  --output DIR          Output directory (default: results/terminal_bench_v2, env: OUTPUT_DIR)
+  --output-dir DIR      Backward-compatible alias for --output
   --skip-eval           Skip evaluation
   --no-trajectories     Don't save per-instance trajectories
-  --dry-run             List instances without running (same as --mode dry-run)
+  --verbose             Enable DEBUG logging
   -h, --help            Show this help message
 EOF
 }
@@ -71,21 +77,13 @@ while [[ $# -gt 0 ]]; do
             DATA_FILE="$2"
             shift 2
             ;;
-        --config)
+        --config|-c)
             CONFIG="$2"
-            shift 2
-            ;;
-        --mode)
-            MODE="$2"
-            shift 2
-            ;;
-        --instance-id)
-            INSTANCE_ID="$2"
             shift 2
             ;;
         --instance-ids)
             shift
-            while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
+            while [[ $# -gt 0 && "$1" != -* ]]; do
                 INSTANCE_IDS+=("$1")
                 shift
             done
@@ -98,11 +96,27 @@ while [[ $# -gt 0 ]]; do
             MAX_STEPS="$2"
             shift 2
             ;;
+        --agent-timeout)
+            AGENT_TIMEOUT="$2"
+            shift 2
+            ;;
+        --verifier-timeout)
+            VERIFIER_TIMEOUT="$2"
+            shift 2
+            ;;
         --max-concurrent)
             MAX_CONCURRENT="$2"
             shift 2
             ;;
-        --output-dir)
+        --cpu-milli)
+            CPU_MILLI="$2"
+            shift 2
+            ;;
+        --memory-mb)
+            MEMORY_MB="$2"
+            shift 2
+            ;;
+        --output|--output-dir)
             OUTPUT_DIR="$2"
             shift 2
             ;;
@@ -114,9 +128,8 @@ while [[ $# -gt 0 ]]; do
             NO_TRAJECTORIES=true
             shift
             ;;
-        --dry-run)
-            DRY_RUN=true
-            MODE="dry-run"
+        --verbose)
+            VERBOSE=true
             shift
             ;;
         -h|--help)
@@ -160,7 +173,6 @@ CMD=(
     -c "${CONFIG}"
     --task-data-dir "${TASK_DATA_DIR}"
     --data-file "${DATA_FILE}"
-    --mode "${MODE}"
     --max-steps "${MAX_STEPS}"
     --max-concurrent "${MAX_CONCURRENT}"
     --output "${OUTPUT_DIR}"
@@ -170,12 +182,24 @@ if [[ -n "${MODEL}" ]]; then
     CMD+=(--model "${MODEL}")
 fi
 
-if [[ -n "${INSTANCE_ID}" ]]; then
-    CMD+=(--instance-id "${INSTANCE_ID}")
-fi
-
 if [[ ${#INSTANCE_IDS[@]} -gt 0 ]]; then
     CMD+=(--instance-ids "${INSTANCE_IDS[@]}")
+fi
+
+if [[ -n "${AGENT_TIMEOUT}" ]]; then
+    CMD+=(--agent-timeout "${AGENT_TIMEOUT}")
+fi
+
+if [[ -n "${VERIFIER_TIMEOUT}" ]]; then
+    CMD+=(--verifier-timeout "${VERIFIER_TIMEOUT}")
+fi
+
+if [[ -n "${CPU_MILLI}" ]]; then
+    CMD+=(--cpu-milli "${CPU_MILLI}")
+fi
+
+if [[ -n "${MEMORY_MB}" ]]; then
+    CMD+=(--memory-mb "${MEMORY_MB}")
 fi
 
 if [[ "${SKIP_EVAL:-false}" == true ]]; then
@@ -184,6 +208,10 @@ fi
 
 if [[ "${NO_TRAJECTORIES:-false}" == true ]]; then
     CMD+=(--no-trajectories)
+fi
+
+if [[ "${VERBOSE:-false}" == true ]]; then
+    CMD+=(--verbose)
 fi
 
 # ── Export env vars for config resolution ─────────────────────────────
@@ -195,18 +223,26 @@ echo "=== Terminal Bench 2.0 ==="
 echo "Config:         ${CONFIG}"
 echo "Task data dir:  ${TASK_DATA_DIR}"
 echo "Data file:      ${DATA_FILE}"
-echo "Mode:           ${MODE}"
 echo "Max steps:      ${MAX_STEPS}"
 echo "Max concurrent: ${MAX_CONCURRENT}"
 echo "Output dir:     ${OUTPUT_DIR}"
 if [[ -n "${MODEL}" ]]; then
     echo "Model:          ${MODEL}"
 fi
-if [[ -n "${INSTANCE_ID}" ]]; then
-    echo "Instance ID:    ${INSTANCE_ID}"
-fi
 if [[ ${#INSTANCE_IDS[@]} -gt 0 ]]; then
     echo "Instance IDs:   ${INSTANCE_IDS[*]}"
+fi
+if [[ -n "${AGENT_TIMEOUT}" ]]; then
+    echo "Agent timeout:  ${AGENT_TIMEOUT}s"
+fi
+if [[ -n "${VERIFIER_TIMEOUT}" ]]; then
+    echo "Verifier timeout: ${VERIFIER_TIMEOUT}s"
+fi
+if [[ -n "${CPU_MILLI}" ]]; then
+    echo "CPU:            ${CPU_MILLI}m"
+fi
+if [[ -n "${MEMORY_MB}" ]]; then
+    echo "Memory:         ${MEMORY_MB}Mi"
 fi
 echo "=========================="
 

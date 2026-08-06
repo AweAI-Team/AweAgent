@@ -195,7 +195,7 @@ class DockerRuntime(Runtime):
             # Parse resource limits
             mem_str = self.config.resource_limits.memory
             mem_bytes = _parse_memory(mem_str)
-            cpu_count = int(float(self.config.resource_limits.cpu))
+            cpu_milli = self.config.resource_limits.cpu_milli_value()
 
             container = client.containers.run(
                 img,
@@ -205,7 +205,7 @@ class DockerRuntime(Runtime):
                 working_dir=self.config.workdir,
                 network=self.config.docker.network,
                 mem_limit=mem_bytes,
-                nano_cpus=cpu_count * 10**9,
+                nano_cpus=cpu_milli * 10**6,
                 environment=self.config.docker.environment or None,
                 volumes=_parse_volumes(self.config.docker.volumes) or None,
             )

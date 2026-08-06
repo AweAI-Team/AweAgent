@@ -42,9 +42,15 @@ class TerminalBenchV2Evaluator(Evaluator):
     def requires_same_session(self) -> bool:  # noqa: D102
         return True
 
-    def __init__(self, timeout: int | None = None, **kwargs: object) -> None:
+    def __init__(
+        self,
+        timeout: int | None = None,
+        verifier_timeout: int | None = None,
+        **kwargs: object,
+    ) -> None:
         super().__init__()
         self._timeout = timeout
+        self._verifier_timeout_override = verifier_timeout
 
     async def evaluate(
         self,
@@ -75,7 +81,10 @@ class TerminalBenchV2Evaluator(Evaluator):
         inst = TerminalBenchInstance.from_instance(instance)
         workdir = inst.workdir
         test_files = inst.test_files
-        verifier_timeout = int(inst.verifier_timeout_sec)
+        if self._verifier_timeout_override is not None:
+            verifier_timeout = int(self._verifier_timeout_override)
+        else:
+            verifier_timeout = int(inst.verifier_timeout_sec)
 
         # 1. Create log dirs
         await session.execute("mkdir -p /logs/agent /logs/verifier", timeout=30)
@@ -113,6 +122,13 @@ class TerminalBenchV2Evaluator(Evaluator):
                 "Verifier finished for %s, exit_code=%d",
                 instance.id, result.exit_code,
             )
+            if result.exit_code == 124:
+                verifier_timed_out = True
+                reward_source = "timeout"
+                logger.warning(
+                    "Verifier command returned timeout exit code 124 for %s",
+                    instance.id,
+                )
         except TimeoutError:
             verifier_timed_out = True
             logger.warning(
@@ -173,6 +189,12 @@ class TerminalBenchV2Evaluator(Evaluator):
             details={
                 "reward_source": reward_source,
                 "verifier_timed_out": verifier_timed_out,
+                "verifier_timeout_sec": verifier_timeout,
+                "verifier_timeout_source": (
+                    "eval.verifier_timeout"
+                    if self._verifier_timeout_override is not None
+                    else "task.toml"
+                ),
                 "output_tail": post_test_pane if post_test_pane else "",
             },
             duration=duration,
