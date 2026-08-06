@@ -12,6 +12,9 @@ from __future__ import annotations
 from aweagent.tasks.beyond_swe.prompt.user import (
     USER_PROMPTS as _BEYOND_SWE_USER_PROMPTS,
 )
+from aweagent.tasks.denovo_swe.prompt.user import (
+    USER_PROMPTS as _DENOVO_SWE_USER_PROMPTS,
+)
 from aweagent.tasks.nl2repo.prompt.user import (
     USER_PROMPTS as _NL2REPO_USER_PROMPTS,
 )
@@ -41,6 +44,7 @@ _merge(_BEYOND_SWE_USER_PROMPTS, "beyond_swe")
 _merge(_NL2REPO_USER_PROMPTS,    "nl2repo")
 _merge(_SCALE_SWE_USER_PROMPTS,  "scale_swe")
 _merge(_SWEBENCH_PRO_USER_PROMPTS, "swe_bench_pro")
+_merge(_DENOVO_SWE_USER_PROMPTS, "denovo_swe")
 
 
 # ── Accessor ─────────────────────────────────────────────────────────────────

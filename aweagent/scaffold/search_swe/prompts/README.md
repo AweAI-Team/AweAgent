@@ -56,7 +56,24 @@ PROMPT_ROUTES = {
 `resolve_prompt_keys(dataset_id, task_type, search)` resolves in order:
 1. **Exact match**: `(dataset_id, task_type, search)`
 2. **Wildcard**: `(dataset_id, None, search)` — matches any task_type
-3. **Default fallback**: `("beyondswe", "domainfix")`
+3. **No match → `KeyError`** — there is deliberately **no default fallback**. A
+   silently-wrong prompt is worse than a loud failure, so an unmatched route
+   raises. Fix the route table, or set `agent.system_prompt_file` to bypass
+   routing entirely (see below).
+
+> **Search-mode asymmetry is intentional.** A route only exists for the
+> `search` values a task actually supports. `scale_swe` / `swe_bench_pro`
+> have `search=False` routes only, so requesting `search=True` for them
+> raises — that is the correct signal (they have no search prompt), not a bug.
+
+### Bypassing the route table (config-driven prompts)
+
+For the rollout server and prompt experiments, set `agent.system_prompt_file`
+(a plain-text system prompt) and/or `agent.skill_files` (skill docs with a YAML
+frontmatter `name`, wrapped as `<skill name="...">`) in the config. When set,
+the agent uses those verbatim instead of the route table; unset, it routes as
+above. This path is shared with other scaffolds (e.g. `calibforge`) via
+`core/agent/prompt_loader.load_prompt_overrides`.
 
 ### Two Consumers
 

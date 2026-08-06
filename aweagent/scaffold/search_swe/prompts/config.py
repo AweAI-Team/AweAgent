@@ -16,6 +16,11 @@ This is the single source of truth for all prompt selection logic.
     | ScaleSWE   | 0      | openhands        | scaleswe           |
     | NL2Repo    | 0      | beyondswe        | nl2repo            |
     | SWE-bench-Pro | 0   | openhands        | swebenchpro        |
+    | DeNovoSWE  | 0      | beyondswe        | denovoswe_doc2repo |
+
+An unmatched (dataset_id, task_type, search) raises rather than falling back
+to a default prompt: a wrong-but-plausible prompt silently tanks a run, so we
+fail fast at resolution instead.
 """
 
 from __future__ import annotations
@@ -54,10 +59,14 @@ PROMPT_ROUTES: dict[tuple[str, str | None, bool], tuple[str, str]] = {
 
     # ── SWE-bench-Pro ────────────────────────────────────────────────
     ("swe_bench_pro", None, False):        ("openhands", "swebenchpro"),
-}
 
-# Default fallback when no exact route matches
-_DEFAULT_ROUTE: tuple[str, str] = ("beyondswe", "domainfix")
+    # ── DeNovoSWE ────────────────────────────────────────────────────
+    # doc2repo from a natural-language spec with source-cleaned images.
+    # Reuses the BeyondSWE non-search system prompt (same agent persona);
+    # only the user prompt is denovo-specific (the ``_v2`` variant is
+    # selected in get_prompt). DeNovoSWE runs search-off only.
+    ("denovo_swe", "doc2repo", False):     ("beyondswe", "denovoswe_doc2repo"),
+}
 
 
 def resolve_prompt_keys(
@@ -70,7 +79,10 @@ def resolve_prompt_keys(
     Lookup order:
     1. Exact match: (dataset_id, task_type, search)
     2. Wildcard:     (dataset_id, None, search)
-    3. Default fallback
+
+    Raises KeyError when neither matches. There is deliberately no default
+    fallback — a silently-wrong prompt is worse than a loud failure, and every
+    supported (dataset, task_type) is listed in ``PROMPT_ROUTES`` above.
     """
     # Exact match
     key = (dataset_id, task_type, search)
@@ -82,7 +94,11 @@ def resolve_prompt_keys(
     if wildcard_key in PROMPT_ROUTES:
         return PROMPT_ROUTES[wildcard_key]
 
-    return _DEFAULT_ROUTE
+    raise KeyError(
+        f"No prompt route for (dataset_id={dataset_id!r}, "
+        f"task_type={task_type!r}, search={search}). "
+        f"Add it to PROMPT_ROUTES or set agent.system_prompt_file to override."
+    )
 
 
 def resolve_from_task_info(

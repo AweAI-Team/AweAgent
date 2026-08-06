@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from aweagent.core.agent.context import AgentContext
+from aweagent.core.agent.prompt_loader import load_prompt_overrides
 from aweagent.core.agent.protocol import Agent
 from aweagent.core.agent.trajectory import Action
 from aweagent.core.llm.format import get_tool_format
@@ -36,11 +37,14 @@ class CalibForgeAgent(Agent):
             raise ValueError(
                 "calibforge requires agent.tool_call_format='openai_function'"
             )
+        system_prompt_override, skill_text = load_prompt_overrides(config)
         return cls(
             bash_timeout=config.agent.bash_timeout,
             bash_max_timeout=config.agent.bash_max_timeout,
             max_output_length=config.agent.max_output_length,
             bash_blocklist=config.security.bash_blocklist or None,
+            system_prompt_override=system_prompt_override,
+            skill_text=skill_text,
         )
 
     @classmethod
@@ -58,10 +62,17 @@ class CalibForgeAgent(Agent):
         max_output_length: int = 32000,
         bash_blocklist: list[str] | None = None,
         max_empty_retries: int = 3,
+        system_prompt_override: str | None = None,
+        skill_text: str = "",
     ) -> None:
         self._format: ToolCallFormat = get_tool_format("openai_function")
         self._max_empty_retries = max_empty_retries
         self._initialized = False
+        # Explicit prompt overrides (config-driven, shared with search_swe).
+        # When ``_system_prompt_override`` is None the built-in SYSTEM_PROMPT
+        # is used; ``_skill_text`` is appended after it when non-empty.
+        self._system_prompt_override = system_prompt_override
+        self._skill_text = skill_text
 
         self._tools: list[Tool] = [
             ExecuteBashTool(
@@ -75,7 +86,21 @@ class CalibForgeAgent(Agent):
         ]
 
     def get_system_prompt(self, task_info: dict[str, Any]) -> str:
-        return SYSTEM_PROMPT
+        """Return the system prompt: the config override if set, else the
+        built-in SYSTEM_PROMPT, with any configured skills appended.
+
+        CalibForge uses native function-calling (openai_function), so there is
+        no tool-description suffix to append — the tool schemas go through the
+        API. Order is base prompt → skills.
+        """
+        base = (
+            self._system_prompt_override
+            if self._system_prompt_override is not None
+            else SYSTEM_PROMPT
+        )
+        if self._skill_text:
+            base = base + "\n\n" + self._skill_text
+        return base
 
     def get_tools(self) -> list[Tool]:
         return list(self._tools)

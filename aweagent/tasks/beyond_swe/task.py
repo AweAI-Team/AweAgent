@@ -1,18 +1,19 @@
 """BeyondSWETask — multi-type coding benchmark beyond standard SWE-Bench.
 
-Supports four task types:
-- doc2repo:   Build a repository from a specification document
-- cross-repo: Fix issues spanning multiple files/modules
-- refactor:   Refactor code while preserving functionality
-- domain:     Solve domain-specific technical problems
+Supports four task types (the ``task`` field is normalized to these — see
+``_KNOWN_TASK_TYPES``; any other value is rejected at load time):
+- doc2repo:    Build a repository from a specification document
+- crossrepo:   Fix issues spanning multiple files/modules
+- depmigrate:  Migrate/refactor across a dependency change
+- domainfix:   Solve domain-specific technical problems
 
 Data format (JSONL):
     {
       "instance_id": "...",
-      "task": "doc2repo|cross-repo|refactor|domain",
+      "task": "doc2repo|cross-repo|depmigrate|domainfix",
       "workdir": "/workspace",
       "image_url": "...",
-      "problem_statement": "...",        # cross-repo, refactor, domain
+      "problem_statement": "...",        # crossrepo, depmigrate, domainfix
       "REPO_DOCUMENT_CONTENT": "...",    # doc2repo
       "base_commit": "...",
       "FAIL_TO_PASS": "[...]",
@@ -43,14 +44,25 @@ logger = logging.getLogger(__name__)
 _KNOWN_TASK_TYPES = {"doc2repo", "crossrepo", "depmigrate", "domainfix"}
 
 
-def _normalize_task_type(raw_type: str) -> str:
-    """Normalize a dataset task type string to lowercase without separators."""
+def _normalize_task_type(raw_type: Any) -> str:
+    """Normalize a dataset task type to lowercase without separators.
+
+    Raises ValueError on anything unusable — missing, null, non-string, or an
+    unrecognized value. A bad task_type routes to the wrong prompt, so we fail
+    fast at load time: an error here means the data (or config) is wrong and
+    must be fixed, not silently coerced to a default.
+    """
+    if not isinstance(raw_type, str) or not raw_type.strip():
+        raise ValueError(
+            f"BeyondSWE instance is missing a valid 'task' field "
+            f"(got {raw_type!r}); expected one of {sorted(_KNOWN_TASK_TYPES)}"
+        )
     key = raw_type.lower().replace("_", "").replace("-", "").replace(" ", "")
     if key not in _KNOWN_TASK_TYPES:
-        logger.warning(
-            "Unknown BeyondSWE task type %r, falling back to 'domainfix'", raw_type,
+        raise ValueError(
+            f"Unknown BeyondSWE task type {raw_type!r} "
+            f"(normalized {key!r}); expected one of {sorted(_KNOWN_TASK_TYPES)}"
         )
-        return "domainfix"
     return key
 
 
@@ -122,7 +134,7 @@ class BeyondSWETask(Task):
 
     def _to_instance(self, raw: dict[str, Any]) -> Instance:
         instance_id = raw.get("instance_id", "")
-        task_type = _normalize_task_type(raw.get("task", "domainfix"))
+        task_type = _normalize_task_type(raw.get("task"))
 
         base_commit = (
             raw.get("base_commit")

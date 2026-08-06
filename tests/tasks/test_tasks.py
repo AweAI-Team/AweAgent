@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from aweagent.core.task.types import Instance
-from aweagent.tasks.beyond_swe.prompts import get_beyond_swe_prompt
 from aweagent.tasks.beyond_swe.task import BeyondSWETask
 from aweagent.tasks.scale_swe.task import ScaleSWETask
 
@@ -122,8 +121,18 @@ def test_beyond_swe_setup_commands_crossrepo():
 
 
 def test_beyond_swe_prompt_unknown_type():
+    """An unknown task type fails fast at instance construction rather than
+    silently coercing to 'domainfix' (and thus a wrong prompt)."""
+    task = BeyondSWETask(instances=[{
+        "instance_id": "bad_001",
+        "task": "totally_unknown_type",
+        "workdir": "/workspace",
+        "image_url": "python:3.11",
+        "base_commit": "eee555",
+        "language": "python",
+    }])
     with pytest.raises(ValueError, match="Unknown BeyondSWE task type"):
-        get_beyond_swe_prompt(task_type="unknown_type")
+        task.get_instances()
 
 
 def test_beyond_swe_from_jsonl():
@@ -151,13 +160,27 @@ def test_prompt_routing_beyond_swe():
     assert usr_key == "search_domainfix"
 
 
-def test_prompt_routing_fallback():
-    """Unknown dataset falls back to default route."""
+def test_prompt_routing_unknown_raises():
+    """An unmatched route raises (no silent default) — a wrong prompt is worse
+    than a loud failure."""
     from aweagent.scaffold.search_swe.prompts.config import resolve_prompt_keys
 
-    sys_key, usr_key = resolve_prompt_keys("unknown_dataset", None, False)
+    with pytest.raises(KeyError, match="No prompt route"):
+        resolve_prompt_keys("unknown_dataset", None, False)
+
+
+def test_prompt_routing_denovo():
+    """DeNovoSWE reuses the BeyondSWE system prompt; only the user prompt is
+    denovo-specific. Search mode is not routed (denovo runs search-off)."""
+    from aweagent.scaffold.search_swe.prompts.config import resolve_prompt_keys
+
+    sys_key, usr_key = resolve_prompt_keys("denovo_swe", "doc2repo", False)
     assert sys_key == "beyondswe"
-    assert usr_key == "domainfix"
+    assert usr_key == "denovoswe_doc2repo"
+
+    # There is no denovo search route — it must fail fast, not silently route.
+    with pytest.raises(KeyError, match="No prompt route"):
+        resolve_prompt_keys("denovo_swe", "doc2repo", True)
 
 
 def test_search_mode_beyond_swe_task():

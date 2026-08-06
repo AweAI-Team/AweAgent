@@ -16,7 +16,6 @@ runtime:
 agent:
   type: search_swe
   max_steps: 500
-  enable_search: false
   bash_timeout: 1200
 
 task:

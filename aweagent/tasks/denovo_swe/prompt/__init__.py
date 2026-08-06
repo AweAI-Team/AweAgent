@@ -1,13 +1,12 @@
 """DeNovoSWE prompt templates.
 
-System and user prompts for DeNovoSWE doc2repo task in both standard
-and search-enabled modes.
+DeNovoSWE reuses the BeyondSWE **system** prompt (same agent persona) — see the
+route table in ``scaffold/search_swe/prompts/config.py`` — so this package only
+ships the doc2repo **user** prompt (v1 + v2). Search mode is not used.
 """
 
-from aweagent.tasks.denovo_swe.prompt.system import SYSTEM_PROMPTS
 from aweagent.tasks.denovo_swe.prompt.user import USER_PROMPTS
 
 __all__ = [
-    "SYSTEM_PROMPTS",
     "USER_PROMPTS",
 ]

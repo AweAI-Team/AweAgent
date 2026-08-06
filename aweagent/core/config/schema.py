@@ -37,6 +37,15 @@ class AgentConfig(BaseModel):
     bash_blocklist: list[str] = Field(default_factory=list)
     condenser: CondenserConfig = Field(default_factory=CondenserConfig)
     tool_call_format: str = "openai_function"
+    # Explicit prompt overrides (rollout server / experiments). When set, the
+    # scaffold uses these instead of the built-in route table:
+    #   system_prompt_file — path to a plain-text system prompt.
+    #   skill_files        — paths to skill docs appended after the system
+    #                        prompt (each wrapped as ``<skill name="...">``;
+    #                        the name comes from the file's YAML frontmatter).
+    # Both default to unset, preserving the route-table behavior.
+    system_prompt_file: str | None = None
+    skill_files: list[str] = Field(default_factory=list)
 
 
 class TaskConfig(BaseModel):

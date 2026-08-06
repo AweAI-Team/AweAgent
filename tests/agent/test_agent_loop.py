@@ -81,7 +81,7 @@ def mock_llm():
 @pytest.fixture
 def agent_context(mock_llm, mock_session):
     """Create an agent context with mock dependencies."""
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     return AgentContext(
         llm=mock_llm,
         session=mock_session,
@@ -184,7 +184,7 @@ async def test_no_tool_call_prompt_sends_reminder(mock_llm, mock_session):
 
     mock_llm.chat = mock_chat
 
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     ctx = AgentContext(
         llm=mock_llm,
         session=mock_session,
@@ -223,7 +223,7 @@ async def test_no_tool_call_prompt_bounded_by_max_steps(mock_llm, mock_session):
 
     mock_llm.chat = mock_chat
 
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     ctx = AgentContext(
         llm=mock_llm,
         session=mock_session,
@@ -264,7 +264,7 @@ async def test_finish_tool_terminates_loop(mock_llm, mock_session):
 
     mock_llm.chat = mock_chat
 
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     ctx = AgentContext(
         llm=mock_llm,
         session=mock_session,
@@ -316,7 +316,7 @@ async def test_agent_loop_max_steps(mock_llm, mock_session):
 
     mock_llm.chat = mock_chat
 
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     ctx = AgentContext(
         llm=mock_llm,
         session=mock_session,
@@ -339,7 +339,7 @@ async def test_agent_loop_error_handling(mock_llm, mock_session):
 
     mock_llm.chat = mock_chat
 
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     ctx = AgentContext(
         llm=mock_llm,
         session=mock_session,
@@ -381,7 +381,7 @@ async def test_agent_loop_step_callbacks(mock_llm, mock_session):
     async def callback(step, action, observations):
         callback_steps.append(step)
 
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     ctx = AgentContext(
         llm=mock_llm,
         session=mock_session,
@@ -406,7 +406,7 @@ async def test_single_step_for_rl(mock_llm, mock_session):
         usage=TokenUsage(prompt_tokens=10, completion_tokens=20),
     ))
 
-    agent = SearchSWEAgent()
+    agent = SearchSWEAgent(system_prompt_override="test system prompt")
     ctx = AgentContext(
         llm=mock_llm,
         session=mock_session,

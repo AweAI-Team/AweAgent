@@ -1,0 +1,52 @@
+# Example rollout config: collect teacher trajectories on ScaleSWE.
+#
+# A rollout config *is* the experiment — teacher endpoint, the system prompt /
+# skills under test, the dataset, samples per instance, and whether to verify.
+# To sweep prompts/teachers, copy this file and edit the marked lines; to reuse
+# one setup on different data, pass rollout(..., data_file=...).
+#
+# Usage:
+#   from aweagent.server import rollout
+#   res = await rollout(
+#       "configs/rollout/scale_swe.yaml",
+#       data_file="datasets/scale_swe/train.jsonl",   # overrides ${DATA_FILE}
+#   )
+#   print(res.run_dir, res.n_accepted, "/", res.n_trajectories, res.rollout_paths)
+
+# ── Teacher endpoint (any OpenAI-compatible API: DeepSeek, vLLM, sglang…) ──
+llm:
+  backend: openai
+  base_url: ${TEACHER_BASE_URL:-https://api.deepseek.com/v1}
+  model: ${TEACHER_MODEL:-deepseek-chat}
+  api_key: ${TEACHER_API_KEY}
+  params:
+    temperature: 1.0        # sampling (not eval's greedy 0); keep > 0 for num_rollouts > 1
+    max_tokens: 4096
+
+# ── Harness under test — edit these to run a prompt experiment ──
+agent:
+  type: search_swe
+  max_steps: 200
+  enable_search: false
+  tool_call_format: codeact_xml
+  # system_prompt_file: prompts/exp1_system.txt     # ← swap the system prompt
+  # skill_files:                                    # ← attach solving skills
+  #   - skills/verifier_first.md
+
+# ── Dataset (data_file usually overridden per-run via rollout(data_file=...)) ──
+task:
+  type: scale_swe
+  dataset_id: scale_swe
+  data_file: ${DATA_FILE}
+
+# ── Verifier on → each trajectory gets an accepted/score verdict for
+#    downstream reject-sampling. Set enabled: false to skip (no verdict). ──
+eval:
+  enabled: true
+  timeout: 3600
+
+execution:
+  num_rollouts: 4           # samples per instance (needs temperature > 0 above)
+  max_concurrent: 50
+  output_path: ./results/rollout_server/scale_swe
+  # save_trajectories is forced True by the rollout server regardless.

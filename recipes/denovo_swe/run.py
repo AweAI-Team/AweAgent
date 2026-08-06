@@ -14,8 +14,6 @@ Key CLI overrides (all optional, default from YAML config):
   --max-steps         Max agent steps per instance
   --max-concurrent    Max parallel instances (batch mode)
   --output            Output directory (batch mode)
-  --enable-search     Force enable search tools
-  --no-search         Force disable search tools
   --skip-eval         Skip evaluation after agent run
   --validate-run      Skip agent, run evaluation only (verify test patches)
   --del-done-images   Delete docker image after each instance completes
@@ -86,14 +84,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--model", default=None, help="Override LLM model")
     p.add_argument("--max-steps", type=int, default=None, help="Override max agent steps")
     p.add_argument("--max-concurrent", type=int, default=None, help="Override concurrency (batch)")
-    p.add_argument(
-        "--enable-search", default=None, action="store_true",
-        help="Enable search tools",
-    )
-    p.add_argument(
-        "--no-search", dest="enable_search", action="store_false",
-        help="Disable search tools",
-    )
     p.add_argument("--output", default=None, help="Output directory (batch)")
     p.add_argument("--skip-eval", action="store_true", help="Skip evaluation")
     p.add_argument(
@@ -134,8 +124,6 @@ def _load_config(args: argparse.Namespace):
         overrides.setdefault("agent", {})["max_steps"] = args.max_steps
     if args.max_concurrent is not None:
         overrides.setdefault("execution", {})["max_concurrent"] = args.max_concurrent
-    if args.enable_search is not None:
-        overrides.setdefault("agent", {})["enable_search"] = args.enable_search
     if args.output is not None:
         overrides.setdefault("execution", {})["output_path"] = args.output
 

@@ -104,6 +104,14 @@ class DeNovoSWETask(BeyondSWETask):
         # the BEYONDSWE_TEST_SUITE_DIR env var and stores a
         # ``_test_suite_dir`` attribute we do not need.  Reproduce only
         # the fields the inherited ``get_instances`` relies on.
+        if search_mode:
+            # DeNovoSWE has no search-mode prompt route (its spec is fully
+            # inlined; external lookups risk leaking the target package). Fail
+            # at construction rather than after expensive per-instance setup.
+            raise ValueError(
+                "DeNovoSWE does not support search mode; set agent.enable_search=false "
+                "(the default) — do not pass --enable-search for denovo_swe."
+            )
         self.dataset_id = dataset_id
         self.data_file = data_file
         self._raw_instances = instances
@@ -232,7 +240,7 @@ class DeNovoSWETask(BeyondSWETask):
 
         _, user_key = resolve_prompt_keys(
             dataset_id=self.dataset_id,
-            task_type="doc2repo",
+            task_type=instance.metadata.get("task_type", "doc2repo"),
             search=self._search_mode,
         )
         if self._prompt_version and self._prompt_version != "v1":

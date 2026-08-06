@@ -17,6 +17,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from aweagent.core.agent.context import AgentContext
+from aweagent.core.agent.prompt_loader import load_prompt_overrides
 from aweagent.core.agent.protocol import Agent
 from aweagent.core.agent.trajectory import Action
 from aweagent.core.llm.format import get_tool_format
@@ -93,6 +94,7 @@ class SearchSWEAgent(Agent):
                 blocked_patterns=config.security.blocked_search_patterns,
             )
 
+        system_prompt_override, skill_text = load_prompt_overrides(config)
         return cls(
             enable_search=config.agent.enable_search,
             bash_timeout=config.agent.bash_timeout,
@@ -101,6 +103,8 @@ class SearchSWEAgent(Agent):
             bash_blocklist=config.security.bash_blocklist or None,
             search_constraints=search_constraints,
             tool_call_format=config.agent.tool_call_format,
+            system_prompt_override=system_prompt_override,
+            skill_text=skill_text,
         )
 
     @classmethod
@@ -123,6 +127,7 @@ class SearchSWEAgent(Agent):
         else:
             search_constraints = instance_constraints
 
+        system_prompt_override, skill_text = load_prompt_overrides(config)
         return cls(
             enable_search=config.agent.enable_search,
             bash_timeout=config.agent.bash_timeout,
@@ -131,6 +136,8 @@ class SearchSWEAgent(Agent):
             bash_blocklist=config.security.bash_blocklist or None,
             search_constraints=search_constraints,
             tool_call_format=config.agent.tool_call_format,
+            system_prompt_override=system_prompt_override,
+            skill_text=skill_text,
         )
 
     def __init__(
@@ -144,10 +151,16 @@ class SearchSWEAgent(Agent):
         search_constraints: SearchConstraints | None = None,
         max_empty_retries: int = 3,
         tool_call_format: str = "openai_function",
+        system_prompt_override: str | None = None,
+        skill_text: str = "",
     ) -> None:
         self._max_empty_retries = max_empty_retries
         self._format = get_tool_format(tool_call_format)
         self._enable_search = enable_search
+        # Explicit prompt overrides (rollout server / experiments). When
+        # ``_system_prompt_override`` is None the route table is used.
+        self._system_prompt_override = system_prompt_override
+        self._skill_text = skill_text
 
         # Build effective blocklist.
         # _ALWAYS_BLOCKED is unconditional (repo introspection prevention).
@@ -196,9 +209,22 @@ class SearchSWEAgent(Agent):
     # ── Agent protocol ────────────────────────────────────────────────
 
     def get_system_prompt(self, task_info: dict[str, Any]) -> str:
-        """Resolve the system prompt dynamically from the route table."""
-        system_key, _ = resolve_from_task_info(task_info, search=self._enable_search)
-        prompt = get_system_prompt(system_key)
+        """Resolve the system prompt.
+
+        Order: base system text → skills → tool suffix. The base text is the
+        explicit override when configured, otherwise the route table's prompt.
+        The tool suffix (text-based formats only) is always appended last — it
+        is the model's only channel to learn the tools, so an override must not
+        drop it.
+        """
+        if self._system_prompt_override is not None:
+            prompt = self._system_prompt_override
+        else:
+            system_key, _ = resolve_from_task_info(task_info, search=self._enable_search)
+            prompt = get_system_prompt(system_key)
+        # Skills: static solving guidance inlined after the system prompt.
+        if self._skill_text:
+            prompt = prompt + "\n\n" + self._skill_text
         # Append tool descriptions for text-based formats (e.g. CodeActXML)
         tool_schemas = [tool.schema for tool in self._tools]
         suffix = self._format.get_system_prompt_suffix(tool_schemas)
