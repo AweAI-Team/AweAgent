@@ -21,11 +21,12 @@ AweAgent's core capabilities:
 
 - **Unified across task types** — search, code, and terminal agents run on the **same execution core**, with task-specific behavior composed through reusable interfaces instead of separate stacks.
 - **Composable agent harnesses** — an agent is split into a `step(ctx) -> action` policy, the loop that runs it, and a context bus that carries state and dependencies; build new agents by recomposing these parts instead of forking the engine.
-- **Protocol-centered extensibility** — LLM backends, tools, runtime sandboxes, agent scaffolds, tool backends, and evaluators are exposed through small protocols and entry-point registries; register a new component instead of patching the core engine.
+- **Protocol-centered extensibility** — LLM backends, tools, runtime sandboxes, agent scaffolds, tool backends, tasks, and evaluators are exposed through small protocols and entry-point registries; register a new component instead of patching the core engine.
 - **Evaluation & trajectories as first-class data** — every run emits a structured result plus the full trajectory; code tasks can be evaluated in isolated Docker runtimes, and the experimental training path can collect token-level rollout data (loss mask · logprobs · weight versions).
 
 ## :newspaper: News
 
+- `[2026-08-06]` 🎉 Added a **programmatic multi-benchmark eval server** (`aweagent.server.evaluate`), a **task registry** (`aweagent.task` entry points), and **multi-rollout evaluation** (`num_rollouts` / `--num-rollouts`) with per-instance pass@k.
 - `[2026-06-10]` 🎉 Added Long-horizon & [DeNovoSWE](https://arxiv.org/abs/2606.10728) scaffolds support.
 - `[2026-06-04]` 🎉 Added DeepSearch & [IterResearch](https://arxiv.org/pdf/2511.07327) scaffolds + [BrowseComp](https://arxiv.org/pdf/2504.12516) support.
 - `[2026-05-10]` 🎉 Added [NL2Repo](https://arxiv.org/pdf/2512.12730) and [SWE-bench Pro](https://arxiv.org/pdf/2509.16941) task support.
@@ -122,7 +123,7 @@ Wired today: **BeyondSWE · BrowseComp · Terminal-Bench 2.0**. See [`datasets/`
 # point at your LLM
 export OPENAI_API_KEY="sk-..."
 
-# sanity-check what's registered (backends, runtimes, agents, tools)
+# sanity-check what's registered (backends, runtimes, agents, tools, tasks)
 awe-agent info
 
 # list instances — no Docker needed
@@ -133,6 +134,50 @@ python recipes/beyond_swe/run.py --data-file datasets/beyond_swe/beyond_swe.json
 ```
 
 See each benchmark's guide for full setup, CLI arguments, and output format.
+
+### Multiple rollouts (pass@k)
+
+Evaluate each instance with several independent rollouts to estimate pass@k and
+average pass rate instead of a single noisy sample. Set `--num-rollouts N` (or
+`execution.num_rollouts` in YAML); the default is `1`, which is unchanged from a
+single-rollout run.
+
+```bash
+awe-agent run -c configs/tasks/terminal_bench_v2.yaml --num-rollouts 3
+```
+
+All `N × instances` rollouts are scheduled together and throttled by
+`execution.max_concurrent` (peak concurrency is unchanged — only wall-clock and
+total work scale ~N×), so the run streams continuously rather than in per-pass
+batches. Each pass writes its own `rollout_k/results.jsonl` + `trajectories.jsonl`
+under the run directory. A rollout that fails on infrastructure (dead sandbox,
+timeout, eval crash) is dropped from that instance's denominator and recorded in
+`missing_rollouts.json`, so it can be re-run.
+
+### Programmatic eval across benchmarks
+
+`aweagent.server.evaluate` runs one served model across several benchmarks and
+returns a per-benchmark score. Benchmarks resolve through the `aweagent.task`
+registry; the model is any OpenAI-compatible endpoint (e.g. an SGLang server).
+
+```python
+import asyncio
+from aweagent.server import evaluate
+
+suite = asyncio.run(evaluate(
+    "http://localhost:30000/v1",              # served model
+    ["terminal_bench_v2", "swe_bench_pro"],   # benchmarks
+    num_rollouts=3,
+    concurrency=50,
+))
+for bench_id, score in suite.per_bench.items():
+    print(bench_id, score.avg_pass_rate, score.pass_at_k)
+```
+
+`evaluate` only points the harness at the served endpoint and sets execution
+knobs — it never launches the server or touches the (fixed) eval harness.
+Benchmarks run sequentially to avoid oversubscribing a shared endpoint;
+instances within a benchmark run concurrently.
 
 ## :building_construction: Architecture
 
