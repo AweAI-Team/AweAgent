@@ -106,15 +106,12 @@ def _load_config(args: argparse.Namespace):
     if args.output is not None:
         overrides.setdefault("execution", {})["output_path"] = args.output
 
+    # --data-file must win deterministically (config override beats the yaml
+    # ${DATA_FILE} expansion), so a pre-set DATA_FILE env can't shadow the CLI.
+    if args.data_file is not None:
+        overrides.setdefault("task", {})["data_file"] = args.data_file
     os.environ.setdefault("DATA_FILE", args.data_file)
     return load_config(args.config, overrides=overrides)
-
-
-def _build_task(config, data_file: str):
-    # data_file is threaded into config.task.data_file via DATA_FILE env.
-    from aweagent.core.task.pipeline import build_task
-
-    return build_task(config)
 
 
 def _print_section(title: str, content: str, max_len: int = 2000) -> None:
@@ -308,7 +305,8 @@ async def main() -> None:
     )
 
     config = _load_config(args)
-    task = _build_task(config, args.data_file)
+    from aweagent.core.task.pipeline import build_task
+    task = build_task(config)
 
     llm_config_source = args.llm_config or os.environ.get("LLM_CONFIG", "(default in task YAML)")
     print(f"LLM:    backend={config.llm.backend}, model={config.llm.model}")

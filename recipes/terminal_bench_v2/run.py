@@ -73,14 +73,6 @@ def _load_config(args: argparse.Namespace):
     return load_config(args.config, overrides=overrides)
 
 
-def _build_task(config):
-    # task_data_dir/data_file are threaded into config.task.* by _load_config;
-    # the registry's from_config keeps the required-field validation.
-    from aweagent.core.task.pipeline import build_task
-
-    return build_task(config)
-
-
 async def main() -> None:
     args = parse_args()
 
@@ -91,7 +83,8 @@ async def main() -> None:
     )
 
     config = _load_config(args)
-    task = _build_task(config)
+    from aweagent.core.task.pipeline import build_task
+    task = build_task(config)
 
     print(f"LLM:    backend={config.llm.backend}, model={config.llm.model}")
     print(f"Agent:  type={config.agent.type}, max_steps={config.agent.max_steps}")
@@ -99,7 +92,7 @@ async def main() -> None:
 
     from aweagent.core.task.pipeline import build_runner
 
-    save_traj = not args.no_trajectories
+    save_traj = config.execution.save_trajectories and not args.no_trajectories
     runner = build_runner(
         config, task, skip_eval=args.skip_eval, save_trajectories=save_traj
     )

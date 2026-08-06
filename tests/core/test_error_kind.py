@@ -25,16 +25,22 @@ CASES = [
     ("finish", _ev(raw_status=2), None, ErrorKind.INFRA_ERROR.value),
     ("finish", _ev(exception="proxy blew up"), None, ErrorKind.INFRA_ERROR.value),
     # 3b. swe_bench_pro harness-did-not-run.
-    ("finish", _ev(entryscript_failed=True), None, ErrorKind.INFRA_ERROR.value),
-    ("finish", _ev(missing_output_json=True), None, ErrorKind.INFRA_ERROR.value),
+    # 3b. swe_bench_pro eval-harness faults are carried as details["error"] VALUES.
+    ("finish", _ev(error="entryscript_failed"), None, ErrorKind.INFRA_ERROR.value),
+    ("finish", _ev(error="invalid_output_json"), None, ErrorKind.INFRA_ERROR.value),
     # 3c. TB2 verifier died.
     ("finish", _ev(verifier_timed_out=True), None, ErrorKind.INFRA_ERROR.value),
-    # 3d. PatchTest app error (error key + zero score + not accepted).
-    ("finish", _ev(error="patch_apply_failed"), None, ErrorKind.INFRA_ERROR.value),
+    # 3d. Agent faults stay TASK_FAILURE (kept in the pass-rate denominator).
+    ("finish", _ev(error="patch_apply_failed"), None, ErrorKind.TASK_FAILURE.value),
+    ("finish", _ev(error="empty_patch"), None, ErrorKind.TASK_FAILURE.value),
+    ("finish", _ev(error="missing_agent_final_answer"), None, ErrorKind.TASK_FAILURE.value),
+    # 3e. A bare exception string (unknown marker) is infra.
+    ("finish", _ev(error="KeyError: 'x'"), None, ErrorKind.INFRA_ERROR.value),
+    ("finish", _ev(error="iteration_crash:RuntimeError()"), None, ErrorKind.INFRA_ERROR.value),
     # 4. Ran to completion.
     ("finish", _ev(accepted=True, score=1.0), None, ErrorKind.OK.value),
     ("max_steps", _ev(accepted=False, score=0.0), None, ErrorKind.TASK_FAILURE.value),
-    # A genuine miss with a non-infra detail is still task_failure.
+    # A genuine miss with a non-error detail is still task_failure.
     ("finish", _ev(accepted=False, score=0.0, reason="tests_failed"), None,
      ErrorKind.TASK_FAILURE.value),
 ]

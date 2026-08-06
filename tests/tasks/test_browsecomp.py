@@ -17,9 +17,9 @@ from aweagent.core.agent.trajectory import Action, Trajectory
 from aweagent.core.config.schema import AweAgentConfig
 from aweagent.core.llm.client import llm_registry
 from aweagent.core.llm.config import LLMConfig
-from aweagent.core.task.pipeline import build_task
 from aweagent.core.llm.types import LLMResponse
 from aweagent.core.runtime.config import RuntimeConfig
+from aweagent.core.task.pipeline import build_task
 from aweagent.core.task.protocol import Task
 from aweagent.core.task.runner import (
     TaskRunner,

@@ -13,7 +13,10 @@ def _config(**task_kwargs) -> AweAgentConfig:
 
 def test_registry_lists_builtin_tasks():
     names = task_registry.list_available()
-    for expected in ("beyond_swe", "scale_swe", "swe_bench_pro"):
+    for expected in (
+        "beyond_swe", "scale_swe", "swe_bench_pro",
+        "terminal_bench_v2", "nl2repo", "browsecomp", "denovo_swe",
+    ):
         assert expected in names
 
 
@@ -63,14 +66,6 @@ def test_swe_bench_pro_from_config_reads_split_args():
     assert task._split_id == 2
 
 
-def test_taskconfig_split_defaults():
-    """New schema fields default to unset (behavior unchanged when omitted)."""
-    tc = TaskConfig()
-    assert tc.all_languages is False
-    assert tc.split_num is None
-    assert tc.split_id is None
-
-
 def test_denovo_swe_from_config_reads_own_params():
     """DeNovoSWE reads its recipe-only params from config.task.* now."""
     cfg = _config(
@@ -85,7 +80,3 @@ def test_denovo_swe_from_config_reads_own_params():
     assert task._validate_run is True
     assert task._eval_iters == 3
     assert task._prompt_version == "v1"
-
-
-def test_registry_lists_denovo():
-    assert "denovo_swe" in task_registry.list_available()

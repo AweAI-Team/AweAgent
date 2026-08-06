@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from aweagent.core.task.error_kind import infer_error_kind
 from aweagent.core.task.types import ErrorKind, TaskResult
 
 # error_kind values that denote infrastructure failures — excluded from the
@@ -39,10 +40,20 @@ class BenchScore:
 
 
 def _error_kind(result: TaskResult) -> str:
+    """The instance's error_kind, consistent with what the runner persisted.
+
+    Prefer the value the runner already stamped on eval_result. When there is
+    no eval_result, re-derive it the same way the runner does (infer_error_kind)
+    rather than assuming infra — an agent that finished normally with an empty
+    submission is a genuine TASK_FAILURE and must stay in the denominator.
+    """
     if result.eval_result is not None:
         return result.eval_result.error_kind
-    # No eval → a runner-level infra failure (retries exhausted).
-    return ErrorKind.INFRA_ERROR.value
+    return infer_error_kind(
+        finish_reason=(result.agent_result.finish_reason if result.agent_result else None),
+        eval_result=None,
+        task_error=result.error,
+    )
 
 
 def _clamp(score: float) -> float:

@@ -163,19 +163,6 @@ def _load_config(args: argparse.Namespace):
     return load_config(args.config, overrides=overrides)
 
 
-def _build_task(
-    config, data_file: str,
-    validate_run: bool = False,
-    del_done_images: bool = False, clean_snapshot_file: str | None = None,
-    prompt_version: str = "v2", eval_iters: int = 1,
-):
-    # All task params are threaded into config.task.* by _load_config; build
-    # via the shared registry (DeNovoSWETask.from_config reads them).
-    from aweagent.core.task.pipeline import build_task
-
-    return build_task(config)
-
-
 def _print_section(title: str, content: str, max_len: int = 2000) -> None:
     print(f"\n{'=' * 60}")
     print(f"  {title}")
@@ -403,11 +390,17 @@ async def _mode_debug(
             eval_iters=eval_iters,
         )
         eval_result = await evaluator.evaluate(inst, agent_patch, eval_runtime)
+        from aweagent.core.task.error_kind import infer_error_kind
         eval_data = {
             "accepted": eval_result.accepted,
             "score": eval_result.score,
             "duration": eval_result.duration,
             "details": eval_result.details,
+            "error_kind": infer_error_kind(
+                finish_reason=(agent_result.finish_reason if agent_result else None),
+                eval_result=eval_result,
+                task_error=None,
+            ),
         }
         _print_section("EVAL RESULT", json.dumps(eval_data, indent=2, default=str))
     else:
@@ -519,14 +512,8 @@ async def main() -> None:
     )
 
     config = _load_config(args)
-    task = _build_task(
-        config, args.data_file,
-        validate_run=args.validate_run,
-        del_done_images=args.del_done_images,
-        clean_snapshot_file=args.dump_clean_snapshot,
-        prompt_version=args.prompt_version,
-        eval_iters=args.eval_iters,
-    )
+    from aweagent.core.task.pipeline import build_task
+    task = build_task(config)
 
     print(f"LLM:    backend={config.llm.backend}, model={config.llm.model}")
     print(f"Agent:  type={config.agent.type}, max_steps={config.agent.max_steps}, "

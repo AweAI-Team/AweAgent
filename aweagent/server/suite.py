@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from aweagent.core.config.loader import load_config
+from aweagent.core.config.loader import _deep_merge, load_config
 from aweagent.core.task.pipeline import run_pipeline
 from aweagent.server.benches import get_bench
 from aweagent.server.normalize import BenchScore, aggregate
@@ -47,9 +47,6 @@ def _serving_overrides(
             "backend": "sglang",
             "base_url": base_url,
             "model": model_name,
-            # Eval is pass/fail; token-level RL fields only slow it down.
-            "return_tokens": False,
-            "return_logprobs": False,
         },
         "execution": {
             "max_concurrent": concurrency,
@@ -100,8 +97,10 @@ async def evaluate(
             output_path=str(output_root / bench_id),
         )
         # Apply the bench's own identity overrides first, then serving knobs.
+        # Deep-merge (not a shallow spread) so a bench setting e.g. llm.params
+        # does not get clobbered by the serving llm.* overrides.
         if spec.overrides:
-            overrides = {**spec.overrides, **overrides}
+            overrides = _deep_merge(spec.overrides, overrides)
 
         config = load_config(spec.config_path, overrides=overrides)
         ids = (instance_ids or {}).get(bench_id)

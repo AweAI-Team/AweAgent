@@ -283,6 +283,7 @@ class NL2RepoTask(Task):
         ) or ""
         self._raw_instances = instances
         self._workdir = workdir
+        self._loaded: list[dict[str, Any]] | None = None
 
     @classmethod
     def from_config(cls, config: Any) -> "NL2RepoTask":
@@ -291,7 +292,6 @@ class NL2RepoTask(Task):
             data_file=config.task.data_file,
             agent_run_docker=config.task.agent_run_docker,
         )
-        self._loaded: list[dict[str, Any]] | None = None
 
     # ── Data loading ──────────────────────────────────────────────────
 

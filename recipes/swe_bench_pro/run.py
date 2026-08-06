@@ -148,14 +148,6 @@ def _load_config(args: argparse.Namespace):
     return load_config(args.config, overrides=overrides)
 
 
-def _build_task(config, args: argparse.Namespace):
-    # split/language flags are threaded into config.task.* by _load_config;
-    # build via the shared registry.
-    from aweagent.core.task.pipeline import build_task
-
-    return build_task(config)
-
-
 def _print_section(title: str, content: str, max_len: int = 2000) -> None:
     print(f"\n{'=' * 60}")
     print(f"  {title}")
@@ -347,7 +339,8 @@ async def main() -> None:
     )
 
     config = _load_config(args)
-    task = _build_task(config, args)
+    from aweagent.core.task.pipeline import build_task
+    task = build_task(config)
 
     print(f"LLM:    backend={config.llm.backend}, model={config.llm.model}")
     print(
