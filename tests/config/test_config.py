@@ -89,6 +89,14 @@ def test_execution_max_instances_must_be_positive():
         ExecutionConfig(max_instances=0)
 
 
+def test_execution_num_rollouts_default_and_validation():
+    """num_rollouts defaults to 1 and must be a positive int."""
+    assert ExecutionConfig().num_rollouts == 1
+    assert ExecutionConfig(num_rollouts=3).num_rollouts == 3
+    with pytest.raises(ValueError):
+        ExecutionConfig(num_rollouts=0)
+
+
 def test_execution_instance_range_must_be_non_negative():
     """Configured instance range indices must be non-negative."""
     with pytest.raises(ValueError):

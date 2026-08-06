@@ -89,6 +89,7 @@ def build_runner(
         output_path=config.execution.output_path,
         condenser=build_condenser(config.agent.condenser),
         save_trajectories=save_trajectories and config.execution.save_trajectories,
+        num_rollouts=config.execution.num_rollouts,
         config_snapshot=json.loads(config.model_dump_json()),
         max_steps=config.agent.max_steps,
         max_context_length=config.agent.max_context_length,

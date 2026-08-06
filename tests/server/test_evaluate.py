@@ -79,3 +79,43 @@ def test_evaluate_unknown_bench_raises(monkeypatch):
         raise AssertionError("expected KeyError")
     except KeyError as e:
         assert "does_not_exist" in str(e)
+
+
+def test_evaluate_num_rollouts_end_to_end(tmp_path, monkeypatch):
+    """evaluate(num_rollouts=3) threads N into config, aggregates pass@k,
+    and writes missing_rollouts.json for infra-failed rollouts."""
+    seen_n = {}
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    async def fake_run_pipeline(config, *, instance_ids=None, **kwargs):
+        seen_n[config.task.type] = config.execution.num_rollouts
+        # one instance "a" run 3x: [infra, pass, fail]
+        results = [
+            TaskResult(instance_id="a",
+                       eval_result=EvalResult(accepted=False, score=0.0,
+                                              error_kind=ErrorKind.INFRA_ERROR.value)),
+            TaskResult(instance_id="a",
+                       eval_result=EvalResult(accepted=True, score=1.0,
+                                              error_kind=ErrorKind.OK.value)),
+            TaskResult(instance_id="a",
+                       eval_result=EvalResult(accepted=False, score=0.0,
+                                              error_kind=ErrorKind.TASK_FAILURE.value)),
+        ]
+        return _FakeRunner(str(run_dir)), results
+
+    monkeypatch.setattr("aweagent.server.suite.run_pipeline", fake_run_pipeline)
+    result = asyncio.run(evaluate("http://x/v1", ["swe_bench_pro"], num_rollouts=3))
+
+    assert seen_n["swe_bench_pro"] == 3          # N threaded into config
+    score = result.per_bench["swe_bench_pro"]
+    assert score.num_rollouts == 3
+    assert score.avg_pass_rate == 0.5            # 1 success / 2 non-infra
+    assert score.pass_at_k == 1.0
+    assert score.min_rollouts_per_instance == 2
+    # missing-rollout report written to disk for re-running
+    import json
+    report = json.loads((run_dir / "missing_rollouts.json").read_text())
+    assert report["num_rollouts"] == 3
+    assert report["instances"][0]["instance_id"] == "a"
+    assert report["instances"][0]["missing"] == 1

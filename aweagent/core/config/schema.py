@@ -85,6 +85,9 @@ class ExecutionConfig(BaseModel):
     output_path: str = "./results"
     output_format: str = "jsonl"
     save_trajectories: bool = True
+    # Number of independent full rollouts per instance (default 1 = unchanged).
+    # N>1 runs each instance N times continuously and writes rollout_k/ subdirs.
+    num_rollouts: PositiveInt = 1
 
     @model_validator(mode="after")
     def validate_instance_range(self) -> ExecutionConfig:

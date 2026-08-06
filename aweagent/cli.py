@@ -49,6 +49,10 @@ def main() -> None:
         "--max-concurrent", type=int, help="Override max concurrent instances"
     )
     run_parser.add_argument(
+        "--num-rollouts", type=int,
+        help="Independent full rollouts per instance (default 1)",
+    )
+    run_parser.add_argument(
         "--start-index",
         type=int,
         help="0-based inclusive start index after instance-id filtering",
@@ -138,6 +142,8 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     overrides: dict[str, Any] = {}
     if args.max_concurrent is not None:
         overrides.setdefault("execution", {})["max_concurrent"] = args.max_concurrent
+    if args.num_rollouts is not None:
+        overrides.setdefault("execution", {})["num_rollouts"] = args.num_rollouts
     if args.start_index is not None:
         overrides.setdefault("execution", {})["start_index"] = args.start_index
     if args.end_index is not None:

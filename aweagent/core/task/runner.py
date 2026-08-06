@@ -6,6 +6,7 @@ Manages concurrency, retry, result collection, and output.
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import re
@@ -248,6 +249,7 @@ class TaskRunner:
         max_context_length: int | None = None,
         workspace_output_dir: str | None = None,
         agent_timeout_override: float | None = None,
+        num_rollouts: int = 1,
     ) -> None:
         self.task = task
         self.agent_factory = agent_factory
@@ -269,6 +271,7 @@ class TaskRunner:
         self._save_trajectories = save_trajectories
         self._config_snapshot = config_snapshot
         self._agent_timeout_override = agent_timeout_override
+        self.num_rollouts = num_rollouts
         self.run_dir: Path | None = None  # set in run_all()
 
     async def run_all(
@@ -282,7 +285,11 @@ class TaskRunner:
             end_index=self.end_index,
             max_instances=self.max_instances,
         )
-        logger.info("Running %d instances (max_concurrent=%d)", len(instances), self.max_concurrent)
+        logger.info(
+            "Running %d rollouts (%d instances x %d rollouts, max_concurrent=%d)",
+            len(instances) * self.num_rollouts, len(instances),
+            self.num_rollouts, self.max_concurrent,
+        )
 
         # Build timestamped run directory
         run_dir = _build_run_dir(self.output_path, self.llm_config.model)
@@ -297,18 +304,31 @@ class TaskRunner:
             except Exception as e:
                 logger.warning("Failed to save run config: %s", e)
 
-        # Trajectories file
-        traj_file: Path | None = None
-        if self._save_trajectories:
-            traj_file = run_dir / "trajectories.jsonl"
-
-        output_file = run_dir / "results.jsonl"
+        num_rollouts = self.num_rollouts
         write_lock = asyncio.Lock()
 
-        tasks = [
-            self._run_instance_with_retry(inst, output_file, write_lock, traj_file)
-            for inst in instances
-        ]
+        # INVARIANT: num_rollouts>1 runs N copies of each instance concurrently.
+        # deepcopy isolates only the Instance (its metadata is mutated in
+        # _run_instance); self.evaluator, self._condenser, and factory-produced
+        # agents must be stateless / fresh-per-call.
+        def _rollout_paths(k: int) -> tuple[Path, Path | None]:
+            base = run_dir if num_rollouts == 1 else (run_dir / f"rollout_{k}")
+            if num_rollouts > 1:
+                base.mkdir(parents=True, exist_ok=True)
+            results_f = base / "results.jsonl"
+            traj_f = (base / "trajectories.jsonl") if self._save_trajectories else None
+            return results_f, traj_f
+
+        tasks = []
+        for k in range(num_rollouts):
+            results_f, traj_f = _rollout_paths(k)
+            for inst in instances:
+                inst_arg = copy.deepcopy(inst) if num_rollouts > 1 else inst
+                tasks.append(
+                    self._run_instance_with_retry(
+                        inst_arg, results_f, write_lock, traj_f, rollout=k
+                    )
+                )
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Summarize
@@ -330,6 +350,7 @@ class TaskRunner:
         output_file: Path,
         write_lock: asyncio.Lock,
         traj_file: Path | None = None,
+        rollout: int = 0,
     ) -> TaskResult:
         """Run a single instance with retry logic."""
         async with self._semaphore:
@@ -343,6 +364,7 @@ class TaskRunner:
                         with open(output_file, "a") as f:
                             f.write(json.dumps({
                                 "instance_id": result.instance_id,
+                                **({"rollout": rollout} if self.num_rollouts > 1 else {}),
                                 "dataset_id": instance.dataset_id,
                                 "task": instance.metadata.get("task_type", ""),
                                 "success": result.success,
@@ -413,6 +435,7 @@ class TaskRunner:
                 with open(output_file, "a") as f:
                     f.write(json.dumps({
                         "instance_id": instance.id,
+                        **({"rollout": rollout} if self.num_rollouts > 1 else {}),
                         "dataset_id": instance.dataset_id,
                         "task": instance.metadata.get("task_type", ""),
                         "success": False,

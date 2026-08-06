@@ -11,6 +11,7 @@ its ``base_url``. AweAgent's sglang backend is a plain HTTP client.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +38,7 @@ def _serving_overrides(
     concurrency: int,
     timeout: int,
     output_path: str,
+    num_rollouts: int,
 ) -> dict:
     """Config overrides that point the harness at a served checkpoint.
 
@@ -51,6 +53,7 @@ def _serving_overrides(
         "execution": {
             "max_concurrent": concurrency,
             "output_path": output_path,
+            "num_rollouts": num_rollouts,
         },
         "eval": {"timeout": timeout},
     }
@@ -63,6 +66,7 @@ async def evaluate(
     concurrency: int = 50,
     timeout: int = 3600,
     model_name: str = "ckpt",
+    num_rollouts: int = 1,
     instance_ids: dict[str, list[str]] | None = None,
     output_root: str | Path = "./results/eval_server",
 ) -> SuiteResult:
@@ -74,12 +78,17 @@ async def evaluate(
         concurrency: max concurrent instances per bench (TaskRunner semaphore).
         timeout: per-instance eval timeout (seconds).
         model_name: model id passed to the sglang backend.
+        num_rollouts: independent full rollouts per instance (default 1). N>1
+            runs each instance N times continuously (semaphore-throttled, not
+            batched), writes rollout_k/ subdirs, and scores pass@k / avg pass
+            rate per instance. Infra-failed rollouts are dropped from each
+            instance's denominator and recorded in ``BenchScore.missing_rollouts``
+            (also written to ``<bench>/missing_rollouts.json``) for re-running.
         instance_ids: optional per-bench instance-id subset filter.
         output_root: directory root for per-bench run outputs.
 
     Returns:
-        SuiteResult with a BenchScore per bench (infra failures excluded from
-        pass-rate denominators).
+        SuiteResult with a BenchScore per bench.
 
     Benches run sequentially to avoid oversubscribing the shared sglang
     endpoint and Docker/portal pool; instances within a bench run concurrently.
@@ -95,6 +104,7 @@ async def evaluate(
             concurrency=concurrency,
             timeout=timeout,
             output_path=str(output_root / bench_id),
+            num_rollouts=num_rollouts,
         )
         # Apply the bench's own identity overrides first, then serving knobs.
         # Deep-merge (not a shallow spread) so a bench setting e.g. llm.params
@@ -105,8 +115,33 @@ async def evaluate(
         config = load_config(spec.config_path, overrides=overrides)
         ids = (instance_ids or {}).get(bench_id)
 
-        logger.info("Evaluating bench %s (concurrency=%d)", bench_id, concurrency)
+        logger.info(
+            "Evaluating bench %s (concurrency=%d, num_rollouts=%d)",
+            bench_id, concurrency, num_rollouts,
+        )
         runner, results = await run_pipeline(config, instance_ids=ids)
-        per_bench[bench_id] = aggregate(bench_id, results, str(runner.run_dir))
+        score = aggregate(bench_id, results, str(runner.run_dir), num_rollouts=num_rollouts)
+        per_bench[bench_id] = score
+        _write_missing_rollouts(runner.run_dir, score)
 
     return SuiteResult(per_bench=per_bench, run_root=str(output_root))
+
+
+def _write_missing_rollouts(run_dir: Path | None, score: BenchScore) -> None:
+    """Write the per-instance missing-rollout report so infra-failed rollouts
+    can be re-run. Skipped when nothing is missing or the run dir is unknown."""
+    if run_dir is None or not score.missing_rollouts:
+        return
+    from dataclasses import asdict
+
+    payload = {
+        "bench_id": score.bench_id,
+        "num_rollouts": score.num_rollouts,
+        "instances": [asdict(m) for m in score.missing_rollouts],
+    }
+    try:
+        (Path(run_dir) / "missing_rollouts.json").write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+        )
+    except Exception as e:  # best-effort; never fail the eval over a report
+        logger.warning("Failed to write missing_rollouts.json: %s", e)

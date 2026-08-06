@@ -58,3 +58,77 @@ def test_aggregate_empty():
     assert s.pass_rate == 0.0
     assert s.mean_score == 0.0
     assert s.n_total == 0
+
+
+# ── multi-rollout (num_rollouts > 1) ──────────────────────────────────────────
+
+
+def test_aggregate_n1_byte_equivalent():
+    """At num_rollouts=1, grouped aggregation equals the old flat behavior."""
+    results = [
+        _result("a", True, 1.0, ErrorKind.OK.value),
+        _result("b", False, 0.0, ErrorKind.TASK_FAILURE.value),
+    ]
+    s = aggregate("bench", results, "/tmp/run", num_rollouts=1)
+    assert s.pass_rate == s.avg_pass_rate == s.pass_at_k == 0.5
+    assert s.num_rollouts == 1
+    assert s.n_instances == 2 and s.n_scored_instances == 2
+    assert s.missing_rollouts == []
+
+
+def test_aggregate_pass_any_multi_rollout():
+    # instance "a" run 3x: [pass, fail, fail]
+    results = [
+        _result("a", True, 1.0, ErrorKind.OK.value),
+        _result("a", False, 0.0, ErrorKind.TASK_FAILURE.value),
+        _result("a", False, 0.0, ErrorKind.TASK_FAILURE.value),
+    ]
+    s = aggregate("bench", results, "/tmp/run", num_rollouts=3)
+    assert s.n_instances == 1 and s.n_scored_instances == 1
+    assert s.pass_at_k == 1.0            # >=1 success
+    assert abs(s.avg_pass_rate - 1 / 3) < 1e-9
+    assert s.missing_rollouts == []      # 3 valid, none missing
+
+
+def test_aggregate_partial_infra_denominator():
+    # "a" = [infra, pass, fail]: denominator is the 2 non-infra rollouts
+    results = [
+        _result("a", False, 0.0, ErrorKind.INFRA_ERROR.value),
+        _result("a", True, 1.0, ErrorKind.OK.value),
+        _result("a", False, 0.0, ErrorKind.TASK_FAILURE.value),
+    ]
+    s = aggregate("bench", results, "/tmp/run", num_rollouts=3)
+    assert s.avg_pass_rate == 0.5        # 1 success / 2 valid
+    assert s.pass_at_k == 1.0
+    assert s.min_rollouts_per_instance == 2
+    assert len(s.missing_rollouts) == 1
+    m = s.missing_rollouts[0]
+    assert m.instance_id == "a" and m.expected == 3 and m.valid == 2 and m.missing == 1
+    assert m.missing_reasons == [ErrorKind.INFRA_ERROR.value]
+
+
+def test_aggregate_all_infra_instance_dropped():
+    # "a" all infra → dropped from scored; "b" real → scored.
+    results = [
+        _result("a", False, 0.0, ErrorKind.INFRA_ERROR.value),
+        _result("a", False, 0.0, ErrorKind.TIMEOUT.value),
+        _result("b", True, 1.0, ErrorKind.OK.value),
+        _result("b", False, 0.0, ErrorKind.TASK_FAILURE.value),
+    ]
+    s = aggregate("bench", results, "/tmp/run", num_rollouts=2)
+    assert s.n_instances == 2 and s.n_scored_instances == 1   # "a" dropped
+    assert s.pass_at_k == 1.0 and s.avg_pass_rate == 0.5      # only "b"
+    # "a" fully missing (2 of 2), "b" complete
+    miss = {m.instance_id: m for m in s.missing_rollouts}
+    assert miss["a"].missing == 2 and miss["a"].valid == 0
+    assert "b" not in miss
+
+
+def test_aggregate_mean_score_grouping():
+    # two rollouts of one instance: scores 0.4, 0.6 → instance mean 0.5
+    results = [
+        _result("a", False, 0.4, ErrorKind.TASK_FAILURE.value),
+        _result("a", False, 0.6, ErrorKind.TASK_FAILURE.value),
+    ]
+    s = aggregate("bench", results, "/tmp/run", num_rollouts=2)
+    assert abs(s.mean_score - 0.5) < 1e-9
