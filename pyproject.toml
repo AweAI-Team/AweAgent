@@ -25,11 +25,18 @@ dependencies = [
 [project.optional-dependencies]
 # Volcengine Ark LLM backend — heavy / region-specific SDK, kept optional.
 ark = ["volcengine-python-sdk[ark]"]
+terminus2 = [
+    "litellm==1.86.2",
+    "transformers==5.12.1",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
     "mypy>=1.10",
+    # Required by the Terminus 2 tests; runtime users can install [terminus2].
+    "litellm==1.86.2",
+    "transformers==5.12.1",
 ]
 
 [project.scripts]

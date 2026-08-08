@@ -48,9 +48,21 @@ class TerminusJSONFormat(ToolCallFormat):
 
         self._parser = TerminusJSONParser()
         self._last_parse_result: ParseResult | None = None
+        self._reasoning_format: str | None = None
+
+    def set_reasoning_format(self, reasoning_format: str | None) -> None:
+        self._reasoning_format = reasoning_format
 
     def needs_native_tools(self) -> bool:
         return False
+
+    def format_text_observation(
+        self,
+        tool_name: str,
+        observation: str,
+    ) -> str:
+        """Terminus sends raw terminal state back as the next user message."""
+        return observation
 
     def prepare_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
         # Tools are not sent to the LLM API.
@@ -79,11 +91,12 @@ class TerminusJSONFormat(ToolCallFormat):
         ]
         args: dict[str, Any] = {
             "commands": commands_data,
-            "is_task_complete": self._last_parse_result.is_task_complete,
+            "task_complete": self._last_parse_result.is_task_complete,
         }
         # Only include warning when non-empty to keep arguments lean.
-        if self._last_parse_result.warning:
-            args["warning"] = self._last_parse_result.warning
+        warning = self._last_parse_result.warning
+        if warning:
+            args["warning"] = warning
         return [
             ToolCall(
                 id=f"call_{uuid.uuid4().hex[:16]}",

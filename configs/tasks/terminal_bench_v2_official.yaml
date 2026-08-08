@@ -1,0 +1,55 @@
+# Terminal-Bench 2.0 evaluation with the Harbor-compatible Terminus 2 JSON path.
+
+llm:
+  backend: openai
+  base_url: ${TERMINUS2_BASE_URL:-http://localhost:8000/v1}
+  api_key: ${TERMINUS2_API_KEY:-dummy}
+  model: ${TERMINUS2_MODEL:-Qwen/Qwen3.5-27B}
+  params:
+    max_tokens: 81920
+    temperature: 1.0
+    top_p: 0.95
+    extra_body:
+      top_k: 20
+      min_p: 0.0
+      presence_penalty: 1.5
+      repetition_penalty: 1.0
+  thinking: true
+  reasoning:
+    preserve: true
+    format: reasoning_content
+
+runtime:
+  backend: docker
+  timeout: 14400
+  resource_limits:
+    cpu: "4"
+    memory: "8Gi"
+
+agent:
+  type: terminus_2
+  max_steps: 10000
+  max_context_length: 131072
+  condenser:
+    type: terminus_2
+    enable_summarize: true
+    proactive_threshold: 8000
+    recovery_target_free_tokens: 4000
+    tokenizer_path: ${TERMINUS2_TOKENIZER_PATH:-}
+
+task:
+  type: terminal_bench_v2
+  dataset_id: terminal_bench_v2
+  task_data_dir: ${TASK_DATA_DIR:-datasets/terminal_bench_v2/tasks}
+  data_file: ${DATA_FILE:-datasets/terminal_bench_v2/instance_ids.json}
+
+eval:
+  enabled: true
+  timeout: 3600
+
+execution:
+  # Safe for a first smoke test; override with --max-concurrent when ready.
+  max_concurrent: 1
+  max_retries: 6
+  output_path: ./results/terminal_bench_v2/terminus2_official
+  save_trajectories: true

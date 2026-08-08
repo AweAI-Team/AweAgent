@@ -202,9 +202,19 @@ class AgentLoop:
         for step in range(self.ctx.max_steps):
             self.ctx.current_step = step
 
-            # ── 0. Context length guard ───────────────────────────────
+            # ── Context length guard ───────────────────────────────
+            context_limit_manager = getattr(
+                self.agent,
+                "manages_context_limits",
+                None,
+            )
+            manages_context = (
+                callable(context_limit_manager)
+                and context_limit_manager(self.ctx.condenser) is True
+            )
             if (self.ctx.max_context_length is not None
-                    and estimated_next_context > self.ctx.max_context_length):
+                    and estimated_next_context > self.ctx.max_context_length
+                    and not manages_context):
                 logger.info(
                     "Estimated context %d exceeds limit %d at step %d, stopping",
                     estimated_next_context, self.ctx.max_context_length, step,
@@ -467,9 +477,15 @@ class AgentLoop:
                 ))
             elif text_mode:
                 # Text mode: tool responses as user messages
+                formatted_observation = (
+                    self.ctx.tool_call_format.format_text_observation(
+                        tool_name,
+                        obs,
+                    )
+                )
                 self.ctx.messages.append(Message(
                     role="user",
-                    content=f"OBSERVATION:\n[{tool_name}]\n{obs}",
+                    content=formatted_observation,
                 ))
             else:
                 # OpenAI mode: standard tool role messages

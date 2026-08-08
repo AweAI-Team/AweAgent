@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    NonNegativeInt,
+    PositiveInt,
+    model_validator,
+)
 
 from aweagent.core.llm.config import LLMConfig
 from aweagent.core.runtime.config import RuntimeConfig
@@ -13,10 +19,14 @@ from aweagent.core.runtime.config import RuntimeConfig
 class CondenserConfig(BaseModel):
     """Context condensing configuration."""
 
-    type: str = "none"  # "none" | "truncation" | "tool_result_omission"
+    type: str = "none"  # "none" | "truncation" | "tool_result_omission" | "terminus_2"
     max_messages: int = 50
     keep_first: int = 2
     keep_recent_tool_results: int = 5
+    enable_summarize: bool = True
+    proactive_threshold: int = 8000
+    recovery_target_free_tokens: int = 4000
+    tokenizer_path: str | None = None
 
 
 class AgentConfig(BaseModel):

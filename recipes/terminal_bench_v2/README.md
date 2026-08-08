@@ -28,9 +28,25 @@ CalibForge requires `agent.tool_call_format: openai_function`.
 
 Terminus-2 is a tmux-backed terminal agent driven by raw JSON keystrokes on the shared `AgentLoop`. Select it with `agent.type: terminus_2`; the Terminal-Bench task will then install the required `tmux` and `asciinema` dependencies automatically.
 
+For the Harbor-compatible JSON reproduction, configure the endpoint and model, then use the dedicated public config:
+
+```bash
+export TERMINUS2_BASE_URL="http://localhost:8000/v1"
+export TERMINUS2_API_KEY="dummy"
+export TERMINUS2_MODEL="your-model"
+
+python recipes/terminal_bench_v2/run.py \
+    --config configs/tasks/terminal_bench_v2_official.yaml \
+    --instance-ids sanitize-git-repo
+```
+
+The reproduction config is
+[`configs/tasks/terminal_bench_v2_official.yaml`](../../configs/tasks/terminal_bench_v2_official.yaml).
+Set `TERMINUS2_TOKENIZER_PATH` to a local tokenizer directory when the served model name is not available in LiteLLM's token-counting map.
+
 ## Prerequisites
 
-1. Install AweAgent from the repository root; see the [main README](../../README.md#rocket-installation).
+1. Install AweAgent from the repository root; see the [main README](../../README.md#rocket-installation). If you are not installing the development dependencies, include the Terminus extra: `pip install -e ".[terminus2]"`.
 2. Make sure the current user can run Docker.
 3. Configure an LLM backend. The default task config includes `configs/llm/openai.yaml`.
 4. Download the pinned Terminal-Bench 2.0 task checkout.
@@ -140,11 +156,12 @@ Results on Terminal-Bench 2.0 with the AweAgent release aligned with Harbor Lead
 
 | Model | Harbor Leaderboard | AweAgent Release |
 |:--|--:|--:|
-| GLM 4.7 | 33.4% ± 2.8 | 31.46% |
-| MiniMax M2.1 | 29.2% ± 2.9 | 30.33% |
-| GLM 5 | 52.4% ± 2.6 | 49.43% |
-| Kimi K2 | 27.8% ± 2.5 | 24.71% |
-| Kimi K2 Thinking | 35.7% ± 2.8 | 37.09% |
+| GLM 5 | 52.4% ± 2.6% | 51.35% ± 0.97% |
+| Qwen3.6-35B-A3B | 51.5% | 46.44% ± 1.50% |
+| Kimi K2 Thinking | 35.7% ± 2.8% | 37.09% |
+| GLM 4.7 | 33.4% ± 2.8% | 34.68% ± 1.19% |
+| MiniMax M2.1 | 29.2% ± 2.9% | 30.33% |
+| Kimi K2 | 27.8% ± 2.5% | 24.71% |
 
 ## Configuration
 

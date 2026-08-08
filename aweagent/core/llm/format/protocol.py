@@ -46,3 +46,11 @@ class ToolCallFormat(ABC):
     def needs_native_tools(self) -> bool:
         """Whether this format uses native API tool/function calling."""
         ...
+
+    def format_text_observation(
+        self,
+        tool_name: str,
+        observation: str,
+    ) -> str:
+        """Format a text-mode tool result for the next user message."""
+        return f"OBSERVATION:\n[{tool_name}]\n{observation}"

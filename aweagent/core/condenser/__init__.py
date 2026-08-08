@@ -32,7 +32,16 @@ def build_condenser(config: CondenserConfig) -> Condenser | None:
         return ToolResultOmissionCondenser(
             keep_recent_tool_results=config.keep_recent_tool_results,
         )
+    if config.type == "terminus_2":
+        from aweagent.core.condenser.terminus_2 import Terminus2Condenser
+
+        return Terminus2Condenser(
+            enable_summarize=config.enable_summarize,
+            proactive_threshold=config.proactive_threshold,
+            recovery_target_free_tokens=config.recovery_target_free_tokens,
+            tokenizer_path=config.tokenizer_path,
+        )
     raise ValueError(
         f"Unknown condenser type: {config.type!r}. "
-        "Use 'none', 'truncation', or 'tool_result_omission'."
+        "Use 'none', 'truncation', 'tool_result_omission', or 'terminus_2'."
     )
