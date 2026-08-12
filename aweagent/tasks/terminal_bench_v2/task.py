@@ -489,6 +489,10 @@ class TerminalBenchV2Task(Task):
         """Terminal Bench has no git repo in workdir."""
         return False
 
+    def requires_patch_extraction(self) -> bool:
+        """Terminal Bench evaluates the modified env directly."""
+        return False
+
     def get_search_constraints(self, instance: Instance) -> None:
         return None
 
