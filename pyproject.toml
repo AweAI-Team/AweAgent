@@ -1,6 +1,6 @@
 [project]
 name = "awe-agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "A unified, composable framework to build, evaluate, and train agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
