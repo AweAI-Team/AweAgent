@@ -25,7 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 # Volcengine Ark LLM backend — heavy / region-specific SDK, kept optional.
 ark = ["volcengine-python-sdk[ark]"]
-search = ["transformers==5.12.1"]
+search = ["transformers==5.12.1", "huggingface-hub>=1.5,<2"]
 terminus2 = [
     "litellm==1.86.2",
     "transformers==5.12.1",

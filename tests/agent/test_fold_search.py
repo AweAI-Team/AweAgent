@@ -28,6 +28,11 @@ from aweagent.scaffold.registry import agent_registry
 
 
 class FakeTokenizer:
+    def apply_chat_template(self, messages, **kwargs):
+        # A deliberately small template for loop-control tests; the rendered
+        # payload contract is checked separately with reasoning/tool messages.
+        return list("".join(str(message.get("content") or "") for message in messages))
+
     def encode(self, text: str, *args, **kwargs):
         return list(str(text))
 
@@ -366,3 +371,38 @@ def test_tokenizer_loading_does_not_execute_remote_repository_code(monkeypatch):
         assert calls[0][1].get("trust_remote_code", False) is False
     finally:
         _load_tokenizer.cache_clear()
+
+@pytest.mark.parametrize("legacy_key", ["debug_search", "qwen_search"])
+def test_fold_search_does_not_read_unrelated_scaffold_options(legacy_key):
+    from aweagent.scaffold.fold_search.agent import _options
+
+    config = AweAgentConfig(agent={
+        "type": "fold_search",
+        "tool_options": {legacy_key: {"tokenizer_path": "unrelated-model"}},
+    })
+    assert _options(config) == {}
+
+
+def test_context_count_uses_rendered_reasoning_tools_and_template_options():
+    from aweagent.scaffold.fold_search.context import count_messages_tokens
+
+    class Tokenizer:
+        def apply_chat_template(self, messages, **kwargs):
+            assert messages[1]["reasoning_content"] == "check evidence"
+            assert messages[1]["tool_calls"][0]["function"]["name"] == "search_api"
+            assert messages[1]["tool_calls"][0]["function"]["arguments"] == {"query": "source"}
+            assert kwargs["tools"] == FOLD_SEARCH_TOOL_SCHEMAS
+            assert kwargs["enable_history_reasoning"] is True
+            assert kwargs["add_generation_prompt"] is True
+            assert kwargs["tokenize"] is True
+            assert kwargs["return_dict"] is False
+            return [1] * 123
+
+    messages = [Message(role="user", content="question"), Message(
+        role="assistant", content="", reasoning_raw="check evidence",
+        tool_calls=[ToolCall(id="s1", name="search_api", arguments='{"query":"source"}')],
+    )]
+    assert count_messages_tokens(
+        Tokenizer(), messages, tools=FOLD_SEARCH_TOOL_SCHEMAS,
+        chat_template_kwargs={"enable_history_reasoning": True},
+    ) == 123

@@ -230,6 +230,7 @@ dev = [
     { name = "transformers" },
 ]
 search = [
+    { name = "huggingface-hub" },
     { name = "transformers" },
 ]
 terminus2 = [
@@ -243,6 +244,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.30.0" },
     { name = "docker", specifier = ">=7.0" },
     { name = "huggingface-hub" },
+    { name = "huggingface-hub", marker = "extra == 'search'", specifier = ">=1.5,<2" },
     { name = "json5" },
     { name = "litellm", marker = "extra == 'dev'", specifier = "==1.86.2" },
     { name = "litellm", marker = "extra == 'terminus2'", specifier = "==1.86.2" },

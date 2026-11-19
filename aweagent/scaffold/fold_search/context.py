@@ -158,11 +158,31 @@ class RuntimeTokenContextRewriter:
         return [_dict_to_message(message) for message in processed]
 
 
-def count_messages_tokens(tokenizer: Any, messages: list[Message]) -> int:
-    total = 0
-    for message in messages:
-        total += _token_count(tokenizer, str(message.content or ""))
-    return total
+def count_messages_tokens(
+    tokenizer: Any,
+    messages: list[Message],
+    *,
+    tools: list[dict[str, Any]] | None = None,
+    chat_template_kwargs: dict[str, Any] | None = None,
+) -> int:
+    """Count the rendered input, including reasoning, tools and template tokens."""
+    rendered_messages = [_message_to_dict(message) for message in messages]
+    # HF templates consume argument objects; OpenAI wire messages use JSON strings.
+    for message in rendered_messages:
+        for call in message.get("tool_calls") or []:
+            function = call["function"]
+            function["arguments"] = _parse_arguments(
+                function["name"], function.get("arguments", "{}"),
+            )
+    token_ids = tokenizer.apply_chat_template(
+        rendered_messages,
+        tools=tools,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=False,
+        **(chat_template_kwargs or {}),
+    )
+    return len(token_ids)
 
 
 def _tool_call_dict(tool_call: ToolCall) -> dict[str, Any]:

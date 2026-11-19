@@ -73,15 +73,6 @@ Reference agents shipped in-tree, all on the shared core.
 
 <sub>† **SWE-bench Verified** is a *reproduction recipe* (`recipes/scale_swe/swebench_verified/`), not a framework-native task: the agent's patches are exported as predictions and scored by the **public SWE-bench harness** (with documented eval-side compatibility patches), reproducing the published Scale-SWE-Agent result. The other benchmarks run end-to-end through AweAgent's own isolated evaluator.</sub>
 
-## AutoMaster checkpoint inference
-
-For Qwen3.5-based AutoMaster checkpoints, see the
-[public inference recipes](recipes/automaster/README.md). They accept a Hugging
-Face model ID or local checkpoint and cover terminal tasks, BrowseComp with
-oldest-first tool-result folding (`fold_search`), and Doc2Repo without search.
-No autonomous-training controller or generated skills are needed for inference.
-The portable examples are separate from frozen paper reproduction manifests.
-
 ## :world_map: Roadmap
 
 Long-term goal: practical, general-purpose agents optimized with reinforcement learning. Shipped so far — the five scaffolds plus the datasets & benchmarks above. Next:

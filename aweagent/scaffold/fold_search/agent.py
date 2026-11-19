@@ -84,7 +84,6 @@ FOLD_SEARCH_FINAL_HINT = (
 )
 
 _FOLD_SEARCH_OPTIONS_KEY = "fold_search"
-_QWEN_SEARCH_OPTIONS_KEY = "qwen_search"
 _MODEL_TOOL_NAMES = ("search_api", "link_summary_tool", "finish")
 
 FOLD_SEARCH_TOOL_SCHEMAS: list[dict[str, Any]] = [
@@ -172,14 +171,7 @@ def _as_non_negative_int(value: Any, *, default: int, field_name: str) -> int:
 
 
 def _options(config: AweAgentConfig) -> dict[str, Any]:
-    options = config.agent.tool_options.get(
-        _FOLD_SEARCH_OPTIONS_KEY,
-        config.agent.tool_options.get("debug_search"),
-    )
-    if options is None:
-        # Allow switching agent.type from qwen_search to fold_search without
-        # duplicating identical tokenizer/context settings.
-        options = config.agent.tool_options.get(_QWEN_SEARCH_OPTIONS_KEY, {})
+    options = config.agent.tool_options.get(_FOLD_SEARCH_OPTIONS_KEY, {})
     if options is None:
         return {}
     if not isinstance(options, dict):
@@ -347,14 +339,13 @@ class FoldSearchLoop(AgentLoop):
         messages: list[Message],
         tools: list[dict[str, Any]] | None,
     ) -> int:
-        return count_messages_tokens(self.agent._tokenizer, messages)
-
-    def _agent_prompt_metadata(
-        self,
-        prompt_tokens: int,
-        max_output_tokens: int,
-    ) -> dict[str, Any]:
-        return {}
+        config = getattr(self.ctx.llm, "config", None)
+        params = getattr(config, "params", {})
+        template_kwargs = params.get("extra_body", {}).get("chat_template_kwargs", {})
+        return count_messages_tokens(
+            self.agent._tokenizer, messages, tools=tools,
+            chat_template_kwargs=template_kwargs,
+        )
 
     def _response_to_action(self, response: LLMResponse) -> Action:
         """Convert the provider response into the action consumed by this loop."""
@@ -380,7 +371,7 @@ class FoldSearchLoop(AgentLoop):
         max_tokens: int,
         stats: RunStats,
     ) -> LLMResponse:
-        """Generate one real action; planning scaffolds may override this hook."""
+        """Generate an action and record model usage."""
         started = time.monotonic()
         response = await self.ctx.llm.chat(
             messages=messages, tools=tools, max_tokens=max_tokens,
@@ -552,7 +543,7 @@ class FoldSearchLoop(AgentLoop):
                 break
 
             if tool_calls:
-                observations = await self._execute_debug_tools(action)
+                observations = await self._execute_search_tools(action)
                 self.ctx.trajectory.steps[-1].observations = observations
                 for tool_call in tool_calls:
                     stats.record_tool_call(
@@ -705,7 +696,7 @@ class FoldSearchLoop(AgentLoop):
             result.finish_reason = "finish"
         return result
 
-    async def _execute_debug_tools(self, action: Action) -> list[str]:
+    async def _execute_search_tools(self, action: Action) -> list[str]:
         self.ctx.messages.append(Message(
             role="assistant",
             content=action.content or "",
@@ -720,7 +711,7 @@ class FoldSearchLoop(AgentLoop):
             call_id = tool_call.get("id") or f"call_{uuid.uuid4().hex}"
             args = _parse_arguments(name, func.get("arguments", "{}"))
             tool_start = time.monotonic()
-            obs = await self._execute_one_debug_tool(name, args)
+            obs = await self._execute_one_search_tool(name, args)
             logger.info("FoldSearch tool %s took %.2fs", name, time.monotonic() - tool_start)
             observations.append(obs)
             self.ctx.messages.append(Message(
@@ -731,7 +722,7 @@ class FoldSearchLoop(AgentLoop):
             ))
         return observations
 
-    async def _execute_one_debug_tool(self, name: str, args: dict[str, Any]) -> str:
+    async def _execute_one_search_tool(self, name: str, args: dict[str, Any]) -> str:
         if name in {"search_api", "web_search"}:
             raw_query = args.get("query", args.get("queries", []))
             queries = raw_query if isinstance(raw_query, list) else [raw_query]
