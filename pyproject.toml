@@ -25,6 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 # Volcengine Ark LLM backend — heavy / region-specific SDK, kept optional.
 ark = ["volcengine-python-sdk[ark]"]
+search = ["transformers==5.12.1"]
 terminus2 = [
     "litellm==1.86.2",
     "transformers==5.12.1",
@@ -56,6 +57,7 @@ docker = "aweagent.core.runtime.docker:DockerRuntime"
 [project.entry-points."aweagent.agent"]
 search_swe = "aweagent.scaffold.search_swe.agent:SearchSWEAgent"
 deepsearch = "aweagent.scaffold.deepsearch.agent:DeepSearchAgent"
+fold_search = "aweagent.scaffold.fold_search.agent:FoldSearchAgent"
 terminus_2 = "aweagent.scaffold.terminus_2.agent:Terminus2Agent"
 iter_research = "aweagent.scaffold.iter_research.agent:IterResearchAgent"
 calibforge = "aweagent.scaffold.calibforge.agent:CalibForgeAgent"

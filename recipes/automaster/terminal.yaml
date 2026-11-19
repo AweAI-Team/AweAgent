@@ -1,0 +1,44 @@
+# Portable inference example, not a claim of exact paper-score reproduction.
+llm:
+  backend: openai
+  model: ${SERVED_MODEL_NAME:-automaster}
+  base_url: ${MODEL_BASE_URL:-http://127.0.0.1:30000/v1}
+  api_key: ${MODEL_API_KEY:-EMPTY}
+  timeout: 1200
+  reasoning:
+    preserve: true
+    format: reasoning_content
+  params:
+    temperature: 1.0
+    top_p: 0.95
+    max_completion_tokens: 16384
+    extra_body:
+      chat_template_kwargs:
+        enable_history_reasoning: true
+        enable_thinking: true
+runtime:
+  backend: docker
+  timeout: 43200
+agent:
+  type: calibforge
+  max_steps: 500
+  bash_timeout: 1800
+  bash_max_timeout: 3600
+  max_output_length: 65536
+  condenser:
+    type: none
+task:
+  type: terminal_bench_v2
+  dataset_id: terminal_bench_v2
+  task_data_dir: ${TB_TASK_DIR}
+  data_file: ${TB_TASK_IDS}
+  override_agent_timeout: 10800
+eval:
+  enabled: true
+  timeout: 3600
+execution:
+  max_concurrent: 1
+  max_retries: 1
+  num_rollouts: 1
+  save_trajectories: true
+  output_path: ${OUTPUT_DIR:-./results/automaster}

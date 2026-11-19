@@ -1,0 +1,47 @@
+# Portable inference example, not a claim of exact paper-score reproduction.
+llm:
+  backend: openai
+  model: ${SERVED_MODEL_NAME:-automaster}
+  base_url: ${MODEL_BASE_URL:-http://127.0.0.1:30000/v1}
+  api_key: ${MODEL_API_KEY:-EMPTY}
+  timeout: 1200
+  reasoning:
+    preserve: true
+    format: reasoning_content
+  params:
+    temperature: 1.0
+    top_p: 0.95
+    max_completion_tokens: 16384
+    extra_body:
+      chat_template_kwargs:
+        enable_history_reasoning: true
+        enable_thinking: true
+runtime:
+  backend: docker
+  timeout: 43200
+agent:
+  type: search_swe
+  enable_search: false
+  max_steps: 400
+  max_context_length: 245760
+  bash_timeout: 3600
+  bash_max_timeout: 3600
+  max_output_length: 32000
+  condenser:
+    type: none
+task:
+  type: beyond_swe
+  dataset_id: beyond_swe
+  task_type: doc2repo
+  data_file: ${DOC2REPO_DATA_FILE}
+  test_suite_dir: ${DOC2REPO_TEST_SUITE_DIR}
+  override_agent_timeout: 14400
+eval:
+  enabled: true
+  timeout: 7200
+execution:
+  max_concurrent: 1
+  max_retries: 1
+  num_rollouts: 1
+  save_trajectories: true
+  output_path: ${OUTPUT_DIR:-./results/automaster}

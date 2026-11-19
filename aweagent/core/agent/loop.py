@@ -32,6 +32,22 @@ from aweagent.core.llm.types import Message
 logger = logging.getLogger(__name__)
 
 
+async def collect_submission_patch(context: AgentContext) -> str:
+    """Collect code using the same baseline on normal exit and deadline expiry."""
+    if context.session is None or context.task_info.get("skip_patch_extraction"):
+        return ""
+    info = context.task_info
+    patch = await context.session.get_patch(
+        info.get("workdir", "/testbed"),
+        info.get("pre_agent_commit_id") or info.get("base_commit"),
+        language=info.get("language", "python"),
+    )
+    if info.get("inject_gitignore_in_patch") is False:
+        from aweagent.core.runtime.protocol import strip_aweagent_gitignore_block
+        patch = strip_aweagent_gitignore_block(patch)
+    return patch
+
+
 @dataclass
 class AgentResult:
     """Result of an agent run."""
@@ -101,14 +117,10 @@ class AgentLoop:
         tools: list[dict[str, Any]] | None = None,
         commit: bool = True,
     ) -> Action:
-        """Run one tool-free LLM turn over ``messages`` + ``instruction``.
+        """Run a follow-up turn over a copy of the supplied history.
 
-        Appends ``instruction`` to the caller-owned ``messages`` (never to
-        ``ctx.messages``), records a trajectory step, and — when ``commit`` is
-        set and the model replied — appends the reply to ``ctx.messages`` and,
-        in training mode, records its tokens on the same path a normal step
-        uses. A policy uses this to ask the model a follow-up question without
-        hand-rolling message or trajectory bookkeeping.
+        When committing a non-empty reply, save the instruction and the reply
+        together, including tool-only responses. The caller's list is unchanged.
         """
         view = list(messages)
         view.append(Message(role="user", content=instruction))
@@ -133,10 +145,12 @@ class AgentLoop:
             reasoning_text=action.reasoning_text,
             llm_response_raw=action.llm_response_raw,
         )
-        if commit and response.content:
+        if commit and (response.content or response.tool_calls):
+            self.ctx.messages.append(Message(role="user", content=instruction))
             self.ctx.messages.append(Message(
                 role="assistant",
                 content=response.content,
+                tool_calls=response.tool_calls or None,
                 reasoning_raw=response.reasoning_raw,
             ))
             if self.ctx.training is not None:
@@ -194,6 +208,7 @@ class AgentLoop:
         stats.start()
 
         finish_reason = "max_steps"
+        run_error = None
         # Estimated token count for the next LLM call's input.
         # Updated after each step as: prompt_tokens + completion_tokens,
         # which is a lower bound (tool observations add more).
@@ -345,12 +360,12 @@ class AgentLoop:
                 logger.error("Agent step %d failed: %s", step, e, exc_info=True)
                 if self.ctx.training is not None:
                     self.ctx.training.finish_status = "abort"
-                return AgentResult(
-                    trajectory=self.ctx.trajectory,
-                    messages=list(self.ctx.messages),
-                    finish_reason="error",
-                    error=str(e),
-                )
+                # Keep the submission already produced by the agent. Cancellation
+                # is not caught here and must not trigger patch collection.
+                finish_reason = "error"
+                run_error = str(e)
+                stats.end_step()
+                break
 
         stats.finish()
 
@@ -359,33 +374,20 @@ class AgentLoop:
         # ``skip_patch_extraction`` to True so we don't fire git commands
         # on sandboxes that may not even have ``git`` installed.
         patch = ""
-        if not self.ctx.task_info.get("skip_patch_extraction"):
-            try:
-                workdir = self.ctx.task_info.get("workdir", "/testbed")
-                commit = (
-                    self.ctx.task_info.get("pre_agent_commit_id")
-                    or self.ctx.task_info.get("base_commit")
-                )
-                language = self.ctx.task_info.get("language", "python")
-                patch = await self.ctx.session.get_patch(workdir, commit, language=language)
-                # Tasks that want a clean patch matching the upstream
-                # ``git diff <base_commit>`` convention (e.g. SWE-bench-Pro)
-                # opt out of the AweAgent-injected ``.gitignore`` hunk by
-                # setting ``inject_gitignore_in_patch=False`` in ``task_info``.
-                if self.ctx.task_info.get("inject_gitignore_in_patch") is False:
-                    from aweagent.core.runtime.protocol import (
-                        strip_aweagent_gitignore_block,
-                    )
-                    patch = strip_aweagent_gitignore_block(patch)
-            except Exception as e:
-                logger.warning("Failed to extract patch: %s", e)
+        collection_metadata = {}
+        try:
+            patch = await collect_submission_patch(self.ctx)
+        except Exception as exc:
+            collection_metadata["patch_collection_error"] = str(exc)
+            logger.warning("Failed to extract patch: %s", exc)
 
         return AgentResult(
             trajectory=self.ctx.trajectory,
             patch=patch,
             messages=list(self.ctx.messages),
             finish_reason=finish_reason,
-            metadata={"stats": stats.to_dict()},
+            error=run_error,
+            metadata={"stats": stats.to_dict(), **collection_metadata},
         )
 
     async def run_single_step(

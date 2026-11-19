@@ -200,6 +200,10 @@ class RuntimeSession(ABC):
             result = await self.execute(
                 "git add -A && git diff --cached", cwd=cwd,
             )
+        if not result.success:
+            raise RuntimeError(
+                f"git diff failed (exit={result.exit_code}): {result.stderr[-2000:]}"
+            )
         return result.stdout
 
     async def apply_patch(self, cwd: str, patch: str) -> ExecutionResult:

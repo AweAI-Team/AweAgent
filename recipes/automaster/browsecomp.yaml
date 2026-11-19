@@ -1,0 +1,78 @@
+# Portable inference example, not a claim of exact paper-score reproduction.
+llm:
+  backend: openai
+  model: ${SERVED_MODEL_NAME:-automaster}
+  base_url: ${MODEL_BASE_URL:-http://127.0.0.1:30000/v1}
+  api_key: ${MODEL_API_KEY:-EMPTY}
+  timeout: 1200
+  reasoning:
+    preserve: true
+    format: reasoning_content
+  params:
+    temperature: 1.0
+    top_p: 0.95
+    presence_penalty: 1.5
+    extra_body:
+      top_k: 20
+      min_p: 0.0
+      repetition_penalty: 1.0
+      chat_template_kwargs:
+        enable_history_reasoning: true
+        enable_thinking: true
+runtime:
+  backend: docker
+  timeout: 43200
+agent:
+  type: fold_search
+  max_steps: 600
+  rollout_retries: 0
+  force_final_answer: true
+  condenser:
+    type: none
+  tool_options:
+    fold_search:
+      tokenizer_path: ${MODEL_PATH}
+      max_context_tokens: 261120
+      max_output_tokens_cap: 65500
+      force_final_answer_remaining_tokens: 8192
+      tool_context_max_tokens: 32000
+      tool_context_target_tokens: 5000
+    web_search:
+      backend: serpapi
+      engine: google
+      max_attempts: 3
+    web_fetch:
+      reader_backend: jina
+      max_attempts: 3
+      reader_max_attempts: 3
+      llm:
+        backend: openai
+        model: ${SUMMARY_MODEL}
+        base_url: ${SUMMARY_BASE_URL}
+        api_key: ${SUMMARY_API_KEY}
+        timeout: 1200
+        params:
+          temperature: 0.0
+          max_completion_tokens: 8192
+task:
+  type: browsecomp
+  dataset_id: browsecomp
+  data_file: ${BROWSECOMP_DATA_FILE}
+eval:
+  enabled: true
+  timeout: 3600
+  judge_llm:
+    backend: openai
+    model: ${JUDGE_MODEL}
+    base_url: ${JUDGE_BASE_URL}
+    api_key: ${JUDGE_API_KEY}
+    timeout: 1200
+    params:
+      temperature: 0.0
+      max_completion_tokens: 8192
+execution:
+  max_concurrent: 1
+  max_retries: 1
+  num_rollouts: 1
+  save_trajectories: true
+  output_path: ${OUTPUT_DIR:-./results/automaster}
