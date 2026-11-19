@@ -1,15 +1,15 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform == 'emscripten'",
     "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
-    "python_full_version < '3.12' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.12' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
@@ -229,6 +229,10 @@ dev = [
     { name = "ruff" },
     { name = "transformers" },
 ]
+search = [
+    { name = "huggingface-hub" },
+    { name = "transformers" },
+]
 terminus2 = [
     { name = "litellm" },
     { name = "transformers" },
@@ -240,6 +244,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.30.0" },
     { name = "docker", specifier = ">=7.0" },
     { name = "huggingface-hub" },
+    { name = "huggingface-hub", marker = "extra == 'search'", specifier = ">=1.5,<2" },
     { name = "json5" },
     { name = "litellm", marker = "extra == 'dev'", specifier = "==1.86.2" },
     { name = "litellm", marker = "extra == 'terminus2'", specifier = "==1.86.2" },
@@ -257,10 +262,11 @@ requires-dist = [
     { name = "tenacity", specifier = ">=8.2,<10" },
     { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "transformers", marker = "extra == 'dev'", specifier = "==5.12.1" },
+    { name = "transformers", marker = "extra == 'search'", specifier = "==5.12.1" },
     { name = "transformers", marker = "extra == 'terminus2'", specifier = "==5.12.1" },
     { name = "volcengine-python-sdk", extras = ["ark"], marker = "extra == 'ark'" },
 ]
-provides-extras = ["ark", "terminus2", "dev"]
+provides-extras = ["ark", "search", "terminus2", "dev"]
 
 [[package]]
 name = "certifi"

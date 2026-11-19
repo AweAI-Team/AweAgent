@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from aweagent.core.agent.context import AgentContext
-from aweagent.core.agent.loop import AgentResult
+from aweagent.core.agent.loop import AgentResult, collect_submission_patch
 from aweagent.core.agent.protocol import Agent
 from aweagent.core.eval.setup import PreAgentSetup
 from aweagent.core.llm.client import LLMClient
@@ -28,7 +28,7 @@ from aweagent.core.runtime.config import RuntimeConfig
 from aweagent.core.runtime.protocol import Runtime
 from aweagent.core.task.error_kind import infer_error_kind
 from aweagent.core.task.protocol import Evaluator, Task
-from aweagent.core.task.types import EvalResult, ErrorKind, Instance, TaskResult
+from aweagent.core.task.types import ErrorKind, EvalResult, Instance, TaskResult
 from aweagent.plugins.registry import Registry
 
 logger = logging.getLogger(__name__)
@@ -119,6 +119,8 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
             "action": action_dict,
             "observations": step.observations,
         }
+        if step.metadata:
+            step_dict["metadata"] = step.metadata
         trajectory_steps.append(step_dict)
 
     record = {
@@ -136,7 +138,9 @@ def _build_trajectory_record(result: TaskResult) -> dict[str, Any] | None:
     }
     # Text-answer scaffolds record their submission and its provenance here;
     # patch tasks never set these keys, so the record stays scaffold-agnostic.
-    for key in ("final_answer", "answer_provenance"):
+    if agent_result.error is not None:
+        record["agent_error"] = agent_result.error
+    for key in ("final_answer", "answer_provenance", "patch_collection_error"):
         if key in agent_result.metadata:
             record[key] = agent_result.metadata[key]
     return record
@@ -545,6 +549,14 @@ class TaskRunner:
                         finish_reason="timeout",
                         error=f"Agent timed out after {agent_timeout}s",
                     )
+                    # A task deadline ends generation, not the submission already
+                    # on disk. Collect before the sandbox closes; never rerun the
+                    # agent here. Operator cancellation bypasses this handler.
+                    try:
+                        agent_result.patch = await collect_submission_patch(context)
+                    except Exception as exc:
+                        agent_result.metadata["patch_collection_error"] = str(exc)
+                        logger.warning("Failed to collect timed-out submission: %s", exc)
             else:
                 agent_result = await loop.run(prompt)
 

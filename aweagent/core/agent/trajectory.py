@@ -40,6 +40,7 @@ class TrajectoryStep:
     llm_response_raw: Any = None
     # Plain-text reasoning preserved even if API discards it across turns
     reasoning_text: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

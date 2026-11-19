@@ -3,6 +3,7 @@
 from aweagent.plugins.registry import Registry
 from aweagent.scaffold.calibforge.agent import CalibForgeAgent
 from aweagent.scaffold.deepsearch.agent import DeepSearchAgent
+from aweagent.scaffold.fold_search.agent import FoldSearchAgent
 from aweagent.scaffold.iter_research.agent import IterResearchAgent
 from aweagent.scaffold.search_swe.agent import SearchSWEAgent
 
@@ -13,6 +14,7 @@ agent_registry: Registry[type] = Registry("aweagent.agent")
 agent_registry.register("search_swe", SearchSWEAgent)
 # DeepSearch is registered as a scaffold so configs can select agent.type=deepsearch.
 agent_registry.register("deepsearch", DeepSearchAgent)
+agent_registry.register("fold_search", FoldSearchAgent)
 # IterResearch: long-horizon research agent with Markovian context reconstruction.
 agent_registry.register("iter_research", IterResearchAgent)
 # CalibForge: terminal evaluation scaffold based on the DeepSeek-V4 paper's code-agent setup.
